@@ -43,25 +43,25 @@ jobs:
       - name: Migration hash guard (merged migrations must not be edited)
         run: node scripts/check-migration-hashes.mjs
 
-      - name: Migrations on an empty DB (already done by tests; explicit here)
+      - name: "Migrations on an empty DB"
         run: pnpm migrate
 
       - name: Verify (lint, typecheck, unit+integration+coverage, build)
         run: pnpm verify
 
-      - name: schema:check (live vs DATA_MODEL.md)
+      - name: "schema:check (live vs DATA_MODEL.md)"
         run: pnpm schema:check
 
-      - name: schema:check must fail on a deliberate diff
+      - name: "schema:check must fail on a deliberate diff"
         run: node scripts/schema-check-selftest.mjs
 
-      - name: docs:check
+      - name: "docs:check"
         run: pnpm docs:check
 
       - name: phase-report script self-test (local/remote lines)
         run: node scripts/phase-report-selftest.mjs
 
-      - name: docker compose up + health smoke (plan §4: five services healthy)
+      - name: "docker compose up + health smoke (five services)"
         run: |
           export FORGEPM_SECRET_KEY=$(openssl rand -base64 32)
           docker compose up -d --build --wait --wait-timeout 180
