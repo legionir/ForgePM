@@ -28,7 +28,7 @@ secrets at rest); 14 phase-5 tests + unit tests green; full verify green
 (173 tests). Reconciliation daily job + panel page deferred to Phase 7 (B-005).
 
 ## Phase 6 — v0.6.0
-Status: **backend complete, local pass; remote pending push** — shared review
+Status: **complete** (local pass, remote pass — CI run 37907130578; tag v0.6.0 = HEAD 5bf5225) — shared review
 engine + Code Review + Refactor Review in core; REST + 8 MCP tools + worker
 webhook auto-run; settings registry incl. 422 redeclaration rule; migration
 `0008_reviews` matches Schema Contract §G (43 tables verified). 54 new tests;
@@ -42,8 +42,6 @@ Status: not started.
 
 Last commit: (this commit).
 Remaining gates before tagging:
-- Push phase/6 + squash-merge + tag v0.6.0 after Remote CI is green on the
-  merged commit.
 - Panel UI (login/setup, projects, settings, users, API keys, audit, jobs,
   Reviews) — recorded as deviation D-013 / B-005 (backend-first run).
 - Playwright E2E for setup→project→override→API key — pending panel.
