@@ -1,0 +1,12 @@
+packages:
+  # Phase 0 builds/tests these four. apps/web is an Angular source skeleton
+  # (not a workspace member yet); the Phase 1 panel joins this list.
+  - "packages/*"
+  - "apps/api"
+  - "apps/worker"
+  - "tests"
+
+allowBuilds:
+  argon2: true
+  esbuild: true
+  msgpackr-extract: true

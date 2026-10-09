@@ -1,0 +1,91 @@
+# ForgePM — production-style stack (plan §4.8): api, worker, web, postgres,
+# redis. Every service has a healthcheck; postgres data is a named volume.
+name: forgepm
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: forgepm
+      POSTGRES_PASSWORD: forgepm
+      POSTGRES_DB: forgepm
+    volumes:
+      - forgepm-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forgepm -d forgepm"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://forgepm:forgepm@postgres:5432/forgepm
+      REDIS_URL: redis://redis:6379
+      FORGEPM_SECRET_KEY: ${FORGEPM_SECRET_KEY:?set FORGEPM_SECRET_KEY (openssl rand -base64 32)}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
+      METRICS_ENABLED: ${METRICS_ENABLED:-false}
+      FORGEPM_ADMIN_EMAIL: ${FORGEPM_ADMIN_EMAIL:-}
+      FORGEPM_ADMIN_PASSWORD: ${FORGEPM_ADMIN_PASSWORD:-}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3001/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: worker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://forgepm:forgepm@postgres:5432/forgepm
+      REDIS_URL: redis://redis:6379
+      FORGEPM_SECRET_KEY: ${FORGEPM_SECRET_KEY:?set FORGEPM_SECRET_KEY}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      api: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+volumes:
+  forgepm-pgdata:
