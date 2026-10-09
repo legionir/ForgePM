@@ -1,0 +1,2017 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "ForgePM API",
+    "version": "0.0.0"
+  },
+  "paths": {
+    "/health/live": {
+      "get": {
+        "summary": "GET /health/live",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "summary": "GET /health/ready",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "summary": "POST /api/v1/auth/login",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "summary": "POST /api/v1/auth/logout",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "summary": "GET /api/v1/auth/me",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/setup": {
+      "post": {
+        "summary": "POST /api/v1/auth/setup",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/csrf": {
+      "get": {
+        "summary": "GET /api/v1/auth/csrf",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "summary": "GET /api/v1/users",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/users",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/users/{id}": {
+      "patch": {
+        "summary": "PATCH /api/v1/users/:id",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/memberships": {
+      "get": {
+        "summary": "GET /api/v1/memberships",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/memberships",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "summary": "GET /api/v1/projects",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/projects",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "summary": "GET /api/v1/projects/:id",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH /api/v1/projects/:id",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/projects/:id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/archive": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/archive",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/unarchive": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/unarchive",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/members": {
+      "get": {
+        "summary": "GET /api/v1/projects/:id/members",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/members/{userId}": {
+      "put": {
+        "summary": "PUT /api/v1/projects/:id/members/:userId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys": {
+      "get": {
+        "summary": "GET /api/v1/api-keys",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/api-keys",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "summary": "DELETE /api/v1/api-keys/:id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/settings/registry": {
+      "get": {
+        "summary": "GET /api/v1/settings/registry",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/settings/effective": {
+      "get": {
+        "summary": "GET /api/v1/settings/effective",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/settings/{scope}/{scope_id}/{key}": {
+      "put": {
+        "summary": "PUT /api/v1/settings/:scope/:scope_id/:key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/settings/:scope/:scope_id/:key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/audit": {
+      "get": {
+        "summary": "GET /api/v1/audit",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/states": {
+      "get": {
+        "summary": "GET /api/v1/projects/:id/states",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/projects/:id/states",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/work-items": {
+      "get": {
+        "summary": "GET /api/v1/projects/:id/work-items",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/projects/:id/work-items",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          },
+          "202": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}": {
+      "get": {
+        "summary": "GET /api/v1/work-items/:key",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "patch": {
+        "summary": "PATCH /api/v1/work-items/:key",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/work-items/:key",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}/transition": {
+      "post": {
+        "summary": "POST /api/v1/work-items/:key/transition",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/bulk": {
+      "post": {
+        "summary": "POST /api/v1/work-items/bulk",
+        "responses": {
+          "200": {
+            "_def": {
+              "typeName": "ZodUnknown"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_unknown": true
+          },
+          "201": {
+            "_def": {
+              "typeName": "ZodUnknown"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_unknown": true
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}/relations": {
+      "post": {
+        "summary": "POST /api/v1/work-items/:key/relations",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}/comments": {
+      "get": {
+        "summary": "GET /api/v1/work-items/:key/comments",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/work-items/:key/comments",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}/links": {
+      "post": {
+        "summary": "POST /api/v1/work-items/:key/links",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}/activity": {
+      "get": {
+        "summary": "GET /api/v1/work-items/:key/activity",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "summary": "GET /api/v1/search",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/features": {
+      "get": {
+        "summary": "GET /api/v1/projects/:id/features",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/projects/:id/features",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/features/{id}": {
+      "patch": {
+        "summary": "PATCH /api/v1/features/:id",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/features/:id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/features/{id}/progress": {
+      "get": {
+        "summary": "GET /api/v1/features/:id/progress",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/milestones": {
+      "get": {
+        "summary": "GET /api/v1/projects/:id/milestones",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/projects/:id/milestones",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/milestones/{id}": {
+      "patch": {
+        "summary": "PATCH /api/v1/milestones/:id",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/saved-views": {
+      "get": {
+        "summary": "GET /api/v1/saved-views",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/saved-views",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/saved-views/{id}": {
+      "delete": {
+        "summary": "DELETE /api/v1/saved-views/:id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/plans": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/plans",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}": {
+      "get": {
+        "summary": "GET /api/v1/plans/:id",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/revisions": {
+      "post": {
+        "summary": "POST /api/v1/plans/:id/revisions",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/generate": {
+      "post": {
+        "summary": "POST /api/v1/plans/:id/generate",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/approve": {
+      "post": {
+        "summary": "POST /api/v1/plans/:id/approve",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/apply": {
+      "post": {
+        "summary": "POST /api/v1/plans/:id/apply",
+        "responses": {
+          "200": {
+            "_def": {
+              "typeName": "ZodUnknown"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_unknown": true
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/apply-status": {
+      "get": {
+        "summary": "GET /api/v1/plans/:id/apply-status",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/diff": {
+      "get": {
+        "summary": "GET /api/v1/plans/:id/diff",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/ai-providers": {
+      "get": {
+        "summary": "GET /api/v1/ai-providers",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
+      "post": {
+        "summary": "POST /api/v1/ai-providers",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/ai-providers/{id}/test": {
+      "post": {
+        "summary": "POST /api/v1/ai-providers/:id/test",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/approvals": {
+      "get": {
+        "summary": "GET /api/v1/approvals",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{id}/decide": {
+      "post": {
+        "summary": "POST /api/v1/approvals/:id/decide",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/mcp": {
+      "post": {
+        "summary": "POST /mcp",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/integrations/github/webhook": {
+      "post": {
+        "summary": "POST /integrations/github/webhook",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/github/config": {
+      "post": {
+        "summary": "POST /api/v1/integrations/github/config",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/integrations/github/status": {
+      "get": {
+        "summary": "GET /api/v1/integrations/github/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/repositories": {
+      "get": {
+        "summary": "GET /api/v1/repositories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/repositories": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/repositories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/pull-requests": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/pull-requests",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/work-items/{key}/development": {
+      "get": {
+        "summary": "GET /api/v1/work-items/:key/development",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/issues/import": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/issues/import",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/releases": {
+      "post": {
+        "summary": "POST /api/v1/projects/:id/releases",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/review/runs": {
+      "get": {
+        "summary": "GET /api/v1/review/runs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/runs/{id}": {
+      "get": {
+        "summary": "GET /api/v1/review/runs/:id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/code-runs": {
+      "post": {
+        "summary": "POST /api/v1/review/code-runs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/refactor-runs": {
+      "post": {
+        "summary": "POST /api/v1/review/refactor-runs",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/findings": {
+      "get": {
+        "summary": "GET /api/v1/review/findings",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/runs/{id}/cancel": {
+      "post": {
+        "summary": "POST /api/v1/review/runs/:id/cancel",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/findings/{id}/decision": {
+      "post": {
+        "summary": "POST /api/v1/review/findings/:id/decision",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/review/findings/{id}/create-work-item": {
+      "post": {
+        "summary": "POST /api/v1/review/findings/:id/create-work-item",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/sample/echo": {
+      "post": {
+        "summary": "POST /sample/echo",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/sample/status": {
+      "get": {
+        "summary": "GET /sample/status",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/modules": {
+      "get": {
+        "summary": "GET /api/v1/modules",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/modules/{name}/enabled": {
+      "put": {
+        "summary": "PUT /api/v1/modules/:name/enabled",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "summary": "GET /api/v1/openapi.json",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  }
+}

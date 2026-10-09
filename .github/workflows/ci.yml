@@ -55,6 +55,9 @@ jobs:
       - name: Verify (lint, typecheck, unit+integration+coverage, build)
         run: pnpm verify
 
+      - name: "gen:api drift check (OpenAPI spec + typed client are committed)"
+        run: pnpm gen:api:check
+
       - name: "schema:check (live vs DATA_MODEL.md)"
         run: pnpm schema:check
 

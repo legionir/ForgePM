@@ -14,6 +14,7 @@ import {
 } from '@forgepm/core';
 import { OutboxDispatcher } from './dispatcher';
 import { JobSweeper } from './sweeper';
+import { RetentionJob } from './retention-job';
 import { createDefaultWorker } from './handlers';
 
 async function main(): Promise<void> {
@@ -31,15 +32,18 @@ async function main(): Promise<void> {
 
   const dispatcher = new OutboxDispatcher(db, queue, log);
   const sweeper = new JobSweeper(db, queue, log);
+  const retention = new RetentionJob(db, log);
   const worker = createDefaultWorker(connection, db, log);
 
   dispatcher.start();
   sweeper.start();
-  log.info('worker started (dispatcher + sweeper + default worker)');
+  retention.start();
+  log.info('worker started (dispatcher + sweeper + retention + default worker)');
 
   const shutdown = async () => {
     dispatcher.stop();
     sweeper.stop();
+    retention.stop();
     await worker.close();
     await queue.close();
     await db.destroy();

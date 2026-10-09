@@ -3,6 +3,11 @@
 export * from './env';
 export * from './logging';
 export * from './crypto';
+export {
+  MetricsRegistry,
+  defaultRegistry,
+  type Labels,
+} from './metrics';
 export * from './id';
 export { toJsonb } from './jsonb';
 export * from './db/types';
@@ -35,12 +40,19 @@ export {
 } from './settings-registry';
 export { recordAudit, SYSTEM_ACTOR_ID, type AuditRecord } from './audit';
 export {
+  runRetention,
+  RETENTION_KEYS,
+  type RetentionKey,
+  type RetentionResult,
+} from './retention';
+export {
   putSecret,
   getSecret,
   findSecretByName,
   deleteSecret,
   type SecretMeta,
 } from './secrets';
+export { rotateDbSecrets, type RotationResult } from './rotate';
 export {
   applyPullRequestEvent,
   normalizePullRequestPayload,

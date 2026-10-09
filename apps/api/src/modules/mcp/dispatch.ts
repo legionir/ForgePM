@@ -9,6 +9,7 @@ import {
   maskInput,
   capOutput,
   newId,
+  defaultRegistry,
   toJsonb,
 } from '@forgepm/core';
 import { authenticate, type Actor } from '../../app/auth-context';
@@ -115,6 +116,7 @@ async function logCall(db: Db, actor: Actor, tool: string, input: Record<string,
       .insertInto('mcp_tool_calls')
       .values({ id: newId(), organization_id: actor.organizationId, api_key_id: actor.apiKeyId ?? null, tool, input_summary: toJsonb(maskInput(input)) as never, outcome, error_code: errorCode, duration_ms: duration, request_id: requestId })
       .execute();
+    defaultRegistry.inc('forgepm_mcp_tool_calls_total', { tool, outcome });
   } catch {
     /* logging must never break a call */
   }
