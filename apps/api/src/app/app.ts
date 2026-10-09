@@ -1,4 +1,4 @@
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { AppError, ERROR_CODES } from '@forgepm/shared';
@@ -30,7 +30,7 @@ declare module 'fastify' {
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }),
+    logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
     genReqId: () => randomUUID(),
     bodyLimit: 1 * 1024 * 1024, // 1 MiB (plan §14); webhook route raises its own limit
     trustProxy: true,
@@ -65,13 +65,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 }
 
 function registerErrorHandlers(app: FastifyInstance): void {
-  app.setErrorHandler((err, req, reply) => {
+  app.setErrorHandler((err: Error & { code?: string; validation?: unknown }, req, reply) => {
     const requestId = req.id;
     if (err instanceof AppError) {
       return reply.status(err.httpStatus).send(err.toJSON(requestId));
     }
-    if ((err as { code?: string }).code === 'FST_ERR_VALIDATION') {
-      const e = new AppError('VALIDATION_ERROR', err.message, (err as { validation?: unknown }).validation);
+    if (err.code === 'FST_ERR_VALIDATION') {
+      const e = new AppError('VALIDATION_ERROR', err.message, err.validation);
       return reply.status(400).send(e.toJSON(requestId));
     }
     req.log.error({ err, request_id: requestId }, 'unhandled error');

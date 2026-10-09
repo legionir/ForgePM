@@ -27,6 +27,19 @@ Full text: EXECUTION_PLAN §14 and §3b-6. Enforced everywhere, verified in Phas
 - Log redaction is global (pino redact paths: authorization, password, token,
   key, api_key, secret) — see `packages/core/src/logging.ts`.
 
+## Dependencies
+
+`pnpm audit` runs in CI at `--prod --audit-level=high`: the gate applies to the
+**production dependency tree** (the shipped surface). Dev-only advisories are
+reviewed, not silently ignored. Documented exceptions (plan §14: "مگر با
+استثنای مستند"):
+
+- `uuid@9` (moderate, via `bullmq`) — transitive, below the high gate; will be
+  re-checked when bullmq ships a bumped dependency.
+- dev tree (`vitest`, `@typescript-eslint`, `eslint`, `braces` — no upstream
+  patch for `braces`): never shipped in the api/worker/web images; kept out of
+  the audit gate by `--prod`. Re-evaluated at each dependency update.
+
 ## Headers & input
 
 - helmet-equivalent headers, CORS limited to `WEB_ORIGIN`, strict CSP for panel.

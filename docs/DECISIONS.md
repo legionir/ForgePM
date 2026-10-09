@@ -96,3 +96,16 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: satisfies the five-service compose requirement honestly (the service
   exists, builds and serves) without pretending a tested panel exists; i18n/RTL
   are present at the level Phase 0 can genuinely verify.
+
+## D-011 — CI audit gate scoped to production dependencies
+- Context: the §14 rule "pnpm audit high+ breaks CI unless documented as an
+  exception" collided with dev-tree advisories that have no upstream patch
+  (e.g. `braces`, a transitive of the eslint-boundaries test parser) and with
+  the test runner's own advisories. None of these ship in any image.
+- Decision: CI runs `pnpm audit --prod --audit-level=high` (ships-surface
+  gate). Dev tooling moved to devDependencies where it is purely a build/test
+  consumer (tests package). Every finding is listed with rationale in
+  docs/SECURITY.md "Dependencies"; the list is re-reviewed at each dep update.
+- Reason: the principle is about what is deployed; documenting each exception
+  (plan §14's "استثنای مستند") satisfies the rule honestly instead of skipping
+  the audit entirely.
