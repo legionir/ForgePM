@@ -25,6 +25,24 @@ export {
   type SettingsScope,
 } from './settings';
 export {
+  SETTING_DEFINITIONS,
+  isKnownSettingKey,
+  findSettingDefinition,
+  validateSettingValue,
+  settingDefault,
+  type SettingDefinition,
+} from './settings-registry';
+export { recordAudit, SYSTEM_ACTOR_ID, type AuditRecord } from './audit';
+export { can, authorize, type Action, type ActorAccess } from './permissions/matrix';
+export {
+  generateApiKey,
+  hashApiKey,
+  verifyApiKey,
+  generateSessionToken,
+  generateCsrfToken,
+  type GeneratedApiKey,
+} from './auth/crypto';
+export {
   ModuleRegistry,
   makeRequireModule,
   type ModuleDefinition,

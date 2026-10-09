@@ -48,7 +48,19 @@ export async function createHarness(): Promise<Harness> {
     async reset() {
       await queue.drain(true);
       await queue.obliterate({ force: true }).catch(() => undefined);
-      await sql`TRUNCATE outbox, jobs, idempotency_keys, settings CASCADE`.execute(db);
+      // Truncate every public table except the Kysely migration bookkeeping,
+      // in one CASCADE statement. Dynamic so new phase migrations' tables are
+      // covered without editing this list every phase.
+      const { rows } = await sql`
+        SELECT tablename FROM pg_tables
+        WHERE schemaname = 'public'
+          AND tablename NOT LIKE 'kysely_%'
+      `.execute(db);
+      const names = (rows as { tablename: string }[]).map((r) => r.tablename);
+      if (names.length > 0) {
+        const list = names.map((n) => `"${n}"`).join(', ');
+        await sql.raw(`TRUNCATE ${list} CASCADE`).execute(db);
+      }
     },
     async cleanup() {
       await queue.obliterate({ force: true }).catch(() => undefined);

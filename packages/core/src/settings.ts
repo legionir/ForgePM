@@ -1,4 +1,4 @@
-import type { Db } from './db/unitOfWork';
+import type { DbLike } from './db/unitOfWork';
 import { newId } from './id';
 import { toJsonb } from './jsonb';
 
@@ -20,7 +20,7 @@ export interface EffectiveSetting {
  * Phase 0 needs it for `modules.<name>.enabled` lookups.
  */
 export async function getEffective(
-  db: Db,
+  db: DbLike,
   key: string,
   orgId: string | null,
   projectId: string | null,
@@ -45,7 +45,7 @@ export async function getEffective(
 }
 
 export async function upsertSetting(
-  db: Db,
+  db: DbLike,
   scope: SettingsScope,
   scopeId: string | null,
   key: string,
@@ -74,7 +74,7 @@ export async function upsertSetting(
 }
 
 export async function deleteSetting(
-  db: Db,
+  db: DbLike,
   scope: SettingsScope,
   scopeId: string | null,
   key: string,

@@ -123,3 +123,42 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: honour the no-force-push rule; never rewrite published tags; the
   phase's acceptance evidence is the green CI run linked in the report, not an
   assumption baked into the tag.
+
+
+## D-013 — Phase 1 backend-first; panel deferred as a recorded deviation
+- Context: plan §2 requires the Angular panel to ship alongside each phase, and
+  §5 lists many panel pages. Building a full bilingual Angular panel plus the
+  entire backend for all 8 phases in one continuous agent run is not feasible;
+  the backend carries the strongest automated acceptance gates (services,
+  permissions, tenancy, idempotency, outbox, MCP) that MUST be green.
+- Decision: deliver the Phase 1 backend completely (auth, org/project,
+  settings with inheritance + registry, API keys, permissions matrix, audit,
+  users/members, pagination, CSRF, rate limit) with passing integration tests;
+  defer the panel UI and record it in BLOCKERS.md as a `deviation`. Continue to
+  later phases backend-first; the panel is added as a dedicated effort once the
+  core API surface for all phases is complete and stable.
+- Reason: honest reporting (never claim a green that didn't run) + maximizes
+  verified functionality per the non-negotiable principles. Backend is the
+  single source of truth for REST/MCP; the panel is a client of it.
+
+## D-014 — argon2id via native `argon2` package
+- Context: §3 pins argon2id for panel password hashing; a pure-JS option would
+  drift from the native memory-hard parameters.
+- Decision: use the `argon2@0.45.1` native binding (MIT), pinned; parameters
+  m=64MiB, t=3, p=1.
+- Reason: canonical argon2id, matches §3; native build works in sandbox + CI.
+
+## D-015 — API-key raw format fpm_ + 40 hex; prefix = first 12 chars
+- Context: §5.4 requires prefix `fpm_`; §14 redaction greps `fpm_[a-z0-9]{20,}`.
+- Decision: raw = `fpm_` + 40 lowercase hex (20 random bytes); store only
+  SHA-256(raw); display prefix = `raw.slice(0,12)` (safe, matches grep length).
+- Reason: lowercase hex guarantees the §14 grep catches any accidental leak;
+  only the 12-char prefix is ever logged/returned after creation.
+
+## D-016 — In-process login rate limiter (IP+email, 10/15min)
+- Context: §5.3 mandates 10 attempts / 15 min per IP+email; a Redis-backed
+  limiter couples the API hot path to Redis for auth.
+- Decision: per-process Map limiter keyed `ip|email`, 15-min window, throws
+  RATE_LIMITED beyond 10; @fastify/rate-limit is registered for global use.
+- Reason: satisfies the acceptance test deterministically; a distributed
+  limiter is a scaling concern documented in SCALING.md, not Phase 1.

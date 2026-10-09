@@ -1,6 +1,7 @@
 import { loadEnv, createDb, runMigrations, migrations, type Db } from '@forgepm/core';
 import { buildApp } from './app/app';
 import { buildRegistry, createHealthRedisProbe } from './app/modules';
+import { bootstrapAdminFromEnv } from './modules/auth/service';
 
 async function main(): Promise<void> {
   const env = loadEnv();
@@ -8,6 +9,9 @@ async function main(): Promise<void> {
 
   // Forward-only migrations run at boot (plan §3b-4).
   await runMigrations(db, migrations);
+  // Optional first-run bootstrap admin (plan §5.2); one-time setup screen is
+  // the fallback when FORGEPM_ADMIN_EMAIL is not set.
+  await bootstrapAdminFromEnv(db, env);
 
   const registry = buildRegistry();
   const probe = createHealthRedisProbe(env.REDIS_URL);

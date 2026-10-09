@@ -10,3 +10,6 @@ allowBuilds:
   argon2: true
   esbuild: true
   msgpackr-extract: true
+
+minimumReleaseAgeExclude:
+  - '@fastify/rate-limit@11.2.1'

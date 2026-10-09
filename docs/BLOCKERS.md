@@ -27,3 +27,12 @@ it here; only missing GitHub push credentials may halt execution.
   checks via repo API only — OK; admin:org flows — unavailable).
 - Mitigation: only repo-scoped operations are attempted (§16 step 7 tolerates
   missing access and reports it). No blocker for phases 0–7.
+
+
+## B-005 — [deviation] Angular panel UI not built this run
+- Impact: §5/§6/... acceptance items that require Playwright E2E on real panel
+  pages, and the "panel ships with each phase" rule, are not satisfied for the
+  UI layer. Backend E2E-equivalent integration tests (REST) are green.
+- Mitigation/plan: all domain logic lives in services exercised by REST
+  integration tests; the panel is a thin client added as a follow-up effort.
+  Status: OPEN — tracked as deviation per plan §2 rule 4 (record and continue).

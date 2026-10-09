@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { AppError, ERROR_CODES } from '@forgepm/shared';
 import { ModuleRegistry, makeRequireModule, loggerOptions, pingDb, type Env } from '@forgepm/core';
@@ -7,6 +9,12 @@ import { randomUUID } from 'node:crypto';
 import type { Db } from '@forgepm/core';
 import { registerSampleModule } from '../modules/sample/routes';
 import { registerModulesRoutes } from '../modules/settings/routes';
+import { registerAuthRoutes } from '../modules/auth/routes';
+import { registerUsersRoutes } from '../modules/users/routes';
+import { registerProjectsRoutes } from '../modules/projects/routes';
+import { registerApiKeysRoutes } from '../modules/api-keys/routes';
+import { registerSettingsRoutes } from '../modules/settings/config-routes';
+import { registerAuditRoutes } from '../modules/audit/routes';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 
 export interface AppDeps {
@@ -25,6 +33,7 @@ export type RequireModuleFn = (
 declare module 'fastify' {
   interface FastifyInstance {
     requireModule: RequireModuleFn;
+    forgeDb: Db;
   }
 }
 
@@ -39,6 +48,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
+  await app.register(cookie);
+  await app.register(rateLimit, { global: false });
   await app.register(cors, { origin: [deps.env.WEB_ORIGIN], credentials: true });
 
   // Security headers (helmet-equivalent minimal set, plan §14).
@@ -53,8 +64,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // Route collector must be installed BEFORE routes are registered.
   const routeSink = collectRoutes(app);
 
+  app.decorate('forgeDb', deps.db);
   registerErrorHandlers(app);
   registerHealth(app, deps);
+  registerAuthRoutes(app, deps);
+  registerUsersRoutes(app, deps);
+  registerProjectsRoutes(app, deps);
+  registerApiKeysRoutes(app, deps);
+  registerSettingsRoutes(app, deps);
+  registerAuditRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));

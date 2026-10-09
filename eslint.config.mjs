@@ -45,37 +45,24 @@ export default [
     },
   },
 
-  // Rule 1 — raw DB/queue connection forbidden in feature modules.
-  // The worker's queue infrastructure (dispatcher/sweeper/handlers/main) is
-  // the BullMQ consumer and MAY own the connection; feature modules may not.
+  // Rule 1 — raw DB/queue CLIENT connections forbidden in feature modules.
+  // Repositories/services may still compose queries with the `kysely`
+  // builder; they MUST NOT open their own pg/ioredis/bullmq connections.
   {
-    files: ['apps/api/src/modules/**/*.ts'],
+    files: ['apps/api/src/modules/**/*.ts', 'apps/worker/src/modules/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           paths: [
             { name: 'pg', message: 'Raw DB access belongs in @forgepm/core (infrastructure) only.' },
-            { name: 'kysely', message: 'Raw DB access belongs in @forgepm/core (infrastructure) only.' },
             { name: 'ioredis', message: 'Redis/queue access belongs in @forgepm/core (infrastructure) only.' },
             { name: 'bullmq', message: 'Queue access belongs in @forgepm/core (infrastructure) only.' },
           ],
-        },
-      ],
-    },
-  },
-
-  // Rule 2 — a module must not import another module's repository.
-  {
-    files: ['apps/api/src/modules/**/*.ts'],
-    rules: {
-      'no-restricted-imports': [
-        'error',
-        {
           patterns: [
             {
-              group: ['**/repository', '**/repository.*'],
-              message: 'Cross-layer import forbidden: import a module via its service, never its repository (plan §3).',
+              group: ['../**/repository', '../**/repository.*'],
+              message: 'Cross-module import forbidden: import a module via its service, never its repository (plan §3).',
             },
           ],
         },

@@ -14,25 +14,34 @@ import { createDb } from '../packages/core/src';
 
 const DOC = fileURLToPath(new URL('../docs/DATA_MODEL.md', import.meta.url));
 
-/** Parse the first fenced SQL block (§A) into expected table definitions. */
+/** Parse the §A + §B fenced SQL blocks into expected table definitions. */
 function parseContract(): Map<string, { columns: Map<string, string>; indexes: string[] }> {
   const md = readFileSync(DOC, 'utf8');
   const blocks = [...md.matchAll(/```sql\n([\s\S]*?)```/g)].map((m) => m[1]);
-  const infra = blocks.find((b) => b.includes('CREATE TABLE outbox'));
-  if (!infra) throw new Error('DATA_MODEL.md: infrastructure block not found');
+  // Blocks covered by shipped migrations: §A (infra) and §B (Phase 1 core).
+  const relevant = blocks.filter(
+    (b) => b.includes('CREATE TABLE outbox') || b.includes('CREATE TABLE organizations'),
+  );
+  if (relevant.length < 2) throw new Error('DATA_MODEL.md: infrastructure/core blocks not found');
 
   const tables = new Map<string, { columns: Map<string, string>; indexes: string[] }>();
   const tableRe = /CREATE TABLE (\w+) \(([\s\S]*?)\n\);/g;
-  for (const t of infra.matchAll(tableRe)) {
-    const cols = new Map<string, string>();
-    for (const line of t[2].split('\n')) {
-      const m = line.trim().match(/^(\w+)\s+([a-z]+(?:\[\])?(?:\s*\(\d+\))?)\b/);
-      if (m && !['primary', 'unique', 'check', 'foreign', 'constraint'].includes(m[1])) cols.set(m[1], m[2]);
+  for (const infra of relevant) {
+    for (const t of infra.matchAll(tableRe)) {
+      const cols = new Map<string, string>();
+      for (const line of t[2].split('\n')) {
+        const m = line.trim().match(/^(\w+)\s+([a-z]+(?:\[\])?(?:\s*\(\d+\))?)\b/);
+        if (m && !['primary', 'unique', 'check', 'foreign', 'constraint'].includes(m[1])) {
+          // re-capture array suffix explicitly (the \b above drops it via backtracking)
+          const arr = /^\w+\s+[a-z]+\[\]/.test(line.trim());
+          cols.set(m[1], arr ? `${m[2]}[]` : m[2]);
+        }
+      }
+      tables.set(t[1], { columns: cols, indexes: [] });
     }
-    tables.set(t[1], { columns: cols, indexes: [] });
-  }
-  for (const i of infra.matchAll(/CREATE (UNIQUE )?INDEX (\w+) ON (\w+)/g)) {
-    tables.get(i[3])?.indexes.push(i[2]);
+    for (const i of infra.matchAll(/CREATE (UNIQUE )?INDEX (\w+) ON (\w+)/g)) {
+      tables.get(i[3])?.indexes.push(i[2]);
+    }
   }
   return tables;
 }
@@ -68,6 +77,7 @@ async function main(): Promise<void> {
     for (const [col, type] of spec.columns) {
       const c = colMap.get(col);
       if (!c) problems.push(`${table}.${col}: missing column`);
+      else if (type.endsWith('[]')) { if (c.data_type !== 'ARRAY') problems.push(`${table}.${col}: expected array, got ${c.data_type}`); }
       else if (type.startsWith('uuid') && c.data_type !== 'uuid') problems.push(`${table}.${col}: expected uuid, got ${c.data_type}`);
       else if (type.startsWith('jsonb') && c.data_type !== 'jsonb') problems.push(`${table}.${col}: expected jsonb, got ${c.data_type}`);
       else if (type.startsWith('text') && c.data_type !== 'text') problems.push(`${table}.${col}: expected text, got ${c.data_type}`);
