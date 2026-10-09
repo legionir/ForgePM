@@ -40,6 +40,12 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
+      - name: Build workspace libs (shared+core) for tsx scripts
+        # scripts/*.ts import @forgepm/{shared,core}, whose package.json "main"
+        # points at dist/. Locally dist may already exist; on a clean CI runner
+        # it must be built before any tsx script runs.
+        run: pnpm --filter @forgepm/shared --filter @forgepm/core run build
+
       - name: Migration hash guard (merged migrations must not be edited)
         run: node scripts/check-migration-hashes.mjs
 
