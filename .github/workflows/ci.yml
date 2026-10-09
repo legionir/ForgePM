@@ -27,6 +27,10 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/forgepm_test
       REDIS_URL: redis://localhost:6379
+      # Throwaway 32-byte key (base64) so scripts that call loadEnv (gen:api)
+      # validate. Real secrets live in the `secrets` table; nothing sensitive
+      # here — this value is documented as a fixed dev placeholder.
+      FORGEPM_SECRET_KEY: Zm9yZ2VwbS1jaS10aHJvd2F3YXkta2V5LTMyYnl0ZXM=
     steps:
       - uses: actions/checkout@v4
 
