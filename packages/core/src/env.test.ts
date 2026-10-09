@@ -28,6 +28,14 @@ describe('parseEnv', () => {
     expect(() => parseEnv({ ...base, FORGEPM_SECRET_KEY: 'short' })).toThrowError(/FORGEPM_SECRET_KEY/);
   });
 
+  it('treats empty-string bootstrap admin vars as unset (compose passes "")', () => {
+    // regression: compose `FORGEPM_ADMIN_EMAIL=${VAR:-}` yields "", which must
+    // not fail email validation — the setup screen is the fallback instead.
+    const env = parseEnv({ ...base, FORGEPM_ADMIN_EMAIL: '', FORGEPM_ADMIN_PASSWORD: '' });
+    expect(env.FORGEPM_ADMIN_EMAIL).toBeUndefined();
+    expect(env.FORGEPM_ADMIN_PASSWORD).toBeUndefined();
+  });
+
   it('rejects a too-short admin password when provided', () => {
     expect(() =>
       parseEnv({ ...base, FORGEPM_ADMIN_EMAIL: 'a@b.co', FORGEPM_ADMIN_PASSWORD: '123' }),

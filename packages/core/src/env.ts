@@ -41,9 +41,10 @@ const envSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
-  // One-time bootstrap admin (plan §5.2). Optional; setup screen is the fallback.
-  FORGEPM_ADMIN_EMAIL: z.string().email().optional(),
-  FORGEPM_ADMIN_PASSWORD: z.string().min(8).optional(),
+  // First-run bootstrap admin (plan §5.2). Optional; setup screen is the fallback.
+  // Empty string counts as unset (docker-compose `${VAR:-}` passes "").
+  FORGEPM_ADMIN_EMAIL: z.preprocess((v) => (v === '' ? undefined : v), z.string().email().optional()),
+  FORGEPM_ADMIN_PASSWORD: z.preprocess((v) => (v === '' ? undefined : v), z.string().min(8).optional()),
 
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
 });
