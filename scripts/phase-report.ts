@@ -1,6 +1,6 @@
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, join } from 'node:path';
 
 /**
  * pnpm report:phase <N> — writes docs/PHASE<N>_REPORT.md carrying the two
@@ -36,10 +36,10 @@ const local = existsSync(markerFile) && readFileSync(markerFile, 'utf8').trim() 
 
 let remote = 'not-configured';
 const hasRemote = run('git remote get-url origin');
-if (hasRemote && run('gh auth status').includes('Logged in')) {
+if (hasRemote && run('gh auth status 2>&1').includes('Logged in')) {
   const sha = run('git rev-parse HEAD');
   const concl = run(`gh api repos/:owner/:repo/commits/${sha}/check-runs --jq '.check_runs[].conclusion'`);
-  const lines = concl.split('\n').filter(Boolean);
+  const lines = concl.split('\n').map((l) => l.trim().toUpperCase()).filter(Boolean);
   if (lines.length === 0) remote = 'not-configured';
   else if (lines.some((l) => l === 'FAILURE' || l === 'CANCELLED' || l === 'TIMED_OUT')) remote = 'fail';
   else if (lines.every((l) => l === 'SUCCESS')) remote = 'pass';
@@ -59,7 +59,8 @@ remote: GitHub check-runs for the pushed commit).
 if (stdout) {
   console.log(report);
 } else {
-  mkdirSync(resolve('docs'), { recursive: true });
-  writeFileSync(resolve(dirname('docs'), `PHASE${phase}_REPORT.md`), report, 'utf8');
+  const dir = resolve('docs');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, `PHASE${phase}_REPORT.md`), report, 'utf8');
   console.log(report);
 }
