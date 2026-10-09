@@ -58,6 +58,12 @@ jobs:
       - name: "gen:api drift check (OpenAPI spec + typed client are committed)"
         run: pnpm gen:api:check
 
+      - name: "Panel build (Angular) + Playwright flagship E2E"
+        run: |
+          corepack enable
+          (cd apps/web && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium)
+          bash apps/web/e2e.sh
+
       - name: "schema:check (live vs DATA_MODEL.md)"
         run: pnpm schema:check
 

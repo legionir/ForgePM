@@ -28,6 +28,7 @@
     "dev:worker": "tsx watch apps/worker/src/main.ts",
     "smoke": "tsx scripts/smoke.ts",
     "mcp:smoke": "tsx scripts/mcp-smoke.ts",
+    "test:e2e": "bash apps/web/e2e.sh",
     "report:phase": "tsx scripts/phase-report.ts",
     "prepare": "husky || true"
   },

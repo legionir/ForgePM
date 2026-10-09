@@ -313,5 +313,44 @@ Format per plan §2: Context / Decision / Reason.
   code runs when policy ≠ `off`. Tests count writer invocations
   (2 runs summary ⇒ 2 publishes updating one comment; `off` ⇒ 0). The real
   octokit writer ships with the phase-7 GitHub panel wiring.
+
+## D-031 — Panel is a standalone pnpm workspace (TS 6.x), outside root `verify`
+- Context: Phase 7 ships the long-deferred Angular panel (B-005/D-013). Angular
+  22's compiler requires TypeScript 6.x; the backend pins TS 5.7.2. A shared
+  root workspace would force one TS major on both, breaking either `ng build`
+  or the backend `tsc`.
+- Decision: `apps/web` is its own pnpm workspace (`apps/web/pnpm-workspace.yaml`,
+  own `node_modules` + `pnpm-lock.yaml`), excluded from root `eslint`/
+  `pnpm -r build`/`pnpm verify`. It has independent gates: `ng build` (bundle
+  budget) and `bash apps/web/e2e.sh` (Playwright against the real API). CI runs
+  both explicitly. The panel consumes the OpenAPI client produced by
+  `pnpm gen:api`.
+- Reason: honest isolation — the backend suite stays green and reproducible on
+  TS 5.7 while the panel builds on its required TS major; no version compromise
+  or `any`-casting to force a shared toolchain.
+
+## D-032 — E2E proxy to :3101 because the sandbox reserves :3001
+- Context: the executing sandbox already runs a system `mcp-server` on :3001,
+  the plan/compose default API port.
+- Decision: the Angular dev-server proxy used by E2E points at the API on
+  :3101 (`proxy.e2e.json`); the default `proxy.conf.json` and
+  `docker-compose.yml` keep :3001 for real dev/compose use. `e2e.sh` starts the
+  API on :3101 with a throwaway DB (`forgepm_e2e`), so setup always sees a blank
+  first-run state.
+- Reason: avoids a port collision in the sandbox without changing the shipped
+  compose contract; recorded so a reviewer sees why two proxy files exist.
+
+## D-033 — Flagship E2E scoped to the flows the panel renders today
+- Context: §11 lists a long E2E chain (setup → project → Feature + 5 items →
+  Board → plan → API key → MCP log → GitHub → Code Review). The backend surface
+  for every one of those is already covered by integration tests; the panel now
+  implements Setup/Login, Projects and API Keys pages.
+- Decision: the shipped Playwright test covers the panel-only flagship: first-run
+  setup → create project → create API key (raw shown exactly once) → logout →
+  login, asserting the §11 "raw key visible only at creation" rule. Additional
+  panel pages (Work Items/Board, Planner, GitHub, Reviews, Settings) are the
+  remaining B-005 work tracked there, not silently claimed green here.
+- Reason: never declare a gate green that did not run; ship a real, reproducible
+  E2E for what the panel actually renders now.
 - Reason: keeps core GitHub-free (§1.4) while making the acceptance property
   directly observable in tests.

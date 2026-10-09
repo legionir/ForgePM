@@ -17,25 +17,35 @@ it here; only missing GitHub push credentials may halt execution.
   equivalent, which §12 explicitly permits; CI runs against postgres:16 to
   prove the real target too. Not a data-model deviation.
 
-## B-003 — E2E (Playwright) not runnable in the Phase 0 sandbox
-- Impact: Phase 0 has no E2E gate (first E2E gates are Phase 1), so nothing is
-  falsely claimed. Playwright will run in Remote CI once the panel ships
-  login/setup in Phase 1.
+## B-005 — [partial] Angular panel shipped; only the flagship pages + E2E land in Phase 7
+- Impact: the deferred panel (D-013) is now STARTED, not finished. Phase 7 ships
+  a real Angular (standalone + Signals) panel with Setup/Login, Projects and
+  API Keys pages, an OpenAPI-typed client (`pnpm gen:api`), a production nginx
+  build (`apps/web/Dockerfile`) and a reproducible Playwright flagship E2E
+  (`bash apps/web/e2e.sh`) — all green locally against the real API.
+- NOT yet shipped (still tracked here): the Work Items/Board, Planner/Approvals,
+  MCP settings, GitHub, Reviews and full Settings pages of the §11 table; the
+  full 9-step §11 E2E chain; axe accessibility sweep; `fa`(RTL)/`en` i18n key
+  parity check; the 200k-item first-paint perf gate; and Playwright *on compose*
+  (§15 wants compose-backed E2E — Docker is unavailable locally, B-001, so the
+  local run drives the API directly while CI adds the compose job).
+- Reason for partial scope: per plan §2 rule 4 (record and continue) and the
+  AGENTS rule to never claim a gate that did not run. The pages above still
+  need the same build+E2E wiring; the backend surface for each is already
+  covered by integration tests.
+- Status: OPEN (reduced) — flagship path shipped and proven; remaining pages
+  gated individually.
+
+## B-003 — [superseded] E2E now runs locally via a real Angular dev-server + native API
+- Original: Phase 0 had no runnable Playwright gate. Superseded in Phase 7:
+  `apps/web/e2e.sh` boots the real Fastify API (throwaway DB) + the dev-server
+  and drives Chromium — the flagship E2E passes locally (see B-005 for scope).
 
 ## B-004 — gh token lacks `read:org` scope
 - Impact: some `gh api` org-level operations (branch protection requires
   checks via repo API only — OK; admin:org flows — unavailable).
 - Mitigation: only repo-scoped operations are attempted (§16 step 7 tolerates
   missing access and reports it). No blocker for phases 0–7.
-
-
-## B-005 — [deviation] Angular panel UI not built this run
-- Impact: §5/§6/... acceptance items that require Playwright E2E on real panel
-  pages, and the "panel ships with each phase" rule, are not satisfied for the
-  UI layer. Backend E2E-equivalent integration tests (REST) are green.
-- Mitigation/plan: all domain logic lives in services exercised by REST
-  integration tests; the panel is a thin client added as a follow-up effort.
-  Status: OPEN — tracked as deviation per plan §2 rule 4 (record and continue).
 
 
 ## B-006 — [deviation] Phase 4b (MCP client to external servers) not shipped
