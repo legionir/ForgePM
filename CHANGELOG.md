@@ -3,6 +3,71 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [0.7.0] — Phase 7 (2026-10-09)
+
+### Added
+
+- **Angular panel (apps/web) — flagship path shipped.** Standalone + Signals,
+  lazy routes, OnPush, i18n-free bilingual shell with a data-testid contract.
+  Pages: `/auth` (first-run Setup + Login), `/projects` (list + create +
+  archive), `/api-keys` (list + create with raw-key-shown-exactly-once +
+  revoke). Session/CSRF handled by `ApiClient` (reads `fpm_csrf` cookie and
+  echoes it as `x-csrf-token` on every mutating request).
+- **OpenAPI-generated client (`pnpm gen:api`).** `scripts/gen-api.ts` boots the
+  Fastify app in-process, dumps `apps/api/openapi.json` (74 paths) and pipes it
+  through `openapi-typescript` (pinned `7.13.0`) to
+  `apps/web/src/api/schema.d.ts`. `pnpm gen:api:check` fails on any drift;
+  wired into CI.
+- **Reproducible E2E (`pnpm test:e2e`).** `apps/web/e2e.sh` resets a throwaway
+  DB, builds the backend, starts Fastify on :3101, runs the Angular dev-server
+  on :4200 via a proxy (`proxy.e2e.json`), and drives Chromium through the
+  flagship flow (Setup → project → API key with raw-once assertion → logout →
+  login) — passing locally. CI runs `playwright install --with-deps chromium`
+  and executes the same script.
+- **`GET /metrics` (plan §14 observability)** behind `METRICS_ENABLED`, using a
+  dependency-free Prometheus registry in `packages/core/src/metrics.ts`.
+  Exposes `http_requests_total{method,route,status}` (bounded cardinality),
+  `http_request_duration_seconds` histogram, `forgepm_queue_length` +
+  `forgepm_jobs_failed` gauges (derived live from `jobs`),
+  `forgepm_ai_calls_total{purpose,status}` and
+  `forgepm_mcp_tool_calls_total{tool,outcome}` counters incremented at their
+  respective `ai_calls`/`mcp_tool_calls` insert points.
+- **Nightly retention job (plan §14 scalability).** `runRetention` in core
+  prunes `audit_events`, `mcp_tool_calls`, `ai_calls` and
+  `webhook_deliveries` per each org's effective `retention.*_days` (system and
+  org scopes honoured, tenancy-safe). `apps/worker/src/retention-job.ts` wires
+  it into the worker bootstrap with a `system.retention` `audit_event` per
+  pruned (org, table).
+- **Key rotation (`scripts/rotate-secret.ts`, plan §14 / RUNBOOK).**
+  `rotateDbSecrets(db, oldKey, newKey, newVersion)` re-encrypts every
+  `secrets.ciphertext` and `ai_providers.encrypted_key` blob, tagging rows with
+  the new `key_version`. Idempotent (already-current blobs are skipped).
+- **EXPLAIN hot-query guard (PERFORMANCE_BUDGET P-04).**
+  `tests/integration/phase7-explain.test.ts` runs 11 hot query shapes through
+  `EXPLAIN` with `enable_seqscan = off` and asserts no `Seq Scan on <guarded>`
+  appears — proving every named index exists and is usable by the planner.
+  Guard verified non-vacuous (dropping an index makes the test fail).
+
+### Fixed
+
+- `scripts/backup.sh` exited 2 whenever no storage tarballs existed (the `ls`
+  glob failed under `set -e -o pipefail`). Rewritten with a `prune()` helper
+  that treats an empty glob as success. New
+  `tests/integration/phase7-backup.test.ts` does a real
+  backup → fresh empty DB → restore round-trip with row counts + checksum over
+  200 seeded rows and also asserts `restore.sh` refuses a non-empty target.
+
+### Notes
+
+- `apps/web` is intentionally a **standalone pnpm workspace** (D-031): Angular
+  22 pins TS 6.x, the backend pins 5.7.2. It is excluded from root
+  `eslint`/`pnpm -r build`/`pnpm verify` and gated by its own build + E2E.
+- Remaining §11 acceptance items (Board/Planner/MCP/GitHub/Reviews/Settings
+  pages, i18n key parity, axe a11y sweep, 200k-item first-paint, full 9-step
+  E2E chain, compose-backed E2E) remain **OPEN** in `BLOCKERS.md` (B-005,
+  reduced). The backend surface for each is already covered by integration
+  tests; the missing work is the thin panel client + gate.
+
 ## [0.6.0] — Phase 6 (2026-10-09)
 
 ### Added

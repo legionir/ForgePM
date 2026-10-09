@@ -27,6 +27,10 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/forgepm_test
       REDIS_URL: redis://localhost:6379
+      # Throwaway 32-byte key (base64) so scripts that call loadEnv (gen:api)
+      # validate. Real secrets live in the `secrets` table; nothing sensitive
+      # here — this value is documented as a fixed dev placeholder.
+      FORGEPM_SECRET_KEY: Zm9yZ2VwbS1jaS10aHJvd2F3YXkta2V5LTMyYnl0ZXM=
     steps:
       - uses: actions/checkout@v4
 
@@ -54,6 +58,15 @@ jobs:
 
       - name: Verify (lint, typecheck, unit+integration+coverage, build)
         run: pnpm verify
+
+      - name: "gen:api drift check (OpenAPI spec + typed client are committed)"
+        run: pnpm gen:api:check
+
+      - name: "Panel build (Angular) + Playwright flagship E2E"
+        run: |
+          corepack enable
+          (cd apps/web && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium)
+          bash apps/web/e2e.sh
 
       - name: "schema:check (live vs DATA_MODEL.md)"
         run: pnpm schema:check

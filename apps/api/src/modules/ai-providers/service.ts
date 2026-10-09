@@ -1,4 +1,4 @@
-import { activeCipher, type Db, type DbLike, newId, recordAudit, unitOfWork } from '@forgepm/core';
+import { activeCipher, defaultRegistry, type Db, type DbLike, newId, recordAudit, unitOfWork } from '@forgepm/core';
 
 export interface ProviderRow {
   id: string;
@@ -82,4 +82,7 @@ export async function recordCall(
     .insertInto('ai_calls')
     .values({ id: newId(), organization_id: orgId, ...v })
     .execute();
+  // Plan §14: AI call counter + token histogram (labelled by provider+purpose).
+  defaultRegistry.inc('forgepm_ai_calls_total', { purpose: v.purpose, status: v.status });
+  defaultRegistry.observe('forgepm_ai_latency_seconds', Math.max(0, v.latency_ms) / 1000);
 }

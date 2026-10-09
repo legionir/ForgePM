@@ -10,6 +10,7 @@ import {
 } from '@forgepm/shared';
 import {
   newId,
+  defaultRegistry,
   toJsonb,
   unitOfWork,
   recordAudit,
@@ -185,6 +186,7 @@ async function recordAiCall(db: Db, orgId: string, provider: AiProvider, tin: nu
     .insertInto('ai_calls')
     .values({ id: newId(), organization_id: orgId, provider_id: row.id, model: provider.model, purpose: 'planner', tokens_in: tin, tokens_out: tout, latency_ms: null, status })
     .execute();
+  defaultRegistry.inc('forgepm_ai_calls_total', { purpose: 'planner', status });
 }
 
 export async function addRevision(db: Db, planId: string, orgId: string, createdBy: string, content: PlanContent, validation: ValidationReport | null): Promise<string> {

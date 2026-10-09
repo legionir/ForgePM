@@ -1,0 +1,8 @@
+# Angular build output (ignored at repo root too, listed here for clarity)
+dist/
+.angular/
+node_modules/
+
+# Playwright artifacts
+test-results/
+playwright-report/

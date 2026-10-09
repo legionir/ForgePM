@@ -78,6 +78,10 @@ export default [
       'tests/schema-snapshots/**',
       'tests/lint-fixtures/**', // deliberately-violating samples, linted by a dedicated test
       '**/*.d.ts',
+      // The Angular panel is a separate TypeScript project (own TS major)
+      // with its own lint/build/E2E gates (pnpm --filter web). Excluded from
+      // the backend `verify` until it joins the workspace member list.
+      'apps/web/**',
     ],
   },
 ];

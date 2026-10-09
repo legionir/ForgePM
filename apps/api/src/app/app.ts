@@ -31,6 +31,7 @@ import { makeProviderResolver } from './provider-resolver';
 import { makeReviewProviderResolver } from './review-resolver';
 import { setReviewProviderResolver } from '@forgepm/core';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
+import { installMetrics } from './metrics';
 
 export interface AppDeps {
   env: Env;
@@ -124,6 +125,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerReviewsRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
+  // Plan §14: /metrics is opt-in via METRICS_ENABLED (default off).
+  if (deps.env.METRICS_ENABLED) installMetrics(app, deps.db);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));
 
   app.decorate('requireModule', makeRequireModule(deps.registry, deps.db));
