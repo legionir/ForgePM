@@ -15,6 +15,10 @@ import { registerProjectsRoutes } from '../modules/projects/routes';
 import { registerApiKeysRoutes } from '../modules/api-keys/routes';
 import { registerSettingsRoutes } from '../modules/settings/config-routes';
 import { registerAuditRoutes } from '../modules/audit/routes';
+import { registerWorkItemsRoutes } from '../modules/work-items/routes';
+import { registerFeaturesRoutes } from '../modules/features/routes';
+import { registerMilestonesRoutes } from '../modules/milestones/routes';
+import { registerSavedViewsRoutes } from '../modules/saved-views/routes';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 
 export interface AppDeps {
@@ -73,6 +77,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerApiKeysRoutes(app, deps);
   registerSettingsRoutes(app, deps);
   registerAuditRoutes(app, deps);
+  registerWorkItemsRoutes(app, deps);
+  registerFeaturesRoutes(app, deps);
+  registerMilestonesRoutes(app, deps);
+  registerSavedViewsRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));

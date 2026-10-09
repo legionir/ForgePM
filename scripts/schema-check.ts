@@ -18,11 +18,15 @@ const DOC = fileURLToPath(new URL('../docs/DATA_MODEL.md', import.meta.url));
 function parseContract(): Map<string, { columns: Map<string, string>; indexes: string[] }> {
   const md = readFileSync(DOC, 'utf8');
   const blocks = [...md.matchAll(/```sql\n([\s\S]*?)```/g)].map((m) => m[1]);
-  // Blocks covered by shipped migrations: §A (infra) and §B (Phase 1 core).
+  // Blocks covered by shipped migrations: §A (infra), §B (Phase 1 core),
+  // §C (Phase 2 domain). Later blocks (§D+ for phases not yet built) are skipped.
   const relevant = blocks.filter(
-    (b) => b.includes('CREATE TABLE outbox') || b.includes('CREATE TABLE organizations'),
+    (b) =>
+      b.includes('CREATE TABLE outbox') ||
+      b.includes('CREATE TABLE organizations') ||
+      b.includes('CREATE TABLE workflow_states'),
   );
-  if (relevant.length < 2) throw new Error('DATA_MODEL.md: infrastructure/core blocks not found');
+  if (relevant.length < 3) throw new Error('DATA_MODEL.md: infrastructure/core/domain blocks not found');
 
   const tables = new Map<string, { columns: Map<string, string>; indexes: string[] }>();
   const tableRe = /CREATE TABLE (\w+) \(([\s\S]*?)\n\);/g;

@@ -7,6 +7,9 @@ gates and the next step so a resumed run knows exactly where to pick up.
 Status: **complete** (local pass, remote pass). See `PHASE0_REPORT.md`.
 
 ## Phase 1 — v0.1.0
+Status: **complete** (local pass, remote pass — CI run 37874572807). Panel UI deferred (B-005).
+
+## Phase 2 — v0.2.0
 Status: **in progress**.
 Last commit: (this commit).
 Remaining gates before tagging:

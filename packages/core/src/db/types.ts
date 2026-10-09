@@ -183,6 +183,138 @@ export interface AuditEventsTable {
   created_at: Timestamp;
 }
 
+// ---- Phase 2: work items, features, milestones (plan §6, §12 §C) ----
+
+export interface WorkflowStatesTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  name: string;
+  category: 'backlog' | 'unstarted' | 'started' | 'in_review' | 'completed' | 'canceled';
+  position: Generated<number>;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface MilestonesTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  name: string;
+  target_date: string | null;
+  status: Generated<'open' | 'closed'>;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+  deleted_at: Date | null;
+}
+
+export interface FeaturesTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  key: string;
+  title: string;
+  description: string | null;
+  lifecycle_status: Generated<'proposed' | 'planned' | 'in_progress' | 'in_validation' | 'released' | 'deprecated'>;
+  target_release: string | null;
+  milestone_id: string | null;
+  acceptance_criteria: Jsonb;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+  deleted_at: Date | null;
+}
+
+export interface WorkItemsTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  number: number;
+  type: 'task' | 'bug' | 'feature_task' | 'improvement' | 'refactor' | 'research' | 'chore';
+  title: string;
+  description: string | null;
+  state_id: string;
+  priority: Generated<'none' | 'low' | 'medium' | 'high' | 'urgent'>;
+  assignee_user_id: string | null;
+  assignee_agent_id: string | null;
+  reporter_id: string | null;
+  estimate: string | null;
+  due_date: string | null;
+  parent_id: string | null;
+  feature_id: string | null;
+  milestone_id: string | null;
+  acceptance_criteria: Jsonb;
+  source: Generated<'manual' | 'planner' | 'code_review' | 'refactor_review' | 'github'>;
+  plan_id: string | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+  deleted_at: Date | null;
+}
+
+export interface WorkItemRelationsTable {
+  id: string;
+  from_id: string;
+  to_id: string;
+  type: 'blocks' | 'relates_to' | 'duplicates';
+  created_at: Timestamp;
+}
+
+export interface LabelsTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  name: string;
+  color: string;
+  created_at: Timestamp;
+}
+
+export interface WorkItemLabelsTable {
+  work_item_id: string;
+  label_id: string;
+}
+
+export interface CommentsTable {
+  id: string;
+  work_item_id: string;
+  author_type: 'user' | 'agent' | 'system';
+  author_id: string;
+  kind: Generated<'comment' | 'ai_report'>;
+  body: string;
+  edited_at: Date | null;
+  created_at: Timestamp;
+  deleted_at: Date | null;
+}
+
+export interface SavedViewsTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  owner_id: string;
+  name: string;
+  filter: Jsonb;
+  shared: Generated<boolean>;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface WorkItemExternalLinksTable {
+  id: string;
+  work_item_id: string;
+  kind: 'pr' | 'commit' | 'branch' | 'issue' | 'url';
+  external_id: string;
+  url: string;
+  metadata: Jsonb;
+  remote_version: string | null;
+  last_synced_at: Date | null;
+  created_at: Timestamp;
+}
+
+export interface FeatureDependenciesTable {
+  id: string;
+  feature_id: string;
+  depends_on_id: string;
+  created_at: Timestamp;
+}
+
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -198,4 +330,15 @@ export interface DB {
   projects: ProjectsTable;
   project_members: ProjectMembersTable;
   audit_events: AuditEventsTable;
+  workflow_states: WorkflowStatesTable;
+  milestones: MilestonesTable;
+  features: FeaturesTable;
+  work_items: WorkItemsTable;
+  work_item_relations: WorkItemRelationsTable;
+  labels: LabelsTable;
+  work_item_labels: WorkItemLabelsTable;
+  comments: CommentsTable;
+  saved_views: SavedViewsTable;
+  work_item_external_links: WorkItemExternalLinksTable;
+  feature_dependencies: FeatureDependenciesTable;
 }

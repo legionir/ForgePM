@@ -43,6 +43,14 @@ export {
   type GeneratedApiKey,
 } from './auth/crypto';
 export {
+  requestHash,
+  beginIdempotency,
+  storeIdempotencyResult,
+  abandonIdempotency,
+  type IdempotencyOutcome,
+} from './idempotency';
+export { findCycle, workProgress, releaseReadiness, TERMINAL_CATEGORIES, type CategoryCounts } from './graph';
+export {
   ModuleRegistry,
   makeRequireModule,
   type ModuleDefinition,

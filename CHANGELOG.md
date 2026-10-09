@@ -132,8 +132,47 @@ Conventional Commits groupings. Tags map to plan §17.
 - `docker compose up` compose gate for Phase 1 exercised in Remote CI only
   (B-001 unchanged).
 
+## [0.2.0] — Phase 2 (2026-10-09)
+
+### Added
+
+- Migration `0003_domain`: workflow_states, milestones, features, work_items
+  (composite FKs, assignee one-of CHECK, acceptance_criteria jsonb,
+  search_vector generated + GIN), work_item_relations, labels,
+  work_item_labels, comments, saved_views, work_item_external_links,
+  feature_dependencies. DATA_MODEL §C updated with the composite
+  `UNIQUE(id, organization_id)` targets required by §3b-2.
+- Work items: CRUD + transition + relations + comments + external links +
+  activity (from audit) + full-text search + bulk create (idempotency).
+  Default workflow auto-seeded per project (Backlog/Todo/In Progress/In Review/
+  Done/Canceled). Item key `PRJ-N` with atomic `UPDATE ... RETURNING` numbering
+  — 50 parallel creates yield contiguous unique numbers.
+- Blockers: transition to `completed` refused with 409 BLOCKED_BY_OPEN_ITEMS;
+  blocking-cycle detection (2- and 3-node) returns 409 DEPENDENCY_CYCLE.
+- Features: dual `work_progress` (completed/(total−canceled)) and
+  `release_readiness` (ticked AC); `released` requires 100% readiness unless an
+  owner overrides (override recorded in audit).
+- Milestones with computed progress; Saved Views (personal/shared); Labels
+  on-the-fly; Comments (user/agent author types).
+- Core helpers: `idempotency` (begin/store/abandon, `UNIQUE(actor,op,key)`),
+  pure `graph.ts` (findCycle, workProgress, releaseReadiness) with unit tests,
+  `schemas-domain.ts` zod contracts, work-items module `index.ts` public
+  surface (cross-module calls go through it, ESLint boundary intact).
+- Tests: 13 Phase-2 integration cases (numbering concurrency, blockers,
+  cycles, dual progress + override, bulk idempotency + body-mismatch 422,
+  assignee CHECK, soft-delete/list/search/audit, activity, combined filters,
+  milestones, saved views, comments) + graph unit suite. Suite: 100 tests
+  green; `pnpm verify` passes.
+
+### Known gaps (recorded)
+
+- Panel Board/List UI + Playwright E2E deferred with the rest of the panel
+  (B-005 / D-013).
+- 200k-item p95 <200ms perf budget is a Remote-CI nightly measurement, not a
+  per-PR gate (PERFORMANCE_BUDGET.md).
+
 ## Not yet delivered (per plan gating)
 
-Phases 2–7 and the `v1.0.0-rc.1` release: work items, planner + AI layer, MCP
-server, GitHub module, reviews, hardening; plus the panel UI above.
+Phases 3–7 and the `v1.0.0-rc.1` release: planner + AI layer, MCP server,
+GitHub module, reviews, hardening; plus the panel UI above.
 

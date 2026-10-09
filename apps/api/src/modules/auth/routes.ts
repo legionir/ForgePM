@@ -42,6 +42,7 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): void {
       const rlKey = `${req.ip}|${email.toLowerCase()}`;
       if (tooMany(rlKey)) throw new AppError('RATE_LIMITED', 'too many login attempts');
       const res = await login(deps.db, email, password, { ip: req.ip, userAgent: req.headers['user-agent'] });
+      loginAttempts.delete(rlKey); // success clears the failure counter
       setSessionCookies(reply, res.sessionToken);
       return { status: 'ok' };
     },

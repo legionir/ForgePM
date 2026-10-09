@@ -227,6 +227,7 @@ CREATE TABLE workflow_states (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, name),
+  UNIQUE (id, organization_id),
   FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id)
 );
 
@@ -240,6 +241,7 @@ CREATE TABLE milestones (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz,
+  UNIQUE (id, organization_id),
   FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id)
 );
 CREATE INDEX milestones_project_idx ON milestones (project_id, target_date);
@@ -260,6 +262,7 @@ CREATE TABLE features (
   updated_at timestamptz NOT NULL DEFAULT now(),
   deleted_at timestamptz,
   UNIQUE (project_id, key),
+  UNIQUE (id, organization_id),
   FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id),
   FOREIGN KEY (milestone_id, organization_id) REFERENCES milestones(id, organization_id)
 );
@@ -291,6 +294,7 @@ CREATE TABLE work_items (
   deleted_at timestamptz,
   CHECK ((assignee_user_id IS NULL) OR (assignee_agent_id IS NULL)),
   UNIQUE (project_id, number),
+  UNIQUE (id, organization_id),
   FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id),
   FOREIGN KEY (state_id, organization_id) REFERENCES workflow_states(id, organization_id),
   FOREIGN KEY (feature_id, organization_id) REFERENCES features(id, organization_id),
@@ -319,6 +323,7 @@ CREATE TABLE labels (
   color text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, name),
+  UNIQUE (id, organization_id),
   FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id)
 );
 
