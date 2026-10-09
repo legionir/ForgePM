@@ -35,3 +35,17 @@ export function createCipher(key: Buffer, currentKeyVersion = 1): Cipher {
     },
   };
 }
+
+/**
+ * Process-wide cipher holder. api/worker bootstrap installs one; every
+ * service accesses it through this helper so no module owns its own copy
+ * (single source of truth for encryption).
+ */
+let ACTIVE: Cipher | null = null;
+export function setActiveCipher(c: Cipher): void {
+  ACTIVE = c;
+}
+export function activeCipher(): Cipher {
+  if (!ACTIVE) throw new Error('cipher not initialised — call setActiveCipher during bootstrap');
+  return ACTIVE;
+}

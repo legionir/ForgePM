@@ -78,6 +78,11 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: AppDeps): voi
       const { scope, key } = req.params;
       await authorizeSettingWrite(actor, scope, req.params.scope_id, db);
       if (!isKnownSettingKey(key)) throw new AppError('VALIDATION_ERROR', `unknown setting key '${key}'`);
+      // Values that are known-but-not-implemented in v1 => 422 (plan §9.5:
+      // github.issue_sync_mode export/two_way must be rejected with 422).
+      if (key === 'github.issue_sync_mode' && (req.body.value === 'export' || req.body.value === 'two_way')) {
+        throw new AppError('UNPROCESSABLE', `github.issue_sync_mode='${String(req.body.value)}' is not available in v1 (only 'off' and 'import')`);
+      }
       const v = validateSettingValue(key, req.body.value);
       if (!v.ok) throw new AppError('VALIDATION_ERROR', v.message);
       const scopeId = resolveScopeId(actor, scope, req.params.scope_id);

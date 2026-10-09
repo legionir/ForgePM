@@ -48,7 +48,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   { key: 'github.auto_transition_on_merge', schema: z.boolean(), default: false, category: 'github' },
   {
     key: 'github.issue_sync_mode',
-    schema: z.enum(['off', 'import']),
+    schema: z.enum(['off', 'import', 'export', 'two_way']),
     default: 'off',
     category: 'github',
   },

@@ -1,6 +1,6 @@
 import { newId } from './id';
 import { toJsonb } from './jsonb';
-import type { Tx } from './db/unitOfWork';
+import type { DbLike } from './db/unitOfWork';
 
 export interface AuditRecord {
   organization_id: string;
@@ -19,7 +19,7 @@ export interface AuditRecord {
  * whole unit of work rolls back — which is the required behaviour
  * (acceptance §5: injected audit failure rolls back the mutation).
  */
-export async function recordAudit(tx: Tx, rec: AuditRecord): Promise<string> {
+export async function recordAudit(tx: DbLike, rec: AuditRecord): Promise<string> {
   const id = newId();
   await tx
     .insertInto('audit_events')

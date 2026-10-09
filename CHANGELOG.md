@@ -171,8 +171,159 @@ Conventional Commits groupings. Tags map to plan §17.
 - 200k-item p95 <200ms perf budget is a Remote-CI nightly measurement, not a
   per-PR gate (PERFORMANCE_BUDGET.md).
 
+## [0.3.0] — Phase 3 (2026-10-09)
+
+### Added
+
+- Migration `0005_planner`: ai_providers (kind CHECK + AES-256-GCM
+  `encrypted_key` + `key_last4`), ai_calls, plans (status CHECK for the
+  10-state lifecycle), plan_revisions (immutable, `UNIQUE(plan_id,revision_no)`),
+  replan_suggestions, approval_requests (org/project composite FK).
+- AiProvider interface + FakeProvider (deterministic, offline fixture list),
+  OpenAiCompatibleProvider, AnthropicProvider; keys decrypted only in the
+  resolver, never exposed. AES-256-GCM cipher with key_version for rotation.
+- Planner state machine + pure validators (`validatePlan`, `findCycle`,
+  `similarity`, `revisionHash`) with unit tests; the plan §7 lifecycle
+  table encoded in `TRANSITIONS`.
+- createPlan enqueues `planner.generate` via the outbox (services never touch
+  BullMQ directly); generatePlan validates output, retries 2× on invalid,
+  records `ai_calls`, transitions to `ready` / `needs_clarification` /
+  `generation_failed`; a manual revision path exists so the planner works with
+  **no** provider configured.
+- approvePlan enforces `validation.ok`, `plan:approve`, and self-approval
+  (`FORBIDDEN_SELF_APPROVAL`). applyPlan runs in ONE transaction with
+  injectable-failure rollback proving zero-partial-data semantics and
+  out-of-tx `apply_failed`; apply is a distinct `plan:apply` scope + never
+  implied by approve.
+- Daily token budget (`ai.daily_token_budget`, default 0 = unlimited) checked
+  before each provider call → `AI_BUDGET_EXCEEDED`.
+- Manual / auto_low_risk approval matrix (plan §7): agent writes routed through
+  `classify()`; low-risk under `auto_low_risk` runs immediately, otherwise a
+  `pending_approval` approval_request is created and the endpoint returns
+  HTTP 202 `{ status: 'pending_approval', approval_request_id }`. Agents can
+  never decide their own approvals; only human admins can.
+
+### Known gaps (recorded)
+
+- Panel Planner / Approvals / AI Providers pages deferred (B-005 / D-013).
+- Replan-monitor daily job + `replan_suggestions` UI: schema in place; the
+  scheduled job ships in Phase 7 alongside other maintenance jobs.
+
+## [0.5.0] — Phase 5 (2026-10-09)
+
+### Added
+
+- Migration `0007_github`: repositories (composite `UNIQUE(id, organization_id)`
+  target + `UNIQUE(provider, external_id)`), project_repositories (composite FKs
+  to both projects and repositories), pull_requests (+`draft`/`body`/`merged_at`),
+  commits, branches, webhook_deliveries (`organization_id`, `UNIQUE(delivery_id)`,
+  `received|processing|done|failed`), external_issue_links (`remote_version`,
+  `last_synced_at`, `local_modified_at` for conflict detection), releases.
+- Core `secrets.ts`: put/get/find/delete encrypted application secrets using
+  the process cipher (§3b-1.5). Env is bootstrap-only — first read copies into
+  `secrets` so DB becomes the source of truth.
+- `activeCipher()` process-wide cipher holder (installed once per app/worker
+  bootstrap) — replaces the per-module `setCipher` and lets both apps share.
+- `recordAudit` widened to `DbLike` so worker/one-shot audit writes are legal.
+- `github/delivery.ts` (in **core**, so api + worker share one code path):
+  `applyPullRequestEvent` (repo + PR upsert, key extraction from branch/title/
+  body, auto-transition-on-merge via injected callback reading the project
+  setting); `importIssueEvent` (off|import one-way with `sync_conflict` audit
+  when local edit > last sync); `recordRelease`; `normalize{PullRequest,Issue}
+  Payload`. `extractItemKeys`/`extractClosingKeys` (2-5 uppercase letters
+  project-key regex) live here and are re-exported from the api.
+- Webhook receiver `POST /integrations/github/webhook`: module-gated (503 when
+  disabled), constant-time HMAC-SHA256 verification of `X-Hub-Signature-256`
+  (401 on mismatch), stores `webhook_deliveries` + an `outbox` row in ONE
+  transaction, replies 202. Duplicate `delivery_id` is a no-op still 202.
+  Raw-body capture via the shared JSON content-type parser (installed once).
+- `github.process_delivery` worker handler dispatches on the delivery event
+  (pull_request / issues / release), is idempotent via the delivery status
+  guard (at-least-once → exactly-one-effect), writes a `system` audit with
+  counts. Registered in the same outbox→dispatcher→BullMQ path as `system.ping`.
+- REST endpoints (all module-gated): `GET /repositories`,
+  `POST /projects/:id/repositories` (connect),
+  `POST /projects/:id/pull-requests` (manual PR link),
+  `POST /projects/:id/issues/import` (returns 200/201 with `created|updated|
+  conflict|skipped`), `POST /projects/:id/releases`,
+  `GET /work-items/:key/development` (Development tab), `POST/GET
+  /integrations/github/{config,status}` (secrets:manage, encrypted at rest).
+- `github.issue_sync_mode` registry allows `off|import|export|two_way` per
+  plan §12 (columns present) but v1 rejects `export|two_way` with **422** on
+  write — the panel-facing "unavailable in this version" contract (plan §9.5).
+- MCP: `buildGithubTools(db)` registers the five §13 github tools, each with
+  `module: 'github'` so the dispatcher hides them from `tools/list` and rejects
+  direct calls with MODULE_DISABLED when the module is off.
+- `GithubClient` interface + `FakeGithubClient` (scripted in tests; the octokit
+  HTTP path is left to the runtime `pnpm`-installed `@octokit/*` deps pinned in
+  `apps/api/package.json`; tests never hit the network per plan §15).
+
+### Tests
+
+- 9 Phase-5 integration cases: boot with zero github config + core unaffected;
+  503 MODULE_DISABLED; bad-signature 401 with no delivery row; valid signature
+  + resend idempotency; PR key extraction from branch + title (2 links);
+  merged+`fixes KEY` moves only that item to completed; secrets not in plaintext
+  dump or audit; two repositories visible per project; issue-import mode off /
+  import (create + no-dup update + local-edit-after-sync conflict path with
+  `github.sync_conflict` audit); release persistence; `export|two_way` → 422.
+- 5 worker-driven integration cases: PR delivery links items via keys;
+  at-least-once re-run is a no-op; issues delivery imports (mode=import);
+  release delivery records a row; the full **outbox → dispatcher → BullMQ →
+  handler** path is exercised by a real Worker.
+- New unit tests: `verifyWebhookSignature` (valid/Buffer/wrong secret/body
+  mismatch/malformed headers/truncated sig), core `delivery.ts` helpers
+  (`extractItemKeys` / `extractClosingKeys` / normalizers), the real HTTP
+  providers (`OpenAiCompatibleProvider`, `AnthropicProvider`) against a
+  loopback mock server (2xx/5xx/invalid-JSON), `maskInput`, `capOutput`,
+  `ToolRegistry.visible` (scope + module filter), `estimateTokens`,
+  `ProviderError`, `requestHash`, planner state helpers.
+- Suite: **173 tests**, `pnpm verify` green (91.4% lines / 80% functions).
+
+### Known gaps (recorded)
+
+- Panel Integrations ← GitHub page (configure/install/sync mode/Development
+  tab) and the daily reconciliation job ship in Phase 7 (schema is in place;
+  `sync_origin`/`last_synced_at` columns already exist). Recorded in B-005.
+- Issue `export`/`two_way` modes are refused with 422 per plan §9.5 (deliberate).
+
+## [0.4.0] — Phase 4a (2026-10-09)
+
+### Added
+
+- Migration `0006_mcp`: `mcp_tool_calls` (call log) + `mcp_servers` (external
+  client registry, 4b). Core `ToolRegistry` + `maskInput` + `capOutput` (50 KiB
+  truncation per §8.9).
+- `/mcp` Streamable-HTTP JSON-RPC handler: initialize / tools-list /
+  tools-call / resources-list / prompts-list. Every call runs the §3b-6 order
+  at call time (auth → scope → module-enabled → idempotency → service);
+  `tools/list` filters by key scopes + enabled modules but is not the security
+  control. `mcp_tool_calls` records masked inputs.
+- 34 tools registered from projects/work-items/planner/approvals (final §8.4
+  planner set with NO `planner_generate_work_items`; separate `plan_approve` /
+  `plan_apply` scopes). Handlers only call module services.
+- Real MCP SDK client round-trip contract test (Client + InMemoryTransport)
+  proving our wire format matches spec-compliant clients; `pnpm mcp:smoke`
+  executed green against a live server via `StreamableHTTPClientTransport`.
+- Tests: 9 + 2 Phase-4 integration cases covering the full §8 acceptance
+  matrix: unauth 401, scope filtering + direct FORBIDDEN_SCOPE, `project_ids`
+  key restriction (NOT_FOUND not 403), bulk idempotency via
+  `structuredContent`, 120/min rate limit, mask-in-call-log (no raw
+  token/key), revoked key rejected at call time (not list), planner contract
+  (approve/apply separate scopes, no `planner_generate_work_items`).
+
+### Known gaps (recorded)
+
+- 4b optional MCP client (stdio/HTTP to external servers) deferred behind
+  `mcp.client.enabled` (BLOCKERS B-006, D-020). `mcp_servers` table +
+  `network.allow_private_targets` are in place for the follow-up.
+- Panel MCP settings + `mcp_tool_calls` log viewer deferred with the panel
+  (B-005).
+
 ## Not yet delivered (per plan gating)
 
-Phases 3–7 and the `v1.0.0-rc.1` release: planner + AI layer, MCP server,
-GitHub module, reviews, hardening; plus the panel UI above.
+Phases 6–7 and the `v1.0.0-rc.1` release: Code/Refactor reviews, panel
+completion (login/setup, projects, work items, planner, approvals, integrations,
+MCP, settings, users, audit, jobs, backups, health) with Playwright E2E,
+security/perf hardening.
 

@@ -418,6 +418,93 @@ export interface McpServersTable {
   created_at: Timestamp;
 }
 
+// ---- Phase 5: GitHub (plan §9, §12 §F) ----
+
+export interface RepositoriesTable {
+  id: string;
+  organization_id: string;
+  provider: Generated<string>;
+  external_id: string;
+  full_name: string;
+  installation_id: string | null;
+  default_branch: string | null;
+  created_at: Timestamp;
+}
+
+export interface ProjectRepositoriesTable {
+  project_id: string;
+  repository_id: string;
+  organization_id: string;
+  created_at: Timestamp;
+}
+
+export interface PullRequestsTable {
+  id: string;
+  repository_id: string;
+  external_id: string;
+  number: number;
+  title: string;
+  state: string;
+  draft: Generated<boolean>;
+  author: string | null;
+  head_sha: string | null;
+  body: string | null;
+  merged_at: Date | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface CommitsTable {
+  id: string;
+  repository_id: string;
+  external_id: string;
+  sha: string;
+  message: string | null;
+  author: string | null;
+  authored_at: Date | null;
+}
+
+export interface BranchesTable {
+  id: string;
+  repository_id: string;
+  name: string;
+  sha: string | null;
+  created_at: Timestamp;
+  deleted_at: Date | null;
+}
+
+export interface WebhookDeliveriesTable {
+  id: string;
+  organization_id: string;
+  delivery_id: string;
+  event: string;
+  payload: Jsonb;
+  received_at: Timestamp;
+  processed_at: Date | null;
+  status: Generated<'received' | 'processing' | 'done' | 'failed'>;
+}
+
+export interface ExternalIssueLinksTable {
+  id: string;
+  work_item_id: string;
+  repository_id: string;
+  issue_number: number;
+  sync_origin: Generated<string>;
+  remote_version: string | null;
+  last_synced_at: Date | null;
+  local_modified_at: Date | null;
+  created_at: Timestamp;
+}
+
+export interface ReleasesTable {
+  id: string;
+  repository_id: string;
+  tag: string;
+  published_at: Date | null;
+  notes_ref: string | null;
+  created_at: Timestamp;
+}
+
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -452,4 +539,12 @@ export interface DB {
   approval_requests: ApprovalRequestsTable;
   mcp_tool_calls: McpToolCallsTable;
   mcp_servers: McpServersTable;
+  repositories: RepositoriesTable;
+  project_repositories: ProjectRepositoriesTable;
+  pull_requests: PullRequestsTable;
+  commits: CommitsTable;
+  branches: BranchesTable;
+  webhook_deliveries: WebhookDeliveriesTable;
+  external_issue_links: ExternalIssueLinksTable;
+  releases: ReleasesTable;
 }

@@ -209,3 +209,44 @@ Format per plan §2: Context / Decision / Reason.
   allowlist shape already exist. Recorded in BLOCKERS B-006.
 - Reason: honours "MCP Server internal is mandatory in v1" while deferring the
   optional client; honest reporting of what ran (all 4a gates green).
+
+
+## D-021 — GitHub delivery processing lives in @forgepm/core, not api
+- Context: plan §1.2 forbids two writers and §3 forbids cross-app imports.
+  The webhook job runs in the worker; the manual PR/issue/release paths live in
+  the api. Both must apply identical logic.
+- Decision: place `applyPullRequestEvent`, `importIssueEvent`, `recordRelease`,
+  normalizers and key-extraction in `packages/core/src/github/delivery.ts`.
+  The api's processPullRequest/importIssue and the worker's
+  github.process_delivery handler all delegate to it.
+- Reason: single source of behaviour; no cross-app imports; keeps the module
+  boundary ESLint rules intact while remaining actor-free for the worker.
+
+## D-022 — One process-wide cipher holder (`setActiveCipher`/`activeCipher`)
+- Context: plan §3b-1.5 keeps env as bootstrap only and DB as source of truth.
+  The api installed its own cipher singleton; the worker would need to
+  duplicate that (or the api's) to decrypt the same values.
+- Decision: install a single Cipher at startup (`app.buildApp`, `worker.main`)
+  via `setActiveCipher(createCipher(Buffer.from(FORGEPM_SECRET_KEY,'base64')))`;
+  every secret access uses `activeCipher()`. `secrets.ts` helpers take the
+  cipher as a parameter (testability) but the callers use `activeCipher()`.
+- Reason: one authoritative key per process; env bootstrap copy-in happens in
+  the read helper so a config saved from the panel is picked up automatically.
+
+## D-023 — Webhook signature verification uses raw bytes captured by a custom
+- Context: §9.1 requires constant-time HMAC over the *exact* received body;
+  fastify's default JSON parser already re-serialises, breaking byte equality.
+- Decision: replace the JSON content-type parser with one that parses as string
+  first, stores `req.rawBody`, then JSON-parses. The webhook handler verifies
+  against `rawBody`. `verifyWebhookSignature` rejects a length mismatch BEFORE
+  timingSafeEqual so a truncated prefix cannot be forged.
+- Reason: matches GitHub's spec and avoids a real-world timing side-channel.
+
+## D-024 — github.issue_sync_mode rejects export/two_way at write-time with 422
+- Context: plan §9.5 says v1 only supports `off` and `import`; the other values
+  are "not available" (columns exist for the future). Zod enum alone would
+  return 400; §13 maps "not available in this version" to UNPROCESSABLE (422).
+- Decision: the registry keeps the 4-valued enum (so the value is well-formed),
+  but the settings route rejects `export|two_way` with 422 + a clear message.
+- Reason: the response is a semantic "not implemented yet", not a schema
+  violation; matches the acceptance text verbatim.

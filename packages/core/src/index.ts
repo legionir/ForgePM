@@ -33,6 +33,27 @@ export {
   type SettingDefinition,
 } from './settings-registry';
 export { recordAudit, SYSTEM_ACTOR_ID, type AuditRecord } from './audit';
+export {
+  putSecret,
+  getSecret,
+  findSecretByName,
+  deleteSecret,
+  type SecretMeta,
+} from './secrets';
+export {
+  applyPullRequestEvent,
+  normalizePullRequestPayload,
+  importIssueEvent,
+  normalizeIssuePayload,
+  recordRelease,
+  upsertRepo,
+  deliveryRow,
+  markDeliveryDone,
+  extractItemKeys,
+  extractClosingKeys,
+  type PullRequestEventData,
+  type IssueEventData,
+} from './github/delivery';
 export { can, authorize, type Action, type ActorAccess } from './permissions/matrix';
 export {
   generateApiKey,

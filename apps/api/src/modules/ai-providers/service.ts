@@ -1,5 +1,4 @@
-import { createCipher, type Cipher, type Db, type DbLike, newId, recordAudit, unitOfWork } from '@forgepm/core';
-import { AppError } from '@forgepm/shared';
+import { activeCipher, type Db, type DbLike, newId, recordAudit, unitOfWork } from '@forgepm/core';
 
 export interface ProviderRow {
   id: string;
@@ -13,10 +12,6 @@ export interface ProviderRow {
 }
 
 const COLS = ['id', 'organization_id', 'name', 'kind', 'base_url', 'key_last4', 'default_model', 'enabled'] as const;
-
-export function getCipher(env: { FORGEPM_SECRET_KEY: string }): Cipher {
-  return createCipher(Buffer.from(env.FORGEPM_SECRET_KEY, 'base64'));
-}
 
 export function last4(s: string): string {
   return s.slice(-4);
@@ -40,7 +35,7 @@ export async function createProvider(
   input: { name: string; kind: ProviderRow['kind']; base_url?: string | null; default_model?: string | null; api_key?: string | null; enabled?: boolean },
 ): Promise<string> {
   const id = newId();
-  const cipher = input.api_key ? cipherFor(db) : null;
+  const cipher = input.api_key ? activeCipher() : null;
   await unitOfWork(db, async ({ tx }) => {
     await tx
       .insertInto('ai_providers')
@@ -70,20 +65,10 @@ export async function createProvider(
   return id;
 }
 
-// The cipher is injected via setCipher during app/worker bootstrap.
-let CIPHER: Cipher | null = null;
-export function setCipher(c: Cipher): void {
-  CIPHER = c;
-}
-function cipherFor(_db: DbLike): Cipher {
-  if (!CIPHER) throw new AppError('INTERNAL', 'cipher not initialised');
-  return CIPHER;
-}
-
 export async function decryptKey(db: DbLike, id: string, orgId: string): Promise<string | null> {
   const row = await db.selectFrom('ai_providers').select('encrypted_key').where('id', '=', id).where('organization_id', '=', orgId).executeTakeFirst();
   if (!row || !row.encrypted_key) return null;
-  return cipherFor(db).decrypt(row.encrypted_key as Buffer);
+  return activeCipher().decrypt(row.encrypted_key as Buffer);
 }
 
 

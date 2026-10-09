@@ -18,16 +18,18 @@ const DOC = fileURLToPath(new URL('../docs/DATA_MODEL.md', import.meta.url));
 function parseContract(): Map<string, { columns: Map<string, string>; indexes: string[] }> {
   const md = readFileSync(DOC, 'utf8');
   const blocks = [...md.matchAll(/```sql\n([\s\S]*?)```/g)].map((m) => m[1]);
-  // Blocks covered by shipped migrations: §A (infra), §B (Phase 1 core),
-  // §C (Phase 2 domain), §D (Phase 3 planner). Later blocks skipped.
-  const relevant = blocks.filter(
-    (b) =>
-      b.includes('CREATE TABLE outbox') ||
-      b.includes('CREATE TABLE organizations') ||
-      b.includes('CREATE TABLE workflow_states') ||
-      b.includes('CREATE TABLE ai_providers'),
-  );
-  if (relevant.length < 4) throw new Error('DATA_MODEL.md: infra/core/domain/planner blocks not found');
+  // Blocks covered by shipped migrations: §A infra, §B core, §C domain,
+  // §D planner, §E mcp, §F github. Later blocks skipped.
+  const anchors = [
+    'CREATE TABLE outbox',
+    'CREATE TABLE organizations',
+    'CREATE TABLE workflow_states',
+    'CREATE TABLE ai_providers',
+    'CREATE TABLE mcp_tool_calls',
+    'CREATE TABLE repositories',
+  ];
+  const relevant = blocks.filter((b) => anchors.some((a) => b.includes(a)));
+  if (relevant.length < anchors.length) throw new Error(`DATA_MODEL.md: expected ${anchors.length} covered blocks, found ${relevant.length}`);
 
   const tables = new Map<string, { columns: Map<string, string>; indexes: string[] }>();
   const tableRe = /CREATE TABLE (\w+) \(([\s\S]*?)\n\);/g;

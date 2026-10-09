@@ -508,7 +508,8 @@ CREATE TABLE repositories (
   installation_id text,
   default_branch text,
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (provider, external_id)
+  UNIQUE (provider, external_id),
+  UNIQUE (id, organization_id)
 );
 
 CREATE TABLE project_repositories (
@@ -526,8 +527,10 @@ CREATE TABLE pull_requests (
   number integer NOT NULL,
   title text NOT NULL,
   state text NOT NULL,
+  draft boolean NOT NULL DEFAULT false,
   author text,
   head_sha text,
+  body text,
   merged_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -557,6 +560,7 @@ CREATE TABLE branches (
 
 CREATE TABLE webhook_deliveries (
   id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
   delivery_id text NOT NULL,
   event text NOT NULL,
   payload jsonb NOT NULL,

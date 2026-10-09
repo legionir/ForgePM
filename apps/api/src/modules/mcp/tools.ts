@@ -25,6 +25,7 @@ import * as projects from '../projects/service';
 import * as planner from '../planner/service';
 import { assertProjectAccess } from '../projects/access';
 import { getWorkItemByKey } from '../work-items/items-repository';
+import { buildGithubTools } from '../github/mcp-tools';
 import { listPending, decide as decideApprovalSvc } from '../approvals/service';
 
 type Tool = Parameters<ToolRegistry['register']>[0];
@@ -103,6 +104,9 @@ export function buildToolRegistry(db: Db): ToolRegistry {
     handler: async (_args, ctx) => ({ items: await listPending(db, actor(ctx).organizationId) } as unknown) as Promise<unknown> });
   add({ name: 'approval_decide', description: 'Decide an approval request (human admin only).', inputSchema: z.object({ id: z.string().uuid(), decision: z.enum(['approved', 'rejected']), reason: z.string().optional() }), scopes: ['admin'], annotations: { destructiveHint: true },
     handler: (args, ctx) => decideApprovalSvc(db, actor(ctx), args.id as string, args.decision as 'approved' | 'rejected', args.reason as string | undefined) as Promise<unknown> });
+
+  // ---- github_* (module-gated on 'github'; only listed when enabled) ----
+  for (const t of buildGithubTools(db)) add(t);
 
   return reg;
 }

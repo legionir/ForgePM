@@ -1,6 +1,8 @@
 import IORedis from 'ioredis';
 import { ModuleRegistry, type Db } from '@forgepm/core';
 import { sampleModule } from '../modules/sample/module';
+import { githubModule } from '../modules/github/module';
+import { validateConfig as githubValidate } from '../modules/github/config';
 
 /**
  * Module registration happens at startup regardless of enabled state
@@ -9,7 +11,10 @@ import { sampleModule } from '../modules/sample/module';
 export function buildRegistry(): ModuleRegistry {
   const registry = new ModuleRegistry();
   registry.register(sampleModule);
-  // github, code_review, refactor_review, mcp_client register here in later phases.
+  // github is always registered; validateConfig (runs on enable) checks for a
+  // webhook secret. The core runs fully with no github config at all (§9).
+  registry.register({ ...githubModule, validateConfig: githubValidate });
+  // code_review, refactor_review, mcp_client register in later phases.
   return registry;
 }
 

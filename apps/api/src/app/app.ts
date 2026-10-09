@@ -4,7 +4,7 @@ import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { AppError, ERROR_CODES } from '@forgepm/shared';
-import { ModuleRegistry, makeRequireModule, loggerOptions, pingDb, type Env } from '@forgepm/core';
+import { ModuleRegistry, makeRequireModule, loggerOptions, pingDb, setActiveCipher, createCipher, type Env } from '@forgepm/core';
 import { randomUUID } from 'node:crypto';
 import type { Db } from '@forgepm/core';
 import { registerSampleModule } from '../modules/sample/routes';
@@ -24,7 +24,7 @@ import { registerAiProvidersRoutes } from '../modules/ai-providers/routes';
 import { registerApprovalsRoutes } from '../modules/approvals/routes';
 import { registerMcpRoutes } from '../modules/mcp/routes';
 import { buildToolRegistry } from '../modules/mcp/tools';
-import { setCipher, getCipher } from '../modules/ai-providers/service';
+import { registerGithubRoutes } from '../modules/github/routes';
 import { setProviderResolver } from '../modules/planner/service';
 import { makeProviderResolver } from './provider-resolver';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
@@ -52,8 +52,8 @@ declare module 'fastify' {
 }
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
-  // Initialise the secret cipher + planner provider resolver per app instance.
-  setCipher(getCipher(deps.env));
+  // Initialise the process-wide cipher + planner provider resolver.
+  setActiveCipher(createCipher(Buffer.from(deps.env.FORGEPM_SECRET_KEY, 'base64')));
   setProviderResolver(makeProviderResolver(deps.db, deps.plannerFixtures ?? new Map()));
   const app = Fastify({
     logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
@@ -64,6 +64,17 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  // Parse JSON as a string first so the GitHub webhook handler can verify the
+  // HMAC over the *exact* received bytes (fastify's default parser loses them).
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    (req as import('fastify').FastifyRequest & { rawBody?: string }).rawBody = body as string;
+    try {
+      done(null, (body as string).length ? JSON.parse(body as string) : {});
+    } catch (e) {
+      done(e as Error);
+    }
+  });
 
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
@@ -101,6 +112,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // module gates (github/reviews) are checked at call time.
   const tools = buildToolRegistry(deps.db);
   registerMcpRoutes(app, { db: deps.db, registry: deps.registry, tools, rateLimitPerMinute: 120 });
+  registerGithubRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));

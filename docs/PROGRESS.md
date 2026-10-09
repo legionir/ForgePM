@@ -22,7 +22,13 @@ integration test, `pnpm mcp:smoke` green against a running server.
 with the rest of the panel (B-005).
 
 ## Phase 5 — v0.5.0
-Status: **in progress**.
+Status: **in progress** — backend complete (webhook+HMAC, PR/issue/release
+processing shared by api+worker via core, module lifecycle, 5 MCP tools,
+secrets at rest); 14 phase-5 tests + unit tests green; full verify green
+(173 tests). Reconciliation daily job + panel page deferred to Phase 7 (B-005).
+
+## Phase 6 — v0.6.0
+Status: not started.
 
 Last commit: (this commit).
 Remaining gates before tagging:
