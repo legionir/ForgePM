@@ -50,6 +50,18 @@ export {
   type IdempotencyOutcome,
 } from './idempotency';
 export { findCycle, workProgress, releaseReadiness, TERMINAL_CATEGORIES, type CategoryCounts } from './graph';
+export { validatePlan, similarity } from './planner/validate';
+export {
+  estimateTokens,
+  ProviderError,
+  type AiProvider,
+  type GenerateRequest,
+  type GenerateResult,
+} from './ai/provider';
+export { buildProvider, FakeProvider, OpenAiCompatibleProvider, AnthropicProvider } from './ai/providers';
+export { tokensUsedToday } from './ai/budget';
+export { canTransition, nextStatus, isTerminal, type PlanEvent } from './planner/state';
+export { revisionHash, createPlanInputSchema, planDtoSchema, planContentDtoSchema } from './planner/types';
 export {
   ModuleRegistry,
   makeRequireModule,

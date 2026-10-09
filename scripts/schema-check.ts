@@ -19,14 +19,15 @@ function parseContract(): Map<string, { columns: Map<string, string>; indexes: s
   const md = readFileSync(DOC, 'utf8');
   const blocks = [...md.matchAll(/```sql\n([\s\S]*?)```/g)].map((m) => m[1]);
   // Blocks covered by shipped migrations: §A (infra), §B (Phase 1 core),
-  // §C (Phase 2 domain). Later blocks (§D+ for phases not yet built) are skipped.
+  // §C (Phase 2 domain), §D (Phase 3 planner). Later blocks skipped.
   const relevant = blocks.filter(
     (b) =>
       b.includes('CREATE TABLE outbox') ||
       b.includes('CREATE TABLE organizations') ||
-      b.includes('CREATE TABLE workflow_states'),
+      b.includes('CREATE TABLE workflow_states') ||
+      b.includes('CREATE TABLE ai_providers'),
   );
-  if (relevant.length < 3) throw new Error('DATA_MODEL.md: infrastructure/core/domain blocks not found');
+  if (relevant.length < 4) throw new Error('DATA_MODEL.md: infra/core/domain/planner blocks not found');
 
   const tables = new Map<string, { columns: Map<string, string>; indexes: string[] }>();
   const tableRe = /CREATE TABLE (\w+) \(([\s\S]*?)\n\);/g;

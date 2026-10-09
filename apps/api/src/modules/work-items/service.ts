@@ -7,12 +7,14 @@ import {
   beginIdempotency,
   storeIdempotencyResult,
   abandonIdempotency,
+  getEffective,
   type Db,
   type Tx,
   type DbLike,
 } from '@forgepm/core';
 import type { Actor } from '../../app/auth-context';
 import { assertProjectAccess } from '../projects/access';
+import { classify, createApproval, autoRateOk } from '../approvals/service';
 import {
   getWorkItemById,
   getWorkItemByKey,
@@ -37,12 +39,25 @@ import {
  * Create a work item. Enforces the parent-depth CHECK (plan §6.1 max 3),
  * assigns `PRJ-N` number atomically, writes audit in the same tx.
  */
-export async function createWorkItem(db: Db, actor: Actor, projectId: string, input: CreateWorkItemInput): Promise<WorkItemDto> {
+export type CreateResult = WorkItemDto | { pending: true; approval_request_id: string };
+
+export async function createWorkItem(db: Db, actor: Actor, projectId: string, input: CreateWorkItemInput): Promise<CreateResult> {
   await assertProjectAccess(db, actor, projectId, 'project:write');
   if (input.assignee_user_id && input.assignee_agent_id) {
     throw new AppError('VALIDATION_ERROR', 'an item can have at most one assignee (user or agent)');
   }
   await ensureWorkflow(db as never, projectId, actor.organizationId);
+  // Approval policy gate (plan §7): an agent's non-low-risk writes become a
+  // pending approval_request instead of creating the item directly.
+  if (actor.type === 'agent') {
+    const allowed = new Set(((await getEffective(db as Db, 'approval.auto_operations', actor.organizationId, projectId))?.value as string[]) ?? ['work_item.create', 'work_item.update_content', 'work_item.comment', 'work_item.link']);
+    const rateOk = await autoRateOk(db, actor.id);
+    const verdict = await classify(db, actor.organizationId, projectId, { operation: 'work_item.create', item_type: input.type, priority: input.priority ?? 'none' }, { actorType: 'agent', autoOpsAllowed: allowed, rateOk });
+    if (verdict === 'approval') {
+      const approvalId = await createApproval(db, actor.organizationId, projectId, actor.id, 'work_item.create', { project_id: projectId, title: input.title, type: input.type }, 'sensitive');
+      return { pending: true, approval_request_id: approvalId };
+    }
+  }
   // depth check: parent -> grandparent -> great-grandparent (max 3 hops)
   if (input.parent_id) {
     await assertDepth(db as never, actor.organizationId, input.parent_id);

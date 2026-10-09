@@ -315,6 +315,82 @@ export interface FeatureDependenciesTable {
   created_at: Timestamp;
 }
 
+// ---- Phase 3: AI providers, plans, approvals (plan §7, §12 §D) ----
+
+export interface AiProvidersTable {
+  id: string;
+  organization_id: string;
+  name: string;
+  kind: 'anthropic' | 'openai' | 'openai_compatible' | 'fake';
+  base_url: string | null;
+  encrypted_key: Buffer | null;
+  key_last4: string | null;
+  default_model: string | null;
+  enabled: Generated<boolean>;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface AiCallsTable {
+  id: string;
+  organization_id: string;
+  provider_id: string;
+  model: string;
+  purpose: string;
+  tokens_in: number | null;
+  tokens_out: number | null;
+  latency_ms: number | null;
+  status: 'ok' | 'error';
+  created_at: Timestamp;
+}
+
+export interface PlansTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  goal: string;
+  status: 'generating' | 'needs_clarification' | 'ready' | 'approved' | 'applying' | 'applied' | 'generation_failed' | 'apply_failed' | 'canceled' | 'superseded';
+  current_revision_id: string | null;
+  created_by: string;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface PlanRevisionsTable {
+  id: string;
+  plan_id: string;
+  revision_no: number;
+  content: Jsonb;
+  validation: Jsonb | null;
+  created_by: string;
+  created_at: Timestamp;
+}
+
+export interface ReplanSuggestionsTable {
+  id: string;
+  organization_id: string;
+  plan_id: string;
+  reason: string;
+  details: Jsonb;
+  status: Generated<'open' | 'dismissed'>;
+  created_at: Timestamp;
+}
+
+export interface ApprovalRequestsTable {
+  id: string;
+  organization_id: string;
+  project_id: string | null;
+  requested_by: string;
+  action: string;
+  payload: Jsonb;
+  risk: Generated<'low' | 'sensitive'>;
+  status: Generated<'pending' | 'approved' | 'rejected' | 'canceled'>;
+  decided_by: string | null;
+  decided_at: Date | null;
+  reason: string | null;
+  created_at: Timestamp;
+}
+
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -341,4 +417,10 @@ export interface DB {
   saved_views: SavedViewsTable;
   work_item_external_links: WorkItemExternalLinksTable;
   feature_dependencies: FeatureDependenciesTable;
+  ai_providers: AiProvidersTable;
+  ai_calls: AiCallsTable;
+  plans: PlansTable;
+  plan_revisions: PlanRevisionsTable;
+  replan_suggestions: ReplanSuggestionsTable;
+  approval_requests: ApprovalRequestsTable;
 }

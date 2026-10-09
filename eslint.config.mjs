@@ -21,7 +21,7 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
-      globals: { process: 'readonly', Buffer: 'readonly', globalThis: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', URL: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', NodeJS: 'readonly' },
+      globals: { process: 'readonly', Buffer: 'readonly', globalThis: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', URL: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', NodeJS: 'readonly', fetch: 'readonly', AbortController: 'readonly' },
     },
     plugins: {
       '@typescript-eslint': tseslint,

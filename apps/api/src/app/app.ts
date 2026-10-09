@@ -19,6 +19,12 @@ import { registerWorkItemsRoutes } from '../modules/work-items/routes';
 import { registerFeaturesRoutes } from '../modules/features/routes';
 import { registerMilestonesRoutes } from '../modules/milestones/routes';
 import { registerSavedViewsRoutes } from '../modules/saved-views/routes';
+import { registerPlannerRoutes } from '../modules/planner/routes';
+import { registerAiProvidersRoutes } from '../modules/ai-providers/routes';
+import { registerApprovalsRoutes } from '../modules/approvals/routes';
+import { setCipher, getCipher } from '../modules/ai-providers/service';
+import { setProviderResolver } from '../modules/planner/service';
+import { makeProviderResolver } from './provider-resolver';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 
 export interface AppDeps {
@@ -27,6 +33,8 @@ export interface AppDeps {
   registry: ModuleRegistry;
   /** Redis reachability probe for /health/ready (worker/queue health). */
   redisAvailable(): Promise<boolean>;
+  /** Test-only: per-planId fixture responses for the fake planner provider. */
+  plannerFixtures?: Map<string, unknown[]>;
 }
 
 export type RequireModuleFn = (
@@ -42,6 +50,9 @@ declare module 'fastify' {
 }
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
+  // Initialise the secret cipher + planner provider resolver per app instance.
+  setCipher(getCipher(deps.env));
+  setProviderResolver(makeProviderResolver(deps.db, deps.plannerFixtures ?? new Map()));
   const app = Fastify({
     logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
     genReqId: () => randomUUID(),
@@ -81,6 +92,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerFeaturesRoutes(app, deps);
   registerMilestonesRoutes(app, deps);
   registerSavedViewsRoutes(app, deps);
+  registerPlannerRoutes(app, deps);
+  registerAiProvidersRoutes(app, deps);
+  registerApprovalsRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));

@@ -113,8 +113,19 @@ export function registerWorkItemsRoutes(app: FastifyInstance, deps: AppDeps): vo
 
   t.post(
     '/api/v1/projects/:id/work-items',
-    { schema: { params: idParams, body: createWorkItemSchema, response: { 201: workItemDtoSchema } }, preHandler: guard(db, {}) },
-    async (req, reply) => reply.status(201).send(await createWorkItem(db, requireActor(req), req.params.id, req.body)),
+    {
+      schema: {
+        params: idParams,
+        body: createWorkItemSchema,
+        response: { 201: workItemDtoSchema, 202: z.object({ status: z.literal('pending_approval'), approval_request_id: z.string() }) },
+      },
+      preHandler: guard(db, {}),
+    },
+    async (req, reply) => {
+      const created = await createWorkItem(db, requireActor(req), req.params.id, req.body);
+      if ('pending' in created) return reply.status(202).send({ status: 'pending_approval' as const, approval_request_id: created.approval_request_id });
+      return reply.status(201).send(created);
+    },
   );
 
   t.get(

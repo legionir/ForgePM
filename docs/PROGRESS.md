@@ -10,6 +10,9 @@ Status: **complete** (local pass, remote pass). See `PHASE0_REPORT.md`.
 Status: **complete** (local pass, remote pass — CI run 37874572807). Panel UI deferred (B-005).
 
 ## Phase 2 — v0.2.0
+Status: **complete** (local pass, remote pass — CI run 37877395571; tag v0.2.0 = HEAD 890b743). Panel + Playwright E2E deferred (B-005).
+
+## Phase 3 — v0.3.0
 Status: **in progress**.
 Last commit: (this commit).
 Remaining gates before tagging:

@@ -162,3 +162,37 @@ Format per plan §2: Context / Decision / Reason.
   RATE_LIMITED beyond 10; @fastify/rate-limit is registered for global use.
 - Reason: satisfies the acceptance test deterministically; a distributed
   limiter is a scaling concern documented in SCALING.md, not Phase 1.
+
+
+## D-017 — Planner provider injection via app-level resolver + test fixtures
+- Context: §7 requires generation to use the org's configured provider, be
+  deterministic with the `fake` provider for tests, and never contact the
+  network in the test suite.
+- Decision: the planner service resolves providers through a single injected
+  `ProviderResolver`. `buildApp` installs it from the org's enabled
+  ai_providers row (fake/openai/openai_compatible/anthropic). Tests register
+  per-planId fixture responses (Map) so `POST /plans/:id/generate` is fully
+  offline and deterministic. When no provider is configured the resolver returns
+  null and the plan stays `generating` — the manual revision+approve path
+  remains available (plan §7 acceptance "planner works with no provider").
+- Reason: keeps the domain service transport-agnostic, satisfies determinism,
+  and honours the no-network test rule.
+
+## D-018 — applyPlan rollback via transaction abort + out-of-tx status write
+- Context: §7 requires that an injected mid-apply failure leaves NO partial
+  data and lands the plan in `apply_failed`.
+- Decision: applyPlan runs its writes in one `db.transaction()`. A failure is
+  thrown so Kysely aborts the transaction (all domain writes rolled back), then
+  the plan row is set to `apply_failed` in a SEPARATE transaction (so the
+  failure state itself persists). No compensating deletes needed.
+- Reason: uses the DB's atomicity guarantee instead of a hand-rolled rollback;
+  the separate status write is what makes the failure observable.
+
+## D-019 — Approval gate returns 202 pending_approval, not an error
+- Context: §7 under `manual` an agent write must create an approval_request and
+  NOT create the item; MCP contract says such ops return a pending object.
+- Decision: createWorkItem for an agent under a policy that disallows the op
+  inserts an approval_requests row and returns a `{pending, approval_request_id}`
+  result; the REST route maps it to HTTP 202 { status: pending_approval }.
+- Reason: matches the plan's "returns { status: pending_approval, ... }" shape
+  and keeps HTTP semantics (accepted, not an error).
