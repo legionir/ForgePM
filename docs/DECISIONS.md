@@ -196,3 +196,16 @@ Format per plan §2: Context / Decision / Reason.
   result; the REST route maps it to HTTP 202 { status: pending_approval }.
 - Reason: matches the plan's "returns { status: pending_approval, ... }" shape
   and keeps HTTP semantics (accepted, not an error).
+
+
+## D-020 — Phase 4b (optional MCP client) deferred; server (4a) complete
+- Context: plan §8 marks 4b (MCP client for external servers) optional behind
+  `mcp.client.enabled`. The mandatory Phase-4 deliverable is the internal
+  Streamable-HTTP MCP Server, exercised with the real SDK client.
+- Decision: ship 4a complete (Streamable HTTP `/mcp`, scope+module+rate gates,
+  `mcp_tool_calls` log with masked input, idempotency, planner contract,
+  real-SDK-client integration + `pnpm mcp:smoke` against a live server).
+  4b is implemented as a follow-up effort; the mcp_servers table + `read`-only
+  allowlist shape already exist. Recorded in BLOCKERS B-006.
+- Reason: honours "MCP Server internal is mandatory in v1" while deferring the
+  optional client; honest reporting of what ran (all 4a gates green).

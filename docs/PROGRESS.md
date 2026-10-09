@@ -13,7 +13,17 @@ Status: **complete** (local pass, remote pass — CI run 37874572807). Panel UI 
 Status: **complete** (local pass, remote pass — CI run 37877395571; tag v0.2.0 = HEAD 890b743). Panel + Playwright E2E deferred (B-005).
 
 ## Phase 3 — v0.3.0
+Status: **complete** (local pass, remote pass — CI run 37879871008; tag v0.3.0 = HEAD 40933f3). Panel deferred (B-005).
+
+## Phase 4 — v0.4.0 (server side)
+Status: **complete** — 4a shipped: Streamable-HTTP `/mcp`, real-SDK-client
+integration test, `pnpm mcp:smoke` green against a running server.
+4b (optional MCP client) deferred with B-006. Panel MCP settings deferred
+with the rest of the panel (B-005).
+
+## Phase 5 — v0.5.0
 Status: **in progress**.
+
 Last commit: (this commit).
 Remaining gates before tagging:
 - Panel UI (login/setup, projects, settings, users, API keys, audit, jobs) —

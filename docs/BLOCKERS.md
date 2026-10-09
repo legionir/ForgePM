@@ -36,3 +36,11 @@ it here; only missing GitHub push credentials may halt execution.
 - Mitigation/plan: all domain logic lives in services exercised by REST
   integration tests; the panel is a thin client added as a follow-up effort.
   Status: OPEN — tracked as deviation per plan §2 rule 4 (record and continue).
+
+
+## B-006 — [deviation] Phase 4b (MCP client to external servers) not shipped
+- Impact: `mcp.client.enabled` gates a stub; the client itself (stdio child
+  spawn + HTTP SSRF-protected fetch) is not yet built. The mandatory 4a
+  Streamable HTTP MCP Server IS shipped, tested and smoke-verified.
+- Plan: implement as a follow-up; the schema (mcp_servers, allowed_tools,
+  enabled) and the §14 SSRF helper are already in place.

@@ -391,6 +391,33 @@ export interface ApprovalRequestsTable {
   created_at: Timestamp;
 }
 
+// ---- Phase 4: MCP (plan §8, §12 §E) ----
+
+export interface McpToolCallsTable {
+  id: string;
+  organization_id: string;
+  api_key_id: string | null;
+  tool: string;
+  input_summary: Jsonb;
+  outcome: 'ok' | 'error' | 'pending_approval';
+  error_code: string | null;
+  duration_ms: number | null;
+  request_id: string | null;
+  created_at: Timestamp;
+}
+
+export interface McpServersTable {
+  id: string;
+  organization_id: string;
+  name: string;
+  transport: 'stdio' | 'http';
+  command: string | null;
+  url: string | null;
+  allowed_tools: Generated<string[]>;
+  enabled: Generated<boolean>;
+  created_at: Timestamp;
+}
+
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -423,4 +450,6 @@ export interface DB {
   plan_revisions: PlanRevisionsTable;
   replan_suggestions: ReplanSuggestionsTable;
   approval_requests: ApprovalRequestsTable;
+  mcp_tool_calls: McpToolCallsTable;
+  mcp_servers: McpServersTable;
 }

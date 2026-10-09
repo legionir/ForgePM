@@ -22,6 +22,8 @@ import { registerSavedViewsRoutes } from '../modules/saved-views/routes';
 import { registerPlannerRoutes } from '../modules/planner/routes';
 import { registerAiProvidersRoutes } from '../modules/ai-providers/routes';
 import { registerApprovalsRoutes } from '../modules/approvals/routes';
+import { registerMcpRoutes } from '../modules/mcp/routes';
+import { buildToolRegistry } from '../modules/mcp/tools';
 import { setCipher, getCipher } from '../modules/ai-providers/service';
 import { setProviderResolver } from '../modules/planner/service';
 import { makeProviderResolver } from './provider-resolver';
@@ -95,6 +97,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerPlannerRoutes(app, deps);
   registerAiProvidersRoutes(app, deps);
   registerApprovalsRoutes(app, deps);
+  // MCP Streamable HTTP: build the tool registry once at startup; enabled
+  // module gates (github/reviews) are checked at call time.
+  const tools = buildToolRegistry(deps.db);
+  registerMcpRoutes(app, { db: deps.db, registry: deps.registry, tools, rateLimitPerMinute: 120 });
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));

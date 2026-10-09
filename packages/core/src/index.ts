@@ -63,6 +63,17 @@ export { tokensUsedToday } from './ai/budget';
 export { canTransition, nextStatus, isTerminal, type PlanEvent } from './planner/state';
 export { revisionHash, createPlanInputSchema, planDtoSchema, planContentDtoSchema } from './planner/types';
 export {
+  ToolRegistry,
+  maskInput,
+  capOutput,
+  MCP_MAX_OUTPUT_BYTES,
+  type McpToolDefinition,
+  type McpCallContext,
+  type McpActor,
+  type AnyTool,
+  type ToolAnnotations,
+} from './mcp/registry';
+export {
   ModuleRegistry,
   makeRequireModule,
   type ModuleDefinition,
