@@ -109,3 +109,17 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: the principle is about what is deployed; documenting each exception
   (plan §14's "استثنای مستند") satisfies the rule honestly instead of skipping
   the audit entirely.
+
+## D-012 — v0.0.0 tag kept as-is (no force-push) after CI-fix follow-up commits
+- Context: per the phase loop the squash-merge commit was tagged v0.0.0 and
+  pushed. Remote CI then surfaced three real integration issues (YAML step-name
+  quoting, tsx scripts needing shared+core built first, empty-string admin env
+  vars) which were fixed as follow-up commits on main until CI went green at
+  HEAD. Re-pointing the tag would require a force-push, which plan §2 forbids.
+- Decision: keep v0.0.0 where it is (it marks the Phase 0 merge); the CI-green
+  Phase 0 state is main HEAD. docs/PHASE0_REPORT.md is generated from HEAD and
+  records local/remote both pass. Future phases: tag only after Remote CI is
+  green for the exact commit.
+- Reason: honour the no-force-push rule; never rewrite published tags; the
+  phase's acceptance evidence is the green CI run linked in the report, not an
+  assumption baked into the tag.
