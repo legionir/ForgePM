@@ -8,6 +8,7 @@ import {
   deleteSetting,
   validateSettingValue,
   isKnownSettingKey,
+  isReviewKeyRedeclaration,
   settingDefault,
   SETTING_DEFINITIONS,
   unitOfWork,
@@ -77,6 +78,11 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: AppDeps): voi
       const actor = requireActor(req);
       const { scope, key } = req.params;
       await authorizeSettingWrite(actor, scope, req.params.scope_id, db);
+      // plan §10: `review.*` is a shared registry for both review modules; a
+      // redeclaration under `code_review.*` / `refactor_review.*` is rejected.
+      if (isReviewKeyRedeclaration(key)) {
+        throw new AppError('UNPROCESSABLE', `'${key}' redeclares a shared review.* key; the review registry is the single source for both modules`);
+      }
       if (!isKnownSettingKey(key)) throw new AppError('VALIDATION_ERROR', `unknown setting key '${key}'`);
       // Values that are known-but-not-implemented in v1 => 422 (plan §9.5:
       // github.issue_sync_mode export/two_way must be rejected with 422).

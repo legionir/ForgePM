@@ -30,7 +30,9 @@ export type Action =
   | 'jobs:read'
   | 'secrets:manage'
   | 'plan:approve'
-  | 'plan:apply';
+  | 'plan:apply'
+  | 'review:run'
+  | 'review:decide';
 
 export interface ActorAccess {
   orgRole: OrgRole | null;
@@ -78,6 +80,12 @@ export function can(actor: ActorAccess, action: Action): boolean {
     case 'plan:approve':
       return orgAtLeast(orgRole, 'admin') || projectRole === 'lead';
     case 'plan:apply':
+      return orgAtLeast(orgRole, 'admin') || projectRole === 'lead';
+    // Phase 6 reviews: run/report is a write (creates runs/findings data);
+    // deciding findings (dismiss/approve/create-issue) needs lead/admin.
+    case 'review:run':
+      return orgAtLeast(orgRole, 'admin') || projectRole === 'lead' || projectRole === 'contributor';
+    case 'review:decide':
       return orgAtLeast(orgRole, 'admin') || projectRole === 'lead';
   }
 }

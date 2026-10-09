@@ -44,3 +44,22 @@ it here; only missing GitHub push credentials may halt execution.
   Streamable HTTP MCP Server IS shipped, tested and smoke-verified.
 - Plan: implement as a follow-up; the schema (mcp_servers, allowed_tools,
   enabled) and the §14 SSRF helper are already in place.
+
+
+## B-007 — [deviation] Phase 6 panel Reviews page not built this run
+- Impact: the §10 acceptance item "پنل: صفحه Reviews … با E2E روی fake" ships
+  with the panel follow-up (same tracked item as B-005/D-013), not in this
+  phase commit. Every page capability (run list, findings + filters,
+  approve/dismiss, create issue, policy management) exists as tested REST +
+  MCP surface; the panel is a thin client.
+- Status: OPEN — recorded per plan §2 rule 4 (record and continue).
+
+## B-008 — [deviation] GitHub octokit diff/comment adapters pending panel wiring
+- Impact: `setDiffProvider` and the GitHub review-output writer have tested
+  slot interfaces + fake implementations, but the octokit-backed production
+  adapters (PR file fetch + marked comment create/update) are wired when the
+  GitHub App installation flow ships with the phase-7 panel
+  (`@octokit/app`/`@octokit/webhooks` are pinned devDeps today).
+- Mitigation: webhook→outbox→worker auto-run path is proven end-to-end in
+  `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
+- Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).

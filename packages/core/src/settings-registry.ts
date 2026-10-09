@@ -43,6 +43,25 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   },
   { key: 'review.min_confidence', schema: z.number().min(0).max(1), default: 0.6, category: 'review' },
   { key: 'review.auto_run', schema: z.boolean(), default: false, category: 'review' },
+  { key: 'review.max_attempts', schema: z.number().int().min(1).max(10), default: 2, category: 'review' },
+  { key: 'review.max_cost_tokens', schema: z.number().int().min(0), default: 0, category: 'review' },
+  { key: 'review.github_output', schema: z.enum(['off', 'summary', 'inline']), default: 'off', category: 'review' },
+  {
+    key: 'review.ignore_globs',
+    schema: z.array(z.string().min(1).max(200)),
+    default: ['**/package-lock.json', '**/pnpm-lock.yaml', '**/yarn.lock', 'dist/**', '**/*.min.js', '**/*.generated.*'],
+    category: 'review',
+  },
+  // code_review.* module-specific keys (the shared `review.*` registry above is
+  // the single source for both modules; redeclaring those under a module prefix
+  // is rejected at the route layer — plan §10).
+  { key: 'code_review.max_diff_bytes', schema: z.number().int().min(1024).max(8_388_608), default: 204_800, category: 'review' },
+  { key: 'code_review.skip_drafts', schema: z.boolean(), default: true, category: 'review' },
+  { key: 'code_review.custom_rules', schema: z.string().max(8000), default: '', category: 'review' },
+  // refactor_review.* module-specific keys
+  { key: 'refactor_review.min_severity', schema: z.enum(['info', 'low', 'medium', 'high', 'critical']), default: 'medium', category: 'review' },
+  { key: 'refactor_review.max_files_per_run', schema: z.number().int().min(1).max(50_000), default: 5_000, category: 'review' },
+  { key: 'refactor_review.categories', schema: z.array(z.string().min(1).max(60)), default: ['architecture', 'duplication', 'complexity', 'dependency', 'maintainability'], category: 'review' },
   { key: 'mcp.rate_limit_per_minute', schema: z.number().int().min(1).max(10_000), default: 120, category: 'mcp' },
   { key: 'mcp.client.enabled', schema: z.boolean(), default: false, category: 'mcp' },
   { key: 'github.auto_transition_on_merge', schema: z.boolean(), default: false, category: 'github' },
@@ -68,6 +87,19 @@ const BY_KEY = new Map(SETTING_DEFINITIONS.map((d) => [d.key, d]));
 
 /** Module lifecycle flags are pattern-registered: modules.<name>.enabled. */
 const MODULE_ENABLED_RE = /^modules\.[a-z0-9_]+\.enabled$/;
+
+/**
+ * Plan §10: `review.*` is one shared registry for both review modules; a
+ * module may only define keys under its own prefix and may NOT redeclare a
+ * shared key there (routes must reject with 422, not silently accept).
+ */
+const SHARED_REVIEW_SUFFIXES = SETTING_DEFINITIONS.filter((d) => d.key.startsWith('review.'))
+  .map((d) => d.key.slice('review.'.length));
+
+export function isReviewKeyRedeclaration(key: string): boolean {
+  const m = /^(?:code_review|refactor_review)\.([a-z_]+)$/.exec(key);
+  return !!m && SHARED_REVIEW_SUFFIXES.includes(m[1]);
+}
 
 export function isKnownSettingKey(key: string): boolean {
   return BY_KEY.has(key) || MODULE_ENABLED_RE.test(key);

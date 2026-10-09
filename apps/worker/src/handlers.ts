@@ -11,6 +11,10 @@ import {
   getEffective,
   deliveryRow,
   markDeliveryDone,
+  runCodeReviewForPr,
+  isModuleEnabled,
+  newId,
+  toJsonb,
   type Db,
   type Logger,
 } from '@forgepm/core';
@@ -100,6 +104,48 @@ export const handlers: Record<string, JobHandler> = {
           (await getEffective(db, 'github.auto_transition_on_merge', row.organization_id, projectId))?.value === true;
         const out = await applyPullRequestEvent(db, row.organization_id, ev, auto);
         summary = { ...summary, ...out };
+        // Code Review auto-run trigger (plan §10.6.A.1). Enqueue one review job
+        // per connected project that has code_review enabled + review.auto_run;
+        // the reviewer job re-checks gates at run time (no import of the api).
+        if (['opened', 'synchronize', 'ready_for_review'].includes(ev.action)) {
+          const repo = await db
+            .selectFrom('repositories')
+            .select(['id', 'full_name'])
+            .where('provider', '=', 'github')
+            .where('external_id', '=', ev.repository_external_id)
+            .executeTakeFirst();
+          if (repo) {
+            const projectIds = (await db
+              .selectFrom('project_repositories')
+              .select('project_id')
+              .where('repository_id', '=', repo.id)
+              .where('organization_id', '=', row.organization_id)
+              .execute()).map((r) => r.project_id);
+            let enq = 0;
+            for (const projectId of projectIds) {
+              if (!(await isCodeReviewAutoEnabled(db, row.organization_id, projectId))) continue;
+              await db
+                .insertInto('outbox')
+                .values({
+                  id: newId(),
+                  organization_id: row.organization_id,
+                  topic: 'review.code_run',
+                  payload: toJsonb({
+                    organization_id: row.organization_id,
+                    project_id: projectId,
+                    repository_id: repo.id,
+                    repository_full_name: repo.full_name,
+                    pr_number: ev.number,
+                    head_sha: ev.head_sha,
+                    draft: ev.draft,
+                  }) as never,
+                })
+                .execute();
+              enq++;
+            }
+            if (enq > 0) summary.review_enqueued = enq;
+          }
+        }
       }
     } else if (row.event === 'issues') {
       const norm = normalizeIssuePayload(payload);
@@ -152,7 +198,38 @@ export const handlers: Record<string, JobHandler> = {
     await markDeliveryDone(db, deliveryId);
     await db.updateTable('jobs').set({ status: 'succeeded', finished_at: new Date() }).where('id', '=', jobId).execute();
   },
+
+  /**
+   * review.code_run (plan §10.6.A.1): a webhook-triggered Code Review. Runs the
+   * SHARED core engine (runCodeReviewForPr), which re-checks the module gate,
+   * review.auto_run and draft skip at run time — so toggling the setting after
+   * enqueue is honoured. Idempotent per job row.
+   */
+  'review.code_run': async (job, db, log) => {
+    const data = job.data as { job_id?: string; payload?: Record<string, unknown> };
+    const jobId = data.job_id ?? String(job.id);
+    const p = data.payload ?? {};
+    await db.updateTable('jobs').set({ status: 'running', started_at: new Date(), heartbeat_at: new Date() }).where('id', '=', jobId).execute();
+    const out = await runCodeReviewForPr(db, {
+      organizationId: String(p.organization_id ?? ''),
+      projectId: String(p.project_id ?? ''),
+      repositoryId: String(p.repository_id ?? ''),
+      repositoryFullName: String(p.repository_full_name ?? ''),
+      prNumber: Number(p.pr_number ?? 0),
+      headSha: (p.head_sha as string) ?? null,
+      draft: !!p.draft,
+    });
+    log.info({ jobId, out: 'run_id' in out ? out.run_id : ('skipped' in out ? out.skipped : '?') }, 'review.code_run done');
+    await db.updateTable('jobs').set({ status: 'succeeded', finished_at: new Date() }).where('id', '=', jobId).execute();
+  },
 };
+
+/** code_review enabled + review.auto_run at the project scope. */
+async function isCodeReviewAutoEnabled(db: Db, orgId: string, projectId: string): Promise<boolean> {
+  if (!(await isModuleEnabled(db, 'code_review', orgId, projectId))) return false;
+  const auto = await getEffective(db, 'review.auto_run', orgId, projectId);
+  return auto?.value === true;
+}
 
 
 export function createDefaultWorker(connection: ConnectionOptions, db: Db, log: Logger): Worker {

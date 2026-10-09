@@ -505,6 +505,65 @@ export interface ReleasesTable {
   created_at: Timestamp;
 }
 
+// ---- Phase 6: reviews (plan §10, §12 §G) ----
+
+export interface ReviewRunsTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  repository_id: string | null;
+  kind: 'code' | 'refactor';
+  target: Jsonb;
+  status: Generated<'queued' | 'running' | 'completed' | 'failed' | 'truncated' | 'canceled'>;
+  attempt: Generated<number>;
+  config_snapshot: Jsonb;
+  // helper: the validated run input (filtered hunks + commit snapshot) — §12 column-additive rule
+  input: Jsonb;
+  stats: Jsonb;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface ReviewFindingsTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  run_id: string;
+  first_run_id: string;
+  last_seen_run_id: string;
+  scope_key: string;
+  fingerprint: string;
+  category: string;
+  severity: 'info' | 'low' | 'medium' | 'high' | 'critical';
+  // pg `numeric` round-trips as string via the driver; services cast.
+  confidence: unknown;
+  file: string;
+  line_start: number | null;
+  line_end: number | null;
+  title: string;
+  description: string;
+  why_it_matters: string | null;
+  suggestion: string | null;
+  evidence: string | null;
+  impact: string | null;
+  effort: string | null;
+  risk: string | null;
+  status: Generated<'open' | 'dismissed' | 'accepted' | 'issue_created' | 'not_seen' | 'fixed'>;
+  unseen_streak: Generated<number>;
+  work_item_id: string | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface CodeStructureIndexTable {
+  id: string;
+  repository_id: string;
+  commit_sha: string;
+  index: Jsonb;
+  stats: Jsonb;
+  created_at: Timestamp;
+}
+
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -547,4 +606,7 @@ export interface DB {
   webhook_deliveries: WebhookDeliveriesTable;
   external_issue_links: ExternalIssueLinksTable;
   releases: ReleasesTable;
+  review_runs: ReviewRunsTable;
+  review_findings: ReviewFindingsTable;
+  code_structure_index: CodeStructureIndexTable;
 }

@@ -26,6 +26,7 @@ import * as planner from '../planner/service';
 import { assertProjectAccess } from '../projects/access';
 import { getWorkItemByKey } from '../work-items/items-repository';
 import { buildGithubTools } from '../github/mcp-tools';
+import { buildReviewTools } from '../reviews/mcp-tools';
 import { listPending, decide as decideApprovalSvc } from '../approvals/service';
 
 type Tool = Parameters<ToolRegistry['register']>[0];
@@ -107,6 +108,9 @@ export function buildToolRegistry(db: Db): ToolRegistry {
 
   // ---- github_* (module-gated on 'github'; only listed when enabled) ----
   for (const t of buildGithubTools(db)) add(t);
+
+  // ---- review_* / refactor_review_* (module-gated on either review module) ----
+  for (const t of buildReviewTools(db)) add(t);
 
   return reg;
 }

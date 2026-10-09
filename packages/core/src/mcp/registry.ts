@@ -35,8 +35,10 @@ export interface McpToolDefinition<In = Record<string, unknown>> {
   /** Scopes required; a key needs at least one to see or call the tool. */
   scopes: string[];
   annotations: ToolAnnotations;
-  /** Optional module gate: only listed/callable when that module is enabled. */
-  module?: string;
+  /** Optional module gate: only listed/callable when that module is enabled.
+   *  An array means any-of (e.g. shared review tools live while either review
+   *  module is enabled — plan §10). */
+  module?: string | string[];
   handler: (args: In, ctx: McpCallContext) => Promise<unknown>;
 }
 
@@ -69,7 +71,12 @@ export class ToolRegistry {
     const out: AnyTool[] = [];
     for (const t of this.tools.values()) {
       if (!t.scopes.some((s) => scopes.includes(s))) continue;
-      if (t.module && !(await isEnabled(t.module))) continue;
+      const mods = t.module ? (Array.isArray(t.module) ? t.module : [t.module]) : [];
+      if (mods.length) {
+        let any = false;
+        for (const m of mods) if (await isEnabled(m)) { any = true; break; }
+        if (!any) continue;
+      }
       out.push(t);
     }
     return out;

@@ -250,3 +250,68 @@ Format per plan §2: Context / Decision / Reason.
   but the settings route rejects `export|two_way` with 422 + a clear message.
 - Reason: the response is a semantic "not implemented yet", not a schema
   violation; matches the acceptance text verbatim.
+
+## D-025 — Review engine lives in @forgepm/core; api and worker share one path
+- Context: §10 requires Code Review + Refactor Review to run identical
+  semantics (evidence validation, fingerprint upsert, not_seen/fixed sweep,
+  issue policy), reachable from REST, MCP and the webhook worker.
+- Decision: `packages/core/src/review/*` holds contracts, validation, findings,
+  engine, config resolver, analyzer, sources and injection slots
+  (provider / diff / github-output). The api assembles RunInput + calls
+  `executeReviewRun`; the worker's `review.code_run` handler calls the same
+  engine via `runCodeReviewForPr`. Neither app imports the other (D-021).
+- Reason: single writer + identical semantics for every entry point, enforced
+  by structure, not discipline.
+
+## D-026 — Offline review runs use injected slots (StubProvider fixtures)
+- Context: plan §10 acceptance runs every review case with a `fake` provider
+  and never touches the network; the suite is hermetic (D-009, §15).
+- Decision: core keeps module-level slots — `setReviewProviderResolver`,
+  `setDiffProvider`, `setGithubReviewApi`/`setReviewOutputWriter`,
+  `setRepoFetcher` — with production code installing DB/GitHub-backed
+  implementations at boot and tests installing deterministic stubs.
+  `StubProvider` returns fixture findings through the same zod-validated path
+  as real providers.
+- Reason: same injection pattern as `FakeGithubClient`; tests exercise the
+  real engine, not a parallel fake engine.
+
+## D-027 — Helper columns `unseen_streak` + `review_runs.input` (§12 additive rule)
+- Context: the not_seen → fixed lifecycle needs a consecutive-complete-run
+  counter, and webhook/worker reruns need the validated hunks+snapshot without
+  re-fetching code; the contract §G predates both.
+- Decision: two additive helper columns (documented in DATA_MODEL §G next to
+  the migration): `review_findings.unseen_streak` and
+  `review_runs.input jsonb`. No contract column removed or re-meaned.
+- Reason: §12 explicitly allows helper columns; storing them in the run row
+  keeps a run self-describing (re-runs and debugging).
+
+## D-028 — Refactor review accepts a file snapshot in the request body
+- Context: the deterministic analyzer + evidence validation need actual file
+  contents at a commit; the sandbox cannot clone repos and v1 keeps GitHub
+  optional (plan §1.4). Sources are `github` (worker clone) or `local`
+  (REPO_MOUNT_ROOT read-only mount) — both need a machine-independent path.
+- Decision: the REST/MCP entry point takes a bounded `files[]` snapshot
+  (≤20k files, ≤1 MiB each, validated by zod); the engine derives the snapshot
+  lines itself. Worker-side clone sources stage into a temp dir that is always
+  removed (`withStagedRepo`, tested for success AND failure).
+- Reason: one tested code path everywhere; no fs/network assumption in the
+  engine; mount-root traversal guarded by `assertUnderRoot`.
+
+## D-029 — Partition cursor carried on run stats, modulo group count
+- Context: §10.6.4 covers big repos in consecutive runs with a cursor in
+  `run.stats.partition_cursor`; no extra table exists for it.
+- Decision: the newest refactor run's `stats.partition_cursor` for
+  (project, repository) is the next batch index, wrapped by `groups.length`;
+  a fully analysed repo wraps to 0 so coverage repeats fresh after changes.
+- Reason: stateless per-repo cursor from data that must exist anyway; 12 000
+  files at cap 5 000 verify as exactly 3 runs [1,2,0].
+
+## D-030 — github_output posts through an injected writer; off ⇒ zero calls
+- Context: §10 requires one marked PR comment updated in place and "with `off`
+  no write call to GitHub at all".
+- Decision: the engine calls the injected `ReviewOutputWriter` slot only for
+  code runs when policy ≠ `off`. Tests count writer invocations
+  (2 runs summary ⇒ 2 publishes updating one comment; `off` ⇒ 0). The real
+  octokit writer ships with the phase-7 GitHub panel wiring.
+- Reason: keeps core GitHub-free (§1.4) while making the acceptance property
+  directly observable in tests.

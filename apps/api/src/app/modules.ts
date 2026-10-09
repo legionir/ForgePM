@@ -3,6 +3,7 @@ import { ModuleRegistry, type Db } from '@forgepm/core';
 import { sampleModule } from '../modules/sample/module';
 import { githubModule } from '../modules/github/module';
 import { validateConfig as githubValidate } from '../modules/github/config';
+import { codeReviewModule, refactorReviewModule } from '../modules/reviews/module';
 
 /**
  * Module registration happens at startup regardless of enabled state
@@ -14,7 +15,11 @@ export function buildRegistry(): ModuleRegistry {
   // github is always registered; validateConfig (runs on enable) checks for a
   // webhook secret. The core runs fully with no github config at all (§9).
   registry.register({ ...githubModule, validateConfig: githubValidate });
-  // code_review, refactor_review, mcp_client register in later phases.
+  // Phase 6 review modules: always registered, off by default, no config
+  // required to enable (the AI provider is checked per run, not at enable).
+  registry.register(codeReviewModule);
+  registry.register(refactorReviewModule);
+  // mcp_client registers in a later phase (4b, deferred).
   return registry;
 }
 

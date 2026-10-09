@@ -7,6 +7,10 @@ import {
   createRedis,
   QUEUES,
   createLogger,
+  setActiveCipher,
+  createCipher,
+  setReviewProviderResolver,
+  dbReviewProvider,
 } from '@forgepm/core';
 import { OutboxDispatcher } from './dispatcher';
 import { JobSweeper } from './sweeper';
@@ -16,6 +20,10 @@ async function main(): Promise<void> {
   const env = loadEnv();
   const db = createDb(env.DATABASE_URL);
   await runMigrations(db, migrations); // keep worker schema current on boot
+  // Cipher for provider key decryption + the review provider resolver, so the
+  // webhook-triggered Code Review resolves the org's ai_providers row (§10).
+  setActiveCipher(createCipher(Buffer.from(env.FORGEPM_SECRET_KEY, 'base64')));
+  setReviewProviderResolver((orgId) => dbReviewProvider(db, orgId));
 
   const log = createLogger(env.LOG_LEVEL, { component: 'worker' });
   const connection = createRedis(env.REDIS_URL);

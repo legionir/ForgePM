@@ -30,6 +30,7 @@ export {
   findSettingDefinition,
   validateSettingValue,
   settingDefault,
+  isReviewKeyRedeclaration,
   type SettingDefinition,
 } from './settings-registry';
 export { recordAudit, SYSTEM_ACTOR_ID, type AuditRecord } from './audit';
@@ -54,6 +55,83 @@ export {
   type PullRequestEventData,
   type IssueEventData,
 } from './github/delivery';
+export {
+  REVIEW_SEVERITIES,
+  SEVERITY_ORDER,
+  REVIEW_RUN_STATUSES,
+  REVIEW_FINDING_STATUSES,
+  hunkSchema,
+  snapshotFileSchema,
+  reviewInputSchema,
+  rawFindingSchema,
+  reviewStageOutputSchema,
+  normalizeWs,
+  normalizeTitle,
+  computeFingerprint,
+  codeScopeKey,
+  repoScopeKey,
+  matchGlob,
+  isIgnored,
+  type ReviewSeverity,
+  type ReviewRunStatus,
+  type ReviewFindingStatus,
+  type Hunk,
+  type SnapshotFile,
+  type ReviewInput,
+  type RawFinding,
+  type ReviewStageOutput,
+  type ReviewConfig,
+} from './review/contract';
+export { validateEvidence, partitionFindingWrites } from './review/validate';
+export { setReviewProviderResolver, resolveReviewProvider, type ReviewProviderResolver } from './review/provider-slot';
+export { StubProvider } from './review/stub-provider';
+export { dbReviewProvider } from './review/db-provider';
+export { setDiffProvider, diffProvider, type DiffProvider } from './review/diff-slot';
+export { setRepoFetcher, githubFiles, withStagedRepo, assertUnderRoot, incrementalScope, type RepoFetcher } from './review/sources';
+export {
+  upsertFindings,
+  sweepNotSeen,
+  shouldCreateWorkItem,
+  loadFinding,
+  createWorkItemFromFinding,
+  updateFindingStatus,
+  requestFindingApproval,
+  hasApprovedFindingRequest,
+  effectiveIssuePolicy,
+  fingerprintFor,
+  type FindingRow,
+} from './review/findings';
+export { resolveReviewConfig } from './review/config';
+export {
+  executeReviewRun,
+  createRun,
+  defaultStages,
+  getRunReport,
+  runCodeReviewForPr,
+  setReviewOutputWriter,
+  type ReviewOutputWriter,
+  DEFAULT_CODE_STAGES,
+  DEFAULT_REFACTOR_STAGES,
+  type ReviewStage,
+  type RunInput,
+  type RunOutcome,
+  type ExecuteArgs,
+} from './review/engine';
+export {
+  analyzeRepoFiles,
+  structureIndexJson,
+  partitionFiles,
+  selectFiles,
+  findDuplicates,
+  buildImportGraph,
+  extractFunctions,
+  isCodeFile,
+  type AnalyzerFile,
+  type StructureIndex,
+  type FunctionMetric,
+  type DupBlock,
+  type ImportGraph,
+} from './review/analyzer';
 export { can, authorize, type Action, type ActorAccess } from './permissions/matrix';
 export {
   generateApiKey,
@@ -97,6 +175,7 @@ export {
 export {
   ModuleRegistry,
   makeRequireModule,
+  isModuleEnabled,
   type ModuleDefinition,
   type ModuleName,
 } from './modules/registry';

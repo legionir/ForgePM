@@ -71,8 +71,13 @@ export async function callTool(deps: McpDeps, actor: Actor, name: string, args: 
   if (!tool.scopes.some((s) => (actor.scopes as string[]).includes(s))) {
     return fail(deps, actor, name, args, 'FORBIDDEN_SCOPE', `FORBIDDEN_SCOPE: requires scope: ${tool.scopes.join(',')}`, started, requestId);
   }
-  if (tool.module && !(await deps.registry.isEnabled(deps.db, tool.module, actor.organizationId, null))) {
-    return fail(deps, actor, name, args, 'MODULE_DISABLED', `MODULE_DISABLED: module '${tool.module}' is disabled`, started, requestId);
+  const mods = tool.module ? (Array.isArray(tool.module) ? tool.module : [tool.module]) : [];
+  if (mods.length) {
+    let any = false;
+    for (const m of mods) if (await deps.registry.isEnabled(deps.db, m, actor.organizationId, null)) { any = true; break; }
+    if (!any) {
+      return fail(deps, actor, name, args, 'MODULE_DISABLED', `MODULE_DISABLED: module '${mods.join("' or '")}' is disabled`, started, requestId);
+    }
   }
   const parsed = tool.inputSchema.safeParse(args);
   if (!parsed.success) {

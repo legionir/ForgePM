@@ -3,6 +3,106 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [0.6.0] — Phase 6 (2026-10-09)
+
+### Added
+
+- Migration `0008_reviews` implementing Schema Contract §G verbatim:
+  `review_runs` (kind `code|refactor`, target/status CHECKs, composite FK to
+  projects, `runs_project_created_idx`), `review_findings`
+  (`UNIQUE(project_id, scope_key, fingerprint)`, severity + status CHECKs,
+  full finding structure incl. impact/effort/risk) and
+  `code_structure_index` (`UNIQUE(repository_id, commit_sha)`). Two additive
+  helper columns documented in §G: `review_findings.unseen_streak` and
+  `review_runs.input` (D-027).
+- Shared review engine in **core** (`packages/core/src/review/*`, D-025):
+  contracts (fingerprint = sha256(project|category|file|normalized title|
+  hash(normalized evidence)) — line-independent; scope keys `pr:<repo>:<n>` /
+  `repo:<repo>`; glob matcher), evidence validation against the run's commit
+  snapshot (+ diff-hunk containment for code findings; ≤20-line evidence;
+  `min_confidence` floor; invalid → `run.stats.discarded`), finding upsert
+  (rerun touches `last_seen_run_id` instead of duplicating; DB UNIQUE enforced),
+  `not_seen` → `fixed` lifecycle that only counts COMPLETE runs (streak ≥ 2),
+  the shared issue policy (record_only / human_approval via approval_requests /
+  auto_high_severity with kind floors 0.8/0.85, cap 10/run, idempotent per
+  finding_id; created items typed bug|refactor, source code_review|refactor_review,
+  `agent-ready` label + acceptance criteria), effective config resolver
+  (project ← organization ← system ← registry default) and the GitHub output
+  slot (`off` ⇒ zero write calls; one `<!-- forgepm:review -->` comment
+  updated in place; D-030).
+- Deterministic Repository Analyzer (no AI, plan §10.6.2): file/language/LOC
+  counts, TS/JS function metrics (length, cyclomatic complexity, params),
+  rolling-hash duplicate blocks (≥6 lines / 50-token rule), import graph with
+  cycle + fan-in/out detection, compact `code_structure_index` JSON per commit;
+  partitioned staged analysis (§10.6.4, cursor on run stats, D-029) and
+  incremental scope = changed files + direct neighbours (§10.6.5).
+- Review code sources (§10.6.1): `local` read-only mount under
+  `REPO_MOUNT_ROOT` guarded against traversal, `github` fetch through an
+  injected fetcher staged into a temp worker dir that is ALWAYS removed —
+  success or failure (`withStagedRepo`).
+- `code_review` + `refactor_review` modules registered always, default OFF
+  (`modules.<name>.enabled`), enabled/disabled at runtime without restart.
+- Settings registry: `review.max_attempts`, `review.max_cost_tokens`,
+  `review.github_output`, `review.ignore_globs`, `code_review.{max_diff_bytes
+  (200 KB default), skip_drafts, custom_rules}`,
+  `refactor_review.{min_severity, max_files_per_run (5000), categories}`.
+  Redeclaring a shared `review.*` key under a module prefix is rejected with
+  **422** (§10; `isReviewKeyRedeclaration`).
+- REST (`apps/api/src/modules/reviews/*`), every endpoint module-gated 503:
+  `GET /api/v1/review/runs` + `/runs/:id` + `/runs/:id/cancel`,
+  `POST /review/code-runs`, `POST /review/refactor-runs`,
+  `GET /review/findings` (cursor-paginated, severity/status/kind filters),
+  `POST /review/findings/:id/decision`,
+  `POST /review/findings/:id/create-work-item` (202 pending_approval under
+  human_approval). New matrix actions `review:run` / `review:decide`.
+- MCP: the eight §13 tools `review_start_code_review`, `review_get_report`,
+  `review_list_findings`, `review_update_finding`,
+  `review_create_work_item_from_finding`, `refactor_review_start`,
+  `refactor_review_get_report`, `refactor_review_list_findings` — scope
+  `review`, gated on either review module (hidden from `tools/list` AND
+  rejected at call time when both are off; `McpToolDefinition.module` now
+  accepts an any-of array).
+- Worker: PR deliveries with action `opened|synchronize|ready_for_review`
+  enqueue `review.code_run` outbox jobs only when the project has
+  `code_review` enabled + `review.auto_run`; the handler runs the SAME core
+  engine as REST (runtime re-check of gates), system actor, one job per
+  connected project. `StubProvider` + provider/diff/output slots keep the
+  whole suite offline (D-026).
+
+### Tests
+
+- 22 core unit cases: fingerprint/normalization/globs, evidence validation
+  (bad file/range/mismatch/out-of-hunk/long evidence), partition counts,
+  issue-policy eligibility floors, analyzer (long fn / duplication / cycle /
+  languages), partitioning (12 000 → 3×5 000 deterministic), import resolver.
+- 5 sources unit cases: temp-clone removal on success AND failure, mount-root
+  traversal guard, fetcher slot, incremental scope.
+- 17 phase-6 integration cases: both modules off ⇒ 503 + no MCP tools + no
+  auto jobs; enable without restart; fake-provider run completes with the full
+  required finding shape; discarded counter; rerun dedupe + `last_seen_run_id`
+  + line-shift ≠ duplicate; DB UNIQUE enforced; not_seen(1) → fixed(2) with a
+  truncated run NOT counting; truncation + ignore globs never reach the
+  provider; record_only / human_approval (queue once, approve, create exactly
+  one, idempotent replay) / auto_high_severity (floors + cap 10); 422 on
+  redeclaration; github_output summary (one comment, updated) and off (zero
+  calls); MCP tools/list + tools/call through an agent key; cancel; audit on
+  every mutation.
+- 5 phase-6 worker cases: module off ⇒ no enqueue; auto_run off ⇒ no enqueue;
+  module+auto on ⇒ exactly one outbox job; handler runs the shared engine
+  offline; gate re-check at run time skips without a run row.
+- Refactor cases: analyzer-without-AI (long fn ≥110 lines/complexity, dup pair,
+  import cycle stored), finding shape incl. impact/effort/risk, partitioned
+  12 000-file coverage [1,2,0], incremental rerun sends only changed file +
+  neighbours, 503 when the module is off.
+- Suite: **227 tests** (54 new: 22 core-review unit + 5 sources unit + 17
+  phase-6 + 5 phase-6-worker + 5 refactor); `pnpm verify` green;
+  `schema:check` 43 tables; migration hash manifest updated for `0008_reviews`.
+
+### Known gaps (recorded)
+
+- Panel Reviews page + Playwright E2E and the octokit-backed diff/comment
+  writers ship with the phase-7 panel (B-007, B-008).
+
 ## [0.0.0] — Phase 0 (2026-10-09)
 
 ### Added

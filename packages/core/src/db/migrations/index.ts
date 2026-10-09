@@ -5,6 +5,7 @@ import { MIGRATION_0003_DOMAIN } from './0003_domain.migration';
 import { MIGRATION_0005_PLANNER } from './0005_planner.migration';
 import { MIGRATION_0006_MCP } from './0006_mcp.migration';
 import { MIGRATION_0007_GITHUB } from './0007_github.migration';
+import { MIGRATION_0008_REVIEWS } from './0008_reviews.migration';
 import { migrationsFromSql } from '../client';
 
 /**
@@ -18,6 +19,7 @@ const entries = [
   { name: '0005_planner', sql: MIGRATION_0005_PLANNER },
   { name: '0006_mcp', sql: MIGRATION_0006_MCP },
   { name: '0007_github', sql: MIGRATION_0007_GITHUB },
+  { name: '0008_reviews', sql: MIGRATION_0008_REVIEWS },
 ];
 
 export const migrations: Record<string, Migration> = migrationsFromSql(entries);

@@ -25,8 +25,11 @@ import { registerApprovalsRoutes } from '../modules/approvals/routes';
 import { registerMcpRoutes } from '../modules/mcp/routes';
 import { buildToolRegistry } from '../modules/mcp/tools';
 import { registerGithubRoutes } from '../modules/github/routes';
+import { registerReviewsRoutes } from '../modules/reviews/routes';
 import { setProviderResolver } from '../modules/planner/service';
 import { makeProviderResolver } from './provider-resolver';
+import { makeReviewProviderResolver } from './review-resolver';
+import { setReviewProviderResolver } from '@forgepm/core';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 
 export interface AppDeps {
@@ -37,6 +40,8 @@ export interface AppDeps {
   redisAvailable(): Promise<boolean>;
   /** Test-only: per-planId fixture responses for the fake planner provider. */
   plannerFixtures?: Map<string, unknown[]>;
+  /** Test-only: fixture findings for the review StubProvider (runId/orgId/'*'). */
+  reviewFixtures?: Map<string, import('./review-resolver').ReviewFixture>;
 }
 
 export type RequireModuleFn = (
@@ -55,6 +60,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // Initialise the process-wide cipher + planner provider resolver.
   setActiveCipher(createCipher(Buffer.from(deps.env.FORGEPM_SECRET_KEY, 'base64')));
   setProviderResolver(makeProviderResolver(deps.db, deps.plannerFixtures ?? new Map()));
+  // Review runs resolve their provider the same way (fake row => offline).
+  // Tests may override via setReviewProviderResolver (module-level slot).
+  setReviewProviderResolver(makeReviewProviderResolver(deps.db, deps.reviewFixtures ?? new Map()));
   const app = Fastify({
     logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
     genReqId: () => randomUUID(),
@@ -113,6 +121,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const tools = buildToolRegistry(deps.db);
   registerMcpRoutes(app, { db: deps.db, registry: deps.registry, tools, rateLimitPerMinute: 120 });
   registerGithubRoutes(app, deps);
+  registerReviewsRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   app.get('/api/v1/openapi.json', async (_req, reply) => reply.send(buildOpenApiDocument(routeSink())));

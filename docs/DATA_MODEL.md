@@ -608,6 +608,7 @@ CREATE TABLE review_runs (
     CHECK (status IN ('queued','running','completed','failed','truncated','canceled')),
   attempt integer NOT NULL DEFAULT 1,
   config_snapshot jsonb NOT NULL DEFAULT '{}',
+  input jsonb NOT NULL DEFAULT '{}',   -- helper: filtered hunks + commit snapshot for this run
   stats jsonb NOT NULL DEFAULT '{}', -- {truncated,discarded,partition_cursor,...}
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -640,6 +641,7 @@ CREATE TABLE review_findings (
   risk text,
   status text NOT NULL DEFAULT 'open'
     CHECK (status IN ('open','dismissed','accepted','issue_created','not_seen','fixed')),
+  unseen_streak integer NOT NULL DEFAULT 0,
   work_item_id uuid REFERENCES work_items(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),

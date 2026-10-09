@@ -88,3 +88,12 @@ export function makeRequireModule(registry: ModuleRegistry, db: Db) {
     if (!enabled) throw new AppError('MODULE_DISABLED', `module '${name}' is disabled`);
   };
 }
+
+/**
+ * Plain settings read of `modules.<name>.enabled` without a registry instance
+ * (the worker uses this; the api uses the cached ModuleRegistry).
+ */
+export async function isModuleEnabled(db: Db, name: ModuleName, orgId: string | null = null, projectId: string | null = null): Promise<boolean> {
+  const eff = await getEffective(db, `modules.${name}.enabled`, orgId, projectId);
+  return eff?.value === true;
+}
