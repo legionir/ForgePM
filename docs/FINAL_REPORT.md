@@ -15,8 +15,9 @@ commit, watched to completion via `gh run watch`.
 | Item | Value |
 | --- | --- |
 | Repository | https://github.com/legionir/ForgePM (private) |
-| Released commit | `7711811943444b9a79f7ef00cfe32c1e9249e9d6` (`main` == `origin/main`) |
-| Remote CI run | https://github.com/legionir/ForgePM/actions/runs/38022178098 — success |
+| Released commit | `7711811943444b9a79f7ef00cfe32c1e9249e9d6` (tag `v1.0.0-rc.1`) |
+| Remote CI run (release commit) | https://github.com/legionir/ForgePM/actions/runs/38022178098 — success |
+| Remote CI run (report commit `8b4c0b1`, latest main) | https://github.com/legionir/ForgePM/actions/runs/38023131314 — success |
 | Phase-7 completion CI run | https://github.com/legionir/ForgePM/actions/runs/38021165268 — success |
 | Tags | `v0.0.0` `v0.1.0` `v0.2.0` `v0.3.0` `v0.4.0` `v0.5.0` `v0.6.0` `v0.7.0` `v1.0.0-rc.1` |
 
