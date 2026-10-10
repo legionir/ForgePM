@@ -88,15 +88,29 @@ export async function configStatus(db: Db, orgId: string): Promise<{ app_id_set:
 }
 
 /**
- * validateConfig for the module registry: enabling github requires a webhook
- * secret present (DB or bootstrap env). Rejected enable keeps prior data.
+ * validateConfig for the module registry: enabling github requires ALL three
+ * secrets to be present (DB or bootstrap env). Rejected enable keeps prior data.
  * The db passed in is used to find the first organization (single-app installs
  * have exactly one org from bootstrap).
+ *
+ * POU-36 acceptance:
+ *  - app_id, private_key, webhook_secret must all be non-empty.
+ *  - Missing any secret throws VALIDATION_ERROR with a clear message.
  */
 export async function validateConfig(db: Db): Promise<void> {
-  if (process.env.GITHUB_WEBHOOK_SECRET) return;
   const org = await db.selectFrom('organizations').select('id').where('deleted_at', 'is', null).limit(1).executeTakeFirst();
   if (!org) throw new AppError('VALIDATION_ERROR', 'no organization yet; complete setup first');
-  const secret = await getWebhookSecret(db, org.id);
-  if (!secret) throw new AppError('VALIDATION_ERROR', 'github module needs a webhook secret (GITHUB_WEBHOOK_SECRET or set in the panel) before enabling');
+
+  const appId = process.env.GITHUB_APP_ID ?? (await getSecret(db, activeCipher(), org.id, 'github.app_id', 'module'));
+  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY ?? (await getSecret(db, activeCipher(), org.id, 'github.app_private_key', 'module'));
+  const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET ?? (await getSecret(db, activeCipher(), org.id, 'github.webhook_secret', 'module'));
+
+  const missing: string[] = [];
+  if (!appId) missing.push('github.app_id');
+  if (!privateKey) missing.push('github.app_private_key');
+  if (!webhookSecret) missing.push('github.webhook_secret');
+
+  if (missing.length > 0) {
+    throw new AppError('VALIDATION_ERROR', `github module requires all secrets to be configured; missing: ${missing.join(', ')}`);
+  }
 }
