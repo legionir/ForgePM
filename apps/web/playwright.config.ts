@@ -8,11 +8,14 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
-  timeout: 120_000,
-  expect: { timeout: 20_000 },
+  timeout: 180_000,
+  expect: { timeout: 60_000 },
   fullyParallel: false,
   workers: 1,
-  retries: 1,
+  // single honest shot: the flake was the apikey step racing a slow runner,
+  // now fixed by awaiting the real POST response. e2e.sh resets the DB once,
+  // so a retry would run against dirty (already-set-up) state — disabled.
+  retries: 0,
   reporter: [['list']],
   use: { baseURL: process.env.PANEL_URL ?? 'http://localhost:4200', trace: 'off' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],

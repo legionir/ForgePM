@@ -35,6 +35,6 @@ export class App implements OnInit {
 
   async logout(): Promise<void> {
     await this.session.logout();
-    await this.router.navigate(['/auth']);
+    await this.router.navigate(['/login']);
   }
 }
