@@ -3,6 +3,18 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [1.0.0-rc.1] — Release candidate (2026-10-10)
+
+Phases 0–7 are complete and every acceptance gate has run green (local +
+remote CI on the pushed commits — see docs/FINAL_REPORT.md). This rc bumps all
+workspace versions and the OpenAPI document to `1.0.0-rc.1`. Intentionally not
+in v1 (plan §17 "فهرست عمداً حذف‌شده"): automated code-change execution,
+multiple autonomous agents, full two-way GitHub sync, enterprise org reporting,
+microservices/multi-region, a general workflow engine, Cycle/Sprint, email and
+billing. Open deviations are recorded honestly in docs/BLOCKERS.md (B-006
+optional MCP client 4b; B-008 octokit diff/comment adapters) with the mandatory
+core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped.
+
 ## [0.7.0] — Phase 7 (2026-10-10, panel-completion increment)
 
 ### Added

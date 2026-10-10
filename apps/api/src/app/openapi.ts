@@ -40,5 +40,5 @@ export function buildOpenApiDocument(routes: CollectedRoute[]) {
       responses: { '200': { description: 'OK' }, ...(schema.response as object | undefined ?? {}) },
     };
   }
-  return { openapi: '3.0.3', info: { title: 'ForgePM API', version: '0.0.0' }, paths };
+  return { openapi: '3.0.3', info: { title: 'ForgePM API', version: '1.0.0-rc.1' }, paths };
 }
