@@ -1,4 +1,5 @@
 {
-  "/api": { "target": "http://localhost:3101", "secure": false },
-  "/health": { "target": "http://localhost:3101", "secure": false }
+  "/api/v1": { "target": "http://localhost:3101", "secure": false },
+  "/health": { "target": "http://localhost:3101", "secure": false },
+  "/mcp": { "target": "http://localhost:3101", "secure": false }
 }

@@ -17,24 +17,23 @@ it here; only missing GitHub push credentials may halt execution.
   equivalent, which §12 explicitly permits; CI runs against postgres:16 to
   prove the real target too. Not a data-model deviation.
 
-## B-005 — [partial] Angular panel shipped; only the flagship pages + E2E land in Phase 7
-- Impact: the deferred panel (D-013) is now STARTED, not finished. Phase 7 ships
-  a real Angular (standalone + Signals) panel with Setup/Login, Projects and
-  API Keys pages, an OpenAPI-typed client (`pnpm gen:api`), a production nginx
-  build (`apps/web/Dockerfile`) and a reproducible Playwright flagship E2E
-  (`bash apps/web/e2e.sh`) — all green locally against the real API.
-- NOT yet shipped (still tracked here): the Work Items/Board, Planner/Approvals,
-  MCP settings, GitHub, Reviews and full Settings pages of the §11 table; the
-  full 9-step §11 E2E chain; axe accessibility sweep; `fa`(RTL)/`en` i18n key
-  parity check; the 200k-item first-paint perf gate; and Playwright *on compose*
-  (§15 wants compose-backed E2E — Docker is unavailable locally, B-001, so the
-  local run drives the API directly while CI adds the compose job).
-- Reason for partial scope: per plan §2 rule 4 (record and continue) and the
-  AGENTS rule to never claim a gate that did not run. The pages above still
-  need the same build+E2E wiring; the backend surface for each is already
-  covered by integration tests.
-- Status: OPEN (reduced) — flagship path shipped and proven; remaining pages
-  gated individually.
+## B-005 — [CLOSED] Angular panel: all §11 pages shipped
+- Original: the deferred panel (D-013); Phase 7's first increment shipped only
+  Setup/Login, Projects and API Keys + the flagship subset E2E.
+- Closed by the panel-completion increment: the remaining §11 pages (Work
+  Items List+Board with server-side transitions, item detail, Features/
+  Milestones, Planner with the fake provider, Approvals, Reviews, GitHub,
+  MCP log, full Settings inheritance matrix, System health/jobs/backup,
+  Users+Audit, AI Providers) ship as thin clients over the tested REST
+  surface; the full 9-step §11 E2E chain, i18n key-parity
+  (`apps/web/scripts/i18n-check.mjs`), the axe sweep (no serious/critical
+  violations), fa/RTL and 360/1280 no-overflow checks all run green locally
+  (`bash apps/web/e2e.sh`), and P-05 measures first paint of the 200k-item
+  list at 217 ms via `bash apps/web/e2e-perf.sh`. CI runs the same gates.
+- Remaining nuance: Playwright still drives the API directly rather than
+  through compose (Docker unavailable in this sandbox — B-001); CI is the
+  compose/Docker surface. Not a panel scope item.
+- Status: CLOSED.
 
 ## B-003 — [superseded] E2E now runs locally via a real Angular dev-server + native API
 - Original: Phase 0 had no runnable Playwright gate. Superseded in Phase 7:
@@ -56,13 +55,13 @@ it here; only missing GitHub push credentials may halt execution.
   enabled) and the §14 SSRF helper are already in place.
 
 
-## B-007 — [deviation] Phase 6 panel Reviews page not built this run
-- Impact: the §10 acceptance item "پنل: صفحه Reviews … با E2E روی fake" ships
-  with the panel follow-up (same tracked item as B-005/D-013), not in this
-  phase commit. Every page capability (run list, findings + filters,
-  approve/dismiss, create issue, policy management) exists as tested REST +
-  MCP surface; the panel is a thin client.
-- Status: OPEN — recorded per plan §2 rule 4 (record and continue).
+## B-007 — [CLOSED] Phase 6 panel Reviews page shipped with the panel
+- Original: the §10 "پنل: صفحه Reviews … با E2E روی fake" was deferred with the
+  panel (same family as B-005/D-013). It now ships: runs/findings lists with
+  filters, dismiss/accept/create-issue actions, and guidance-only rendering
+  while the modules are off — with the fake-provider code review proven end to
+  end inside the §11 flagship chain spec (`e2e/chain.spec.ts` step 9).
+- Status: CLOSED (was OPEN, tracked with the phase-7 panel work).
 
 ## B-008 — [deviation] GitHub octokit diff/comment adapters pending panel wiring
 - Impact: `setDiffProvider` and the GitHub review-output writer have tested

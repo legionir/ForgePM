@@ -23,9 +23,11 @@ import { registerPlannerRoutes } from '../modules/planner/routes';
 import { registerAiProvidersRoutes } from '../modules/ai-providers/routes';
 import { registerApprovalsRoutes } from '../modules/approvals/routes';
 import { registerMcpRoutes } from '../modules/mcp/routes';
+import { registerMcpCallsRoutes } from '../modules/mcp/calls-routes';
 import { buildToolRegistry } from '../modules/mcp/tools';
 import { registerGithubRoutes } from '../modules/github/routes';
 import { registerReviewsRoutes } from '../modules/reviews/routes';
+import { registerSystemRoutes } from '../modules/system/routes';
 import { setProviderResolver } from '../modules/planner/service';
 import { makeProviderResolver } from './provider-resolver';
 import { makeReviewProviderResolver } from './review-resolver';
@@ -121,8 +123,10 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // module gates (github/reviews) are checked at call time.
   const tools = buildToolRegistry(deps.db);
   registerMcpRoutes(app, { db: deps.db, registry: deps.registry, tools, rateLimitPerMinute: 120 });
+  registerMcpCallsRoutes(app, deps);
   registerGithubRoutes(app, deps);
   registerReviewsRoutes(app, deps);
+  registerSystemRoutes(app, deps);
   registerSampleModule(app);
   registerModulesRoutes(app, deps);
   // Plan §14: /metrics is opt-in via METRICS_ENABLED (default off).

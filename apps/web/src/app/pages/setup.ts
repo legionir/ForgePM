@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Session } from '../session';
+import { I18n } from '../i18n';
 
 /** First-run setup: create the organization + admin user (plan §5.2). */
 @Component({
@@ -10,14 +11,13 @@ import { Session } from '../session';
   imports: [FormsModule],
   template: `
     <section class="auth" data-testid="auth">
-      <h1>ForgePM — first-run setup</h1>
-      <p class="hint">Create the organization and admin user.</p>
-      <label>Organization<input data-testid="field-org" name="org" [(ngModel)]="org" /></label>
-      <label>Admin name<input data-testid="field-dname" name="dname" [(ngModel)]="dname" /></label>
-      <label>Email<input data-testid="field-email" name="email" type="email" [(ngModel)]="email" /></label>
-      <label>Password<input data-testid="field-password" name="password" type="password" [(ngModel)]="password" /></label>
-      <button type="button" data-testid="setup-submit" (click)="submit()">Setup</button>
-      <p class="link"><a data-testid="go-login" routerLink="/login">Sign in instead</a></p>
+      <h1>{{ i18n.instant('setup.title') }}</h1>
+      <label>{{ i18n.instant('setup.org') }}<input data-testid="field-org" name="org" [(ngModel)]="org" /></label>
+      <label>{{ i18n.instant('setup.display_name') }}<input data-testid="field-dname" name="dname" [(ngModel)]="dname" /></label>
+      <label>{{ i18n.instant('common.email') }}<input data-testid="field-email" name="email" type="email" [(ngModel)]="email" /></label>
+      <label>{{ i18n.instant('common.password') }}<input data-testid="field-password" name="password" type="password" [(ngModel)]="password" /></label>
+      <button type="button" data-testid="setup-submit" (click)="submit()">{{ i18n.instant('common.create') }}</button>
+      <p class="link"><a data-testid="go-login" routerLink="/login">{{ i18n.instant('login.title') }}</a></p>
       @if (error()) {
         <p class="error" data-testid="error">{{ error() }}</p>
       }
@@ -25,6 +25,7 @@ import { Session } from '../session';
   `,
 })
 export class SetupPage {
+  readonly i18n = inject(I18n);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
 

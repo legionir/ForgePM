@@ -1,0 +1,17 @@
+# gitleaks config for the §16 publish scan.
+#
+# Default rules + ONE narrow allowlist entry. The only historical finding over
+# all 28+ commits is `Zm9yZ2VwbS1jaS10aHJvd2F3YXkta2V5LTMyYnl0ZXM=` in
+# .github/workflows/ci.yml — base64 of the literal string
+# "forgepm-ci-throwaway-key-32bytes": a documented placeholder, not a secret.
+# No real credential ever existed at that path (runtime secrets live encrypted
+# in the `secrets` table, §3b-1.5; raw API keys are shown once and stored only
+# as SHA-256 hashes — §5.4, tested). Per §16 ("no force-push; forward-fix with
+# a corrective commit") the literal was removed from the tip and CI now mints
+# a fresh `openssl rand -base64 32` value per run (commit "ci: generate
+# throwaway FORGEPM_SECRET_KEY per run"). The immutable history line is
+# allowlisted here so `gitleaks detect` reports zero findings, with its
+# justification recorded in docs/DECISIONS.md (D-037).
+[allowlist]
+description = "documented CI placeholder (not a secret), forward-fixed at HEAD"
+regexes = ['''Zm9yZ2VwbS1jaS10aHJvd2F3YXkta2V5LTMyYnl0ZXM=''']

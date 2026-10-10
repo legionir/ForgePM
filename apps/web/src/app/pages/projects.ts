@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
+import { I18n } from '../i18n';
 
 interface ProjectDto {
   id: string;
@@ -16,11 +17,11 @@ interface ProjectDto {
   imports: [FormsModule],
   template: `
     <section data-testid="projects">
-      <h1>Projects</h1>
+      <h1>{{ i18n.instant('projects.title') }}</h1>
       <form class="new" (ngSubmit)="create()">
-        <label>Key<input name="key" [(ngModel)]="key" required maxlength="8" /></label>
-        <label>Name<input name="name" [(ngModel)]="name" required /></label>
-        <button type="submit" data-testid="project-create">Create</button>
+        <label>{{ i18n.instant('common.key') }}<input name="key" [(ngModel)]="key" required maxlength="8" /></label>
+        <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required /></label>
+        <button type="submit" data-testid="project-create">{{ i18n.instant('common.create') }}</button>
       </form>
       @if (error()) {
         <p class="error" data-testid="project-error">{{ error() }}</p>
@@ -31,12 +32,12 @@ interface ProjectDto {
             <span>{{ p.key }} · {{ p.name }}</span>
             @if (p.status === 'active') {
               <button type="button" class="archive" (click)="archive(p.id)" data-testid="project-archive">
-                Archive
+                {{ i18n.instant('projects.archive') }}
               </button>
             }
           </li>
         } @empty {
-          <li data-testid="projects-empty">No projects yet.</li>
+          <li data-testid="projects-empty">{{ i18n.instant('projects.empty') }}</li>
         }
       </ul>
     </section>
@@ -44,6 +45,7 @@ interface ProjectDto {
 })
 export class ProjectsPage implements OnInit {
   private readonly api = inject(ApiClient);
+  readonly i18n = inject(I18n);
 
   readonly projects = signal<ProjectDto[]>([]);
   readonly error = signal('');

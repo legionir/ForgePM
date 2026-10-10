@@ -41,7 +41,17 @@ echo "e2e: Angular dev-server on :$WEB_PORT (proxy -> :$API_PORT)"
 for i in $(seq 1 90); do curl -sf "http://127.0.0.1:$WEB_PORT/" >/dev/null && break; [[ $i -eq 90 ]] && { echo "web down:"; cat /tmp/forgepm-e2e-web.log; exit 1; }; sleep 1; done
 # The Angular dev-server does on-demand JIT; warm every route once so the
 # first real browser navigation is not billed the cold compile (slower CI).
-for path in /auth /projects /api-keys; do curl -sf "http://127.0.0.1:$WEB_PORT$path" -o /dev/null || true; done
+for path in /auth /projects /api-keys /work-items /features /planner /ai-providers /approvals /reviews /github /mcp /settings /system /admin; do curl -sf "http://127.0.0.1:$WEB_PORT$path" -o /dev/null || true; done
 
-echo "e2e: Playwright"
-( cd "$WEB_DIR" && PANEL_URL="http://127.0.0.1:$WEB_PORT" pnpm exec playwright test --project chromium )
+echo "e2e: Playwright (per-file DB reset: every spec starts on a brand-new install)"
+STATUS=0
+# perf.spec.ts (P-05) needs the seeded dataset, not a clean install — it is
+# driven by e2e-perf.sh instead. The flagship/chain specs use the setup-first
+# flow and get a fresh DB each file.
+for spec in $(cd "$WEB_DIR" && ls e2e/*.spec.ts | grep -v 'perf.spec.ts'); do
+  if [[ "$RESET_DB" == "1" ]]; then
+    ( cd "$WEB_DIR" && DATABASE_URL="$API_URL" node scripts/e2e-reset.mjs >/dev/null )
+  fi
+  ( cd "$WEB_DIR" && PANEL_URL="http://127.0.0.1:$WEB_PORT" pnpm exec playwright test --project=chromium "$spec" ) || STATUS=1
+done
+exit "$STATUS"

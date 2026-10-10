@@ -27,12 +27,14 @@ jobs:
     env:
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/forgepm_test
       REDIS_URL: redis://localhost:6379
-      # Throwaway 32-byte key (base64) so scripts that call loadEnv (gen:api)
-      # validate. Real secrets live in the `secrets` table; nothing sensitive
-      # here — this value is documented as a fixed dev placeholder.
-      FORGEPM_SECRET_KEY: Zm9yZ2VwbS1jaS10aHJvd2F3YXkta2V5LTMyYnl0ZXM=
     steps:
       - uses: actions/checkout@v4
+
+      - name: Generate a throwaway FORGEPM_SECRET_KEY
+        # Scripts that call loadEnv (gen:api) need a valid 32-byte base64 key.
+        # It is generated fresh per run and never committed — real secrets live
+        # in the `secrets` table (§3b-1.5), and this job touches none.
+        run: echo "FORGEPM_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
 
       - uses: pnpm/action-setup@v4
 
@@ -67,6 +69,27 @@ jobs:
           corepack enable
           (cd apps/web && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium)
           bash apps/web/e2e.sh
+
+      - name: "i18n key parity check (plan §11)"
+        run: (cd apps/web && node scripts/i18n-check.mjs)
+
+      - name: "Performance budget: seed + pnpm perf + P-05 first paint (plan §3b-7/§11)"
+        run: |
+          # dedicated perf dataset DB — never the functional test DB
+          export PERF_DB_URL="postgres://postgres:postgres@localhost:5432/forgepm_perf"
+          psql "postgres://postgres:postgres@localhost:5432/postgres" -qc "CREATE DATABASE forgepm_perf"
+          DATABASE_URL="$PERF_DB_URL" pnpm seed:perf | tee /tmp/seed-perf.log
+          PERF_API_KEY="$(grep -oE 'fpm_[a-z0-9]+' /tmp/seed-perf.log | head -1)"
+          (DATABASE_URL="$PERF_DB_URL" REDIS_URL="$REDIS_URL" FORGEPM_SECRET_KEY="$FORGEPM_SECRET_KEY" PORT=3101 HOST=127.0.0.1 LOG_LEVEL=fatal node apps/api/dist/main.js & echo $! > /tmp/perf-api.pid)
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:3101/health/live >/dev/null && break; sleep 1; done
+          DATABASE_URL="$PERF_DB_URL" PERF_API_KEY="$PERF_API_KEY" pnpm perf
+          kill "$(cat /tmp/perf-api.pid)" 2>/dev/null || true
+
+      - name: "P-05 panel first paint through Playwright (perf dataset)"
+        run: |
+          # e2e-perf.sh seeds (idempotent: reuses forgepm_perf above) and boots
+          # its own API+dev-server against the 500k dataset.
+          DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres" bash apps/web/e2e-perf.sh
 
       - name: "schema:check (live vs DATA_MODEL.md)"
         run: pnpm schema:check

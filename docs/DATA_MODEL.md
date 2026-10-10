@@ -304,6 +304,12 @@ CREATE TABLE work_items (
 CREATE INDEX workitems_state_idx ON work_items (project_id, state_id, priority);
 CREATE INDEX workitems_assignee_user_idx ON work_items (assignee_user_id);
 CREATE INDEX workitems_assignee_agent_idx ON work_items (assignee_agent_id);
+-- §12: list indexes start with project_id/organization_id and cover the cursor
+-- order (created_at DESC, id DESC); the partial form skips soft-deleted rows.
+-- Added by 0009_perf after the phase-7 load run (P-02) proved the org-wide
+-- index alone degraded the 200k-item project list.
+CREATE INDEX workitems_project_cursor_idx ON work_items (project_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
+CREATE INDEX workitems_org_cursor_undel_idx ON work_items (organization_id, created_at DESC, id DESC) WHERE deleted_at IS NULL;
 
 CREATE TABLE work_item_relations (
   id uuid PRIMARY KEY,

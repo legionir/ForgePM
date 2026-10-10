@@ -3,7 +3,61 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
-## [0.7.0] — Phase 7 (2026-10-09)
+## [0.7.0] — Phase 7 (2026-10-10, panel-completion increment)
+
+### Added
+
+- **System panel REST surface.** `GET /api/v1/jobs`, `POST /api/v1/jobs/:id/retry`
+  (DB-only re-queue; the worker sweeper re-enqueues per §3b-3), `GET
+  /api/v1/system/health` (db/redis/module flags), `POST /api/v1/system/backup`
+  (admin, runs `scripts/backup.sh` + audits) and `GET /api/v1/mcp/calls` (§8.11
+  masked tool-call log) — the endpoints `docs/API_CONTRACTS.md` promised and the
+  backend-first phases left for the panel.
+- **All remaining §11 panel pages** as thin clients over the tested REST surface
+  (lazy routes, standalone + signals, OnPush): Work Items List+Board (HTML5 drag
+  → server transitions), item detail (comments/activity/transition), Features +
+  Milestones (dual `work_progress`/`release_readiness`), Planner (create →
+  generate with the `fake` provider → approve → apply, separate actions),
+  Approvals queue, Reviews (runs/findings/dismiss/accept/create-issue;
+  guidance-only while modules are off), AI Providers, GitHub config + repo
+  linking, MCP call log, full Settings inheritance matrix (override / back-to-
+  inherited / source badges), System health + jobs + module toggles + backup,
+  Users + Audit.
+- **Panel i18n + RTL.** Bilingual `en`/`fa` dictionaries with a signal-driven
+  `lang`/`dir` switch and `apps/web/scripts/i18n-check.mjs` (CI key-parity gate,
+  120 keys). Hand-rolled rather than ngx-translate for the bundle budget (D-034).
+- **Accessibility + layout.** axe sweep (no serious/critical violations), fa/RTL
+  assertion and 360/1280 px no-horizontal-overflow checks in the flagship chain
+  spec; light/dark, logical-property responsive stylesheet.
+- **Performance tooling.** `pnpm seed:perf` (PERFORMANCE_BUDGET dataset: 10k
+  projects, a 200k-item project + 300k background items, ANALYZE, seeded login
+  + API key), `pnpm perf` (P-01..P-03 via autocannon, 20 conns / 30s warm-up /
+  60s measure / p95 thresholds; p99 stand-in per D-035) and the P-05 first-paint
+  Playwright gate (`apps/web/e2e-perf.sh`).
+- **Migration `0009_perf`** (forward-only, contract-synced): partial
+  `(project_id|organization_id, created_at DESC, id DESC) WHERE deleted_at IS
+  NULL` cursor indexes the §12 contract requires. The load run found P-02
+  scanning ~310k rows (p95 ~6s); these bring it to ~70ms (D-036).
+
+### Fixed
+
+- Dev-server proxy contexts narrowed `/api` → `/api/v1` (+ `/mcp`) so the
+  `/api-keys` SPA route is no longer swallowed by the Angular dev-server proxy.
+- `fake` `ai_providers` rows now generate a deterministic plan offline (was an
+  inert empty response), powering the §11 "plan with the fake provider" step.
+- `e2e.sh` runs each spec against a per-file DB reset so every flow starts on a
+  brand-new install (the §11 chain begins at first-run setup).
+
+### Tests / gates
+
+- 7 red-first integration tests for the System surface (jobs pagination +
+  `jobs:read` matrix + cross-org 404, retry re-queue + 409, health flags,
+  audited backup, MCP call log). Full backend suite 39 files / 269 tests green;
+  `pnpm verify`, `gen:api:check`, `schema:check`, `docs:check`, migration-hash
+  guard and `pnpm perf` green; flagship E2E + §11 chain + P-05 green locally.
+
+
+## [0.7.0-rc] — Phase 7 flagship subset (2026-10-09)
 
 ### Added
 

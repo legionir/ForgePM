@@ -1651,6 +1651,33 @@
         }
       }
     },
+    "/api/v1/mcp/calls": {
+      "get": {
+        "summary": "GET /api/v1/mcp/calls",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
     "/integrations/github/webhook": {
       "post": {
         "summary": "POST /integrations/github/webhook",
@@ -1891,6 +1918,117 @@
         "responses": {
           "200": {
             "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "summary": "GET /api/v1/jobs",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/jobs/{id}/retry": {
+      "post": {
+        "summary": "POST /api/v1/jobs/:id/retry",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/system/health": {
+      "get": {
+        "summary": "GET /api/v1/system/health",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/system/backup": {
+      "post": {
+        "summary": "POST /api/v1/system/backup",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "202": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
           }
         }
       }

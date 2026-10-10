@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
+import { I18n } from '../i18n';
 
 interface ApiKeyDto {
   id: string;
@@ -20,15 +21,15 @@ interface ApiKeyDto {
   imports: [FormsModule],
   template: `
     <section data-testid="api-keys">
-      <h1>API keys</h1>
+      <h1>{{ i18n.instant('nav.api_keys') }}</h1>
       <form class="new" (ngSubmit)="create()">
-        <label>Name<input name="name" [(ngModel)]="name" required /></label>
+        <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name" /></label>
         <label>Scope<select name="scope" [(ngModel)]="scope">
           <option value="read">read</option>
           <option value="write">write</option>
           <option value="admin">admin</option>
         </select></label>
-        <button type="submit" data-testid="apikey-create">Create key</button>
+        <button type="submit" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
       </form>
       @if (rawKey()) {
         <p class="raw" data-testid="apikey-raw">{{ rawKey() }}</p>
@@ -40,10 +41,10 @@ interface ApiKeyDto {
         @for (k of keys(); track k.id) {
           <li>
             <span>{{ k.name }} · {{ k.prefix }} · {{ k.scopes.join(',') }}</span>
-            <button type="button" class="revoke" (click)="revoke(k.id)" data-testid="apikey-revoke">Revoke</button>
+            <button type="button" class="revoke" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
           </li>
         } @empty {
-          <li data-testid="api-keys-empty">No API keys yet.</li>
+          <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>
         }
       </ul>
     </section>
@@ -51,6 +52,7 @@ interface ApiKeyDto {
 })
 export class ApiKeysPage implements OnInit {
   private readonly api = inject(ApiClient);
+  readonly i18n = inject(I18n);
 
   readonly keys = signal<ApiKeyDto[]>([]);
   readonly rawKey = signal('');

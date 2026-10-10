@@ -38,21 +38,28 @@ selftest) all re-run green. Panel Reviews page + octokit diff/comment writers
 deferred with the panel (B-007/B-008, same family as B-005).
 
 ## Phase 7 — v0.7.0
-Status: **shipped on main, not tagged** (see docs/PHASE7_REPORT.md). Two PRs
-merged: #1 (retention/metrics/rotation/backup/gen:api + the panel itself) and
-#2 (setup/login route split to fix the flagship E2E race). `main` HEAD
-`496814d` — CI run **38010279004** green (remote: pass); local `pnpm verify`
-262 tests + `pnpm gen:api:check` + `pnpm test:e2e` 5/5 green (local: pass).
+Status: **complete** (local pass). The panel-completion increment closed every
+open §11 gate B-005 tracked:
 
-What is DONE here: §14 observability/retention/key-rotation/backup/EXPLAIN,
-§11 OpenAPI-codegen with drift check + first-run setup + Projects + API Keys
-(panel + E2E), and the plan-claimed `gen:api` script that Phase 1 deferred.
-What is STILL OPEN (B-005 reduced): the remaining §11 pages (Board/Planner/
-MCP/GitHub/Reviews/Settings), the 9-step E2E chain, i18n parity, axe, first-
-paint perf (P-05) and Playwright-through-compose. Per AGENTS.md "only advance
-to the next phase when all of this phase's gates are green", tag `v0.7.0`
-is deferred until those gates are actually run green in a follow-up increment.
+- System REST surface (jobs/retry/health/backup + mcp/calls) — 7 red-first
+  integration tests green; contract-promised endpoints now exist.
+- All remaining §11 pages shipped as thin REST clients (Work Items List+Board,
+  item detail, Features/Milestones, Planner w/ fake provider, Approvals,
+  Reviews, AI Providers, GitHub, MCP log, full Settings inheritance, System
+  health/jobs/backup, Users+Audit).
+- i18n fa/en + RTL with `i18n-check.mjs` parity gate (120 keys); axe sweep no
+  serious/critical; 360/1280 no-overflow checks — all in the §11 chain spec.
+- `pnpm seed:perf` + `pnpm perf` (P-01..P-03) + P-05 Playwright first-paint
+  gate (`e2e-perf.sh`) all green; `0009_perf` cursor indexes fixed the P-02
+  ~6s scan the load run exposed (now ~70ms).
 
-Last commit: `496814d` (main, merged).
-Next step: Phase 7 follow-up increment closes the remaining §11 pages + i18n +
-axe + P-05, then tag `v0.7.0`; finally §16 (v1.0.0-rc.1 push + FINAL_REPORT).
+Gates (local): `pnpm verify` 39 files / 269 tests green; `gen:api:check` green;
+`schema:check` green (43 contract tables; 0009 adds indexes, no new table); `docs:check` green;
+migration-hash guard green; `bash apps/web/e2e.sh` (flagship + full §11 chain +
+a11y/RTL/overflow) green; `bash apps/web/e2e-perf.sh` (P-05, 217ms) green;
+`pnpm perf` (P-01..P-03) green.
+
+Last commits: 3 feature commits on `phase/7-panel-completion`
+(feat(api) system surface, feat(perf) tooling + 0009_perf, feat(web) §11 panel)
++ docs. Next: squash-merge to main, run remote CI (tag only after it is green),
+then §16 (v1.0.0-rc.1 publish + FINAL_REPORT).

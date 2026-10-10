@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Session } from '../session';
+import { I18n } from '../i18n';
 
 /** Sign in with an existing session (httpOnly cookie + CSRF) (plan §5.3). */
 @Component({
@@ -10,11 +11,11 @@ import { Session } from '../session';
   imports: [FormsModule],
   template: `
     <section class="auth" data-testid="auth">
-      <h1>Sign in</h1>
-      <label>Email<input data-testid="field-email" name="email" type="email" [(ngModel)]="email" /></label>
-      <label>Password<input data-testid="field-password" name="password" type="password" [(ngModel)]="password" /></label>
-      <button type="button" data-testid="login-submit" (click)="submit()">Sign in</button>
-      <p class="link"><a data-testid="go-setup" routerLink="/setup">First run? Setup</a></p>
+      <h1>{{ i18n.instant('login.title') }}</h1>
+      <label>{{ i18n.instant('common.email') }}<input data-testid="field-email" name="email" type="email" [(ngModel)]="email" /></label>
+      <label>{{ i18n.instant('common.password') }}<input data-testid="field-password" name="password" type="password" [(ngModel)]="password" /></label>
+      <button type="button" data-testid="login-submit" (click)="submit()">{{ i18n.instant('login.title') }}</button>
+      <p class="link"><a data-testid="go-setup" routerLink="/setup">{{ i18n.instant('login.first_run') }}</a></p>
       @if (error()) {
         <p class="error" data-testid="error">{{ error() }}</p>
       }
@@ -22,6 +23,7 @@ import { Session } from '../session';
   `,
 })
 export class LoginPage {
+  readonly i18n = inject(I18n);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
 
