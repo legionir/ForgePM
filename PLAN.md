@@ -16,3 +16,17 @@
 | Update validateConfig to check all three secrets (app_id, private_key, webhook_secret) | All three required; missing any throws VALIDATION_ERROR with clear message | کامل |
 | Add unit tests for validateConfig covering missing secrets | 3 failure cases + 1 success case all green | ناقص (vitest runner unavailable on host) |
 | Mark POU-36 as done in Linear | Linear issue status updated to Completed | کامل |
+# ForgePM Plan
+
+## Completed
+- [x] POU-18: IP spoofing fix + account-bounded rate limit
+- [x] POU-36: GitHub App config validation (all 3 secrets)
+
+## Pending
+- [ ] POU-32: Refactor to unitOfWork + service layer
+- [ ] POU-17: SSRF protection (IPv6/dns/redirect)
+- [ ] POU-11: Project-level scope enforcement
+
+## Notes
+- Test runner (vitest) unavailable on host due to wasm binding
+- GitHub MCP blocked by JEV gate; manual PR needed
