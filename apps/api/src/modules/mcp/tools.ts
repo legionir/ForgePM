@@ -134,10 +134,14 @@ async function firstProject(db: Db, actor: Actor): Promise<string> {
 
 async function analyzeProject(db: Db, actor: Actor, projectId: string): Promise<unknown> {
   await assertProjectAccess(db, actor, projectId, 'project:read');
-  const open = await db.selectFrom('work_items').select('id').where('project_id', '=', projectId).where('deleted_at', 'is', null).execute();
-  const features = await db.selectFrom('features').select(['key', 'title']).where('project_id', '=', projectId).where('deleted_at', 'is', null).execute();
-  const milestones = await db.selectFrom('milestones').select('name').where('project_id', '=', projectId).where('deleted_at', 'is', null).execute();
-  return { project_id: projectId, open_work_items: open.length, features, milestones };
+  const [features, milestones] = await db.transaction().execute(async (tx) => {
+    const [f, m] = await Promise.all([
+      tx.selectFrom('features').select(['key', 'title']).where('project_id', '=', projectId).where('deleted_at', 'is', null).execute(),
+      tx.selectFrom('milestones').select('name').where('project_id', '=', projectId).where('deleted_at', 'is', null).execute(),
+    ]);
+    return [f, m] as const;
+  });
+  return { project_id: projectId, features, milestones };
 }
 
 async function getPlanWithRevision(db: Db, actor: Actor, planId: string): Promise<unknown> {

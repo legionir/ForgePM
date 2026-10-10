@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { AppError, milestoneSchema, milestoneDtoSchema, type MilestoneDto } from '@forgepm/shared';
 import { newId, unitOfWork, recordAudit, workProgress, type Db } from '@forgepm/core';
+import type { Actor } from '../../app/auth-context';
 import { guard, requireActor } from '../../app/guards';
 import { assertProjectAccess } from '../projects/access';
 import type { AppDeps } from '../../app/app';
@@ -63,28 +64,7 @@ export function registerMilestonesRoutes(app: FastifyInstance, deps: AppDeps): v
       const actor = requireActor(req);
       await assertProjectAccess(db, actor, req.params.id, 'project:write');
       const id = newId();
-      await unitOfWork(db, async ({ tx }) => {
-        await tx
-          .insertInto('milestones')
-          .values({
-            id,
-            organization_id: actor.organizationId,
-            project_id: req.params.id,
-            name: req.body.name,
-            target_date: req.body.target_date ?? null,
-          })
-          .execute();
-        await recordAudit(tx, {
-          organization_id: actor.organizationId,
-          actor_type: actor.type === 'agent' ? 'agent' : 'user',
-          actor_id: actor.id,
-          action: 'milestone.create',
-          resource_type: 'milestone',
-          resource_id: id,
-          summary: { project_id: req.params.id, name: req.body.name },
-          request_id: actor.requestId,
-        });
-      });
+      await createMilestone(db, actor, req.params.id, req.body.name, req.body.target_date ?? null, req.body.status ?? 'open');
       const r = await db.selectFrom('milestones').select(COLS).where('id', '=', id).executeTakeFirstOrThrow();
       return reply.status(201).send(toDto(r as unknown as Row, await progress(db, id)));
     },
@@ -106,21 +86,86 @@ export function registerMilestonesRoutes(app: FastifyInstance, deps: AppDeps): v
       if (!existing) throw new AppError('NOT_FOUND', 'milestone not found');
       const row = existing as unknown as Row;
       await assertProjectAccess(db, actor, row.project_id as string, 'project:write');
-      await unitOfWork(db, async ({ tx }) => {
-        await tx.updateTable('milestones').set({ ...req.body, updated_at: new Date() } as never).where('id', '=', req.params.id).execute();
-        await recordAudit(tx, {
-          organization_id: actor.organizationId,
-          actor_type: actor.type === 'agent' ? 'agent' : 'user',
-          actor_id: actor.id,
-          action: 'milestone.update',
-          resource_type: 'milestone',
-          resource_id: req.params.id,
-          summary: { patch: req.body },
-          request_id: actor.requestId,
-        });
+      await updateMilestone(db, actor, req.params.id, {
+        name: req.body.name,
+        target_date: req.body.target_date ?? undefined,
+        status: req.body.status ?? undefined,
       });
       const after = await db.selectFrom('milestones').select(COLS).where('id', '=', req.params.id).executeTakeFirstOrThrow();
       return toDto(after as unknown as Row, await progress(db, req.params.id));
     },
   );
+
+  t.delete(
+    '/api/v1/milestones/:id',
+    { schema: { params: idParam }, preHandler: guard(db, {}) },
+    async (req, reply) => {
+      const actor = requireActor(req);
+      const existing = await db.selectFrom('milestones').select(COLS).where('id', '=', req.params.id).where('deleted_at', 'is', null).executeTakeFirst();
+      if (!existing) throw new AppError('NOT_FOUND', 'milestone not found');
+      const row = existing as unknown as Row;
+      await assertProjectAccess(db, actor, row.project_id as string, 'project:write');
+      await unitOfWork(db, async ({ tx }) => {
+        await tx.updateTable('milestones').set({ deleted_at: new Date() as never }).where('id', '=', req.params.id).execute();
+        await recordAudit(tx, {
+          organization_id: actor.organizationId,
+          actor_type: actor.type === 'agent' ? 'agent' : 'user',
+          actor_id: actor.id,
+          action: 'milestone.soft_delete',
+          resource_type: 'milestone',
+          resource_id: req.params.id,
+          summary: null,
+          request_id: actor.requestId,
+        });
+      });
+      return reply.status(204).send();
+    },
+  );
+}
+
+export async function createMilestone(db: Db, actor: Actor, projectId: string, name: string, targetDate: string | null, status: 'open' | 'closed'): Promise<void> {
+  const id = newId();
+  await unitOfWork(db, async ({ tx }) => {
+    await tx
+      .insertInto('milestones')
+      .values({
+        id,
+        organization_id: actor.organizationId,
+        project_id: projectId,
+        name,
+        target_date: targetDate,
+        status,
+      })
+      .execute();
+    await recordAudit(tx, {
+      organization_id: actor.organizationId,
+      actor_type: actor.type === 'agent' ? 'agent' : 'user',
+      actor_id: actor.id,
+      action: 'milestone.create',
+      resource_type: 'milestone',
+      resource_id: id,
+      summary: { project_id: projectId, name },
+      request_id: actor.requestId,
+    });
+  });
+}
+
+export async function updateMilestone(db: Db, actor: Actor, milestoneId: string, patch: { name?: string; target_date?: string | null; status?: 'open' | 'closed' }): Promise<void> {
+  await unitOfWork(db, async ({ tx }) => {
+    const setFields: Record<string, unknown> = { updated_at: new Date() as never };
+    if (patch.name !== undefined) setFields.name = patch.name;
+    if (patch.target_date !== undefined) setFields.target_date = patch.target_date;
+    if (patch.status !== undefined) setFields.status = patch.status;
+    await tx.updateTable('milestones').set(setFields as never).where('id', '=', milestoneId).execute();
+    await recordAudit(tx, {
+      organization_id: actor.organizationId,
+      actor_type: actor.type === 'agent' ? 'agent' : 'user',
+      actor_id: actor.id,
+      action: 'milestone.update',
+      resource_type: 'milestone',
+      resource_id: milestoneId,
+      summary: { patch },
+      request_id: actor.requestId,
+    });
+  });
 }

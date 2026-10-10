@@ -18,6 +18,7 @@ import {
 import { newId, toJsonb, unitOfWork, recordAudit, type Db } from '@forgepm/core';
 import type { AppDeps } from '../../app/app';
 import { guard, requireActor } from '../../app/guards';
+import { assertProjectAccess } from '../projects/access';
 import {
   addRelation,
   bulkCreate,
@@ -135,6 +136,7 @@ export function registerWorkItemsRoutes(app: FastifyInstance, deps: AppDeps): vo
       const actor = requireActor(req);
       const row = await getWorkItemByKey(db, actor.organizationId, req.params.key);
       if (!row) throw new AppError('NOT_FOUND', 'work item not found');
+      await assertProjectAccess(db, actor, row.project_id as string, 'project:read');
       const labels = await loadLabels(db, [row.id as string]);
       return rowToDto(row, labels.get(row.id as string) ?? []);
     },
@@ -150,7 +152,11 @@ export function registerWorkItemsRoutes(app: FastifyInstance, deps: AppDeps): vo
     '/api/v1/work-items/:key',
     { schema: { params: keyParams }, preHandler: guard(db, {}) },
     async (req, reply) => {
-      await softDelete(db, requireActor(req), req.params.key);
+      const actor = requireActor(req);
+      const item = await getWorkItemByKey(db, actor.organizationId, req.params.key);
+      if (!item) throw new AppError('NOT_FOUND', 'work item not found');
+      await assertProjectAccess(db, actor, item.project_id as string, 'project:write');
+      await softDelete(db, actor, req.params.key);
       return reply.status(204).send();
     },
   );
@@ -290,11 +296,19 @@ export function registerWorkItemsRoutes(app: FastifyInstance, deps: AppDeps): vo
     },
   );
 
-  // global search
+  // global search (no per-item project gate — results filtered by org + optional project scope)
   t.get(
     '/api/v1/search',
     { schema: { querystring: z.object({ q: z.string().min(1).max(200), limit: listQuerySchema.shape.limit }), response: { 200: z.object({ items: z.array(workItemDtoSchema) }) } }, preHandler: guard(db, { scope: 'read' }) },
-    async (req) => search(db, requireActor(req), req.query.q, req.query.limit),
+    async (req) => {
+      const actor = requireActor(req);
+      const rows = await search(db, actor, req.query.q, req.query.limit);
+      const safe = rows.items.filter((item) => {
+        if (actor.projectIds === null) return true;
+        return actor.projectIds.includes(item.project_id);
+      });
+      return { items: safe };
+    },
   );
 }
 
