@@ -66,3 +66,12 @@ Last commit: `main` HEAD (squash of phase/7-panel-completion).
 Next step: §16 — verify on a clean clone, bump to `1.0.0-rc.1`, push `main` +
 all tags (`v0.0.0`..`v0.7.0`, `v1.0.0-rc.1`), watch Remote CI on the pushed
 sha, then write and push `docs/FINAL_REPORT.md`.
+
+## Final phase — §16 (v1.0.0-rc.1) — DONE
+Status: **delivered** (local pass, remote pass — CI run 38022178098 on
+`7711811`). gitleaks clean (history allowlisted one documented placeholder,
+D-037), Local Verification green, clean-clone install green (compose path runs
+in CI per B-001), publish.sh idempotent (two passes), branch protection not
+applied (token scope, recorded). `docs/FINAL_REPORT.md` written and pushed.
+Tags `v0.0.0`..`v0.7.0` + `v1.0.0-rc.1` present on origin. Stop condition
+reached (plan §2 "اجرای بی‌توقف" item 3a).
