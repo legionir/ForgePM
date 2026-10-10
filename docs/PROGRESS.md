@@ -38,35 +38,21 @@ selftest) all re-run green. Panel Reviews page + octokit diff/comment writers
 deferred with the panel (B-007/B-008, same family as B-005).
 
 ## Phase 7 — v0.7.0
-Status: **in progress — flagship panel path + §14 ops shipped; §11 not fully
-green** — Angular (standalone + Signals) panel at `apps/web` with Setup/Login,
-Projects and API Keys pages; OpenAPI client generated via `pnpm gen:api`
-(`apps/api/openapi.json` + `apps/web/src/api/schema.d.ts`, drift check wired
-into CI); reproducible Playwright flagship E2E (`bash apps/web/e2e.sh` —
-setup → project → API key raw-once → logout → login) passing locally against
-the real Fastify API + Angular dev-server; `/metrics` behind `METRICS_ENABLED`
-(dependency-free Prometheus registry); nightly `runRetention` wired into the
-worker with a `system.retention` audit event per (org, table);
-`scripts/rotate-secret.ts` re-encrypts every `secrets` and
-`ai_providers.encrypted_key` blob by `key_version`; `EXPLAIN` guard asserts
-every hot query has a usable index path (11 shapes; verified non-vacuous);
-`scripts/backup.sh` no longer exits 2 when no storage tarballs exist and a
-real backup → fresh DB → restore round-trip test with row counts + checksum
-guards §14 acceptance. Backend `pnpm verify` is green (262 tests). See
-CHANGELOG `[0.7.0]` for details and DECISIONS D-031/D-032/D-033.
+Status: **shipped on main, not tagged** (see docs/PHASE7_REPORT.md). Two PRs
+merged: #1 (retention/metrics/rotation/backup/gen:api + the panel itself) and
+#2 (setup/login route split to fix the flagship E2E race). `main` HEAD
+`496814d` — CI run **38010279004** green (remote: pass); local `pnpm verify`
+262 tests + `pnpm gen:api:check` + `pnpm test:e2e` 5/5 green (local: pass).
 
-Still OPEN (B-005 reduced): Work Items/Board, Planner/Approvals, MCP settings,
-GitHub, Reviews and Settings pages; the full 9-step §11 E2E chain; the i18n
-key-parity script; the axe a11y sweep; the 200k-item first-paint performance
-gate; and Playwright executed via compose (B-001: Docker unavailable locally
-so the script drives the API directly; CI adds the compose variant). Tagging
-`v0.7.0` is deferred until either (a) every §11 acceptance box is genuinely
-green or (b) the remaining items are formally recorded as scoped-out of v0.7.0
-in the plan itself.
+What is DONE here: §14 observability/retention/key-rotation/backup/EXPLAIN,
+§11 OpenAPI-codegen with drift check + first-run setup + Projects + API Keys
+(panel + E2E), and the plan-claimed `gen:api` script that Phase 1 deferred.
+What is STILL OPEN (B-005 reduced): the remaining §11 pages (Board/Planner/
+MCP/GitHub/Reviews/Settings), the 9-step E2E chain, i18n parity, axe, first-
+paint perf (P-05) and Playwright-through-compose. Per AGENTS.md "only advance
+to the next phase when all of this phase's gates are green", tag `v0.7.0`
+is deferred until those gates are actually run green in a follow-up increment.
 
-Last commit: (this commit).
-Next step: commit the Phase 7 increment on `phase/7-panel-hardening`, run
-`pnpm verify` + `pnpm gen:api:check` + `pnpm test:e2e` locally, squash-merge
-into `main` (or open a PR if the branch is protected), push and pass
-**Remote CI**, then either close out the remaining panel pages under a v0.7.x
-increment or record the scope cut as a decision and open §16 (final release).
+Last commit: `496814d` (main, merged).
+Next step: Phase 7 follow-up increment closes the remaining §11 pages + i18n +
+axe + P-05, then tag `v0.7.0`; finally §16 (v1.0.0-rc.1 push + FINAL_REPORT).
