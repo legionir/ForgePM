@@ -59,7 +59,10 @@ migration-hash guard green; `bash apps/web/e2e.sh` (flagship + full §11 chain +
 a11y/RTL/overflow) green; `bash apps/web/e2e-perf.sh` (P-05, 217ms) green;
 `pnpm perf` (P-01..P-03) green.
 
-Last commits: 3 feature commits on `phase/7-panel-completion`
-(feat(api) system surface, feat(perf) tooling + 0009_perf, feat(web) §11 panel)
-+ docs. Next: squash-merge to main, run remote CI (tag only after it is green),
-then §16 (v1.0.0-rc.1 publish + FINAL_REPORT).
+Squash-merged to `main` as one commit (plan §2 step 5). Remote CI runs on the
+push; tag `v0.7.0` is applied only after that run is green (never before).
+
+Last commit: `main` HEAD (squash of phase/7-panel-completion).
+Next step: §16 — verify on a clean clone, bump to `1.0.0-rc.1`, push `main` +
+all tags (`v0.0.0`..`v0.7.0`, `v1.0.0-rc.1`), watch Remote CI on the pushed
+sha, then write and push `docs/FINAL_REPORT.md`.
