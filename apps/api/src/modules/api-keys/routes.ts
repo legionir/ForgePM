@@ -69,9 +69,37 @@ export function registerApiKeysRoutes(app: FastifyInstance, deps: AppDeps): void
       const gen = generateApiKey();
       const id = newId();
       const ownerId = req.body.agent_id ? null : actor.id;
+
+      // POU-12 escalation guard: agents are not allowed to mint keys at all.
+      // Human session owners must have admin role to mint write/admin keys.
+      // read-only keys may only mint other read keys (scope subset rule).
+      const isAdmin = actor.orgRole === 'owner' || actor.orgRole === 'admin';
       if (req.body.agent_id) {
-        if (!requireAgentManage(actor)) throw new AppError('FORBIDDEN', 'only admins may mint agent keys');
+        if (!isAdmin) throw new AppError('FORBIDDEN', 'only admins may mint agent keys');
+      } else if (!isAdmin) {
+        // non-admin may only create read-scoped keys for themselves
+        const reqScopes = req.body.scopes;
+        if (reqScopes.some((s) => s !== 'read')) {
+          throw new AppError('FORBIDDEN', 'non-admin may only create read-scoped keys');
+        }
+        const ownerKey = await db.selectFrom('api_keys').select('scopes').where('id', '=', actor.id).executeTakeFirst();
+        // if an owner key exists, new key scopes must be a subset of existing scope
+        if (ownerKey && (ownerKey.scopes as string[]).length > 0) {
+          const allowedScopes = new Set(ownerKey.scopes as string[]);
+          if (reqScopes.some((s) => !allowedScopes.has(s))) {
+            throw new AppError('FORBIDDEN', 'key scopes must be subset of owner key scopes');
+          }
+        }
+        const now = new Date();
+        // expiry cannot be extended beyond current key expiry or 1 year max
+        if (req.body.expires_at) {
+          const expiresAt = new Date(req.body.expires_at);
+          if (expiresAt.getTime() > new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000).getTime()) {
+            throw new AppError('FORBIDDEN', 'expiry may not exceed 1 year from now');
+          }
+        }
       }
+
       await unitOfWork(db, async ({ tx }) => {
         await tx
           .insertInto('api_keys')
