@@ -78,12 +78,13 @@ export async function getPlan(db: DbLike, id: string, orgId: string): Promise<Pl
   return r as unknown as PlanRow | undefined;
 }
 
-export async function loadRevision(db: DbLike, revisionId: string): Promise<RevisionRow | undefined> {
-  const r = await db
+export async function loadRevision(db: DbLike, revisionId: string, orgId?: string): Promise<RevisionRow | undefined> {
+  let qb = db
     .selectFrom('plan_revisions')
-    .select(['id', 'plan_id', 'revision_no', 'content', 'validation', 'created_by', 'created_at'])
-    .where('id', '=', revisionId)
-    .executeTakeFirst();
+    .select(['id', 'plan_id', 'revision_no', 'content', 'validation', 'created_by', 'created_at']);
+  if (orgId) qb = qb.where('plan_id', 'in', db.selectFrom('plans').select('id').where('organization_id', '=', orgId));
+  else qb = qb.where('id', '=', revisionId);
+  const r = await qb.executeTakeFirst();
   if (!r) return undefined;
   return {
     id: r.id,
@@ -190,6 +191,8 @@ async function recordAiCall(db: Db, orgId: string, provider: AiProvider, tin: nu
 }
 
 export async function addRevision(db: Db, planId: string, orgId: string, createdBy: string, content: PlanContent, validation: ValidationReport | null): Promise<string> {
+  const plan = await getPlan(db, planId, orgId);
+  if (!plan) throw new AppError('NOT_FOUND', 'plan not found');
   const revId = newId();
   await db.transaction().execute(async (tx) => {
     const maxRow = await tx
