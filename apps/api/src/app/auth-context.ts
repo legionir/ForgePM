@@ -53,6 +53,17 @@ export async function resolveApiKeyActor(db: Db, raw: string, requestId: string)
   if (row.expires_at && row.expires_at.getTime() < Date.now()) throw new AppError('AUTH_REQUIRED', 'api key expired');
   if (!verifyApiKey(raw, row.key_hash)) throw new AppError('AUTH_REQUIRED', 'invalid api key');
 
+  // POU-14: verify owner user is active and not deleted before authorizing key
+  if (row.owner_user_id) {
+    const user = await db
+      .selectFrom('users')
+      .select(['id', 'status'])
+      .where('id', '=', row.owner_user_id)
+      .where('deleted_at', 'is', null)
+      .executeTakeFirst();
+    if (!user || user.status !== 'active') throw new AppError('AUTH_REQUIRED', 'api key owner disabled or deleted');
+  }
+
   const projectIds = (row.project_ids as string[]) ?? [];
   const member = row.owner_user_id
     ? await db

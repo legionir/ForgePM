@@ -120,7 +120,15 @@ export function registerUsersRoutes(app: FastifyInstance, deps: AppDeps): void {
     },
     async (req) => {
       const actor = requireActor(req);
-      const target = await db.selectFrom('users').select(USER_COLUMNS).where('id', '=', req.params.id).where('deleted_at', 'is', null).executeTakeFirst();
+      // POU-13: verify target belongs to actor's org before any mutation
+      const target = await db
+        .selectFrom('users')
+        .select(USER_COLUMNS)
+        .innerJoin('memberships', 'memberships.user_id', 'users.id')
+        .where('users.id', '=', req.params.id)
+        .where('users.deleted_at', 'is', null)
+        .where('memberships.organization_id', '=', actor.organizationId)
+        .executeTakeFirst();
       if (!target) throw new AppError('NOT_FOUND', 'user not found');
       await db.updateTable('users').set(req.body).where('id', '=', req.params.id).execute();
       await unitOfWork(db, async ({ tx }) => {
