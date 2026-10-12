@@ -5,7 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 describe('POU-36: github/config validateConfig', () => {
   it('throws when no org exists', async () => {
-    const { validateConfig } = await import('../../../apps/api/src/modules/github/config');
+    const { validateConfig } = await import('../../src/modules/github/config');
     const db = {
       selectFrom: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),
@@ -45,7 +45,7 @@ describe('POU-36: github/config validateConfig', () => {
 
     // Re-import to pick up stubbed core
     vi.resetModules();
-    const { validateConfig: vc2 } = await import('../../../apps/api/src/modules/github/config');
+    const { validateConfig: vc2 } = await import('../../src/modules/github/config');
 
     await expect(vc2(db)).rejects.toThrow('missing: github.app_id, github.app_private_key');
 
@@ -63,7 +63,7 @@ describe('POU-36: github/config validateConfig', () => {
     process.env.GITHUB_APP_PRIVATE_KEY = 'pk';
     process.env.GITHUB_WEBHOOK_SECRET = 'ws';
 
-    const { validateConfig } = await import('../../../apps/api/src/modules/github/config');
+    const { validateConfig } = await import('../../src/modules/github/config');
     const db = {
       selectFrom: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),

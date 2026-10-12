@@ -34,7 +34,7 @@ import { makeReviewProviderResolver } from './review-resolver';
 import { setReviewProviderResolver } from '@forgepm/core';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 import { installMetrics } from './metrics';
-import { resolveClientIp, isTrustedProxy } from './trusted-proxy';
+import { isTrustedProxy } from './trusted-proxy';
 
 export interface AppDeps {
   env: Env;
@@ -71,21 +71,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
     genReqId: () => randomUUID(),
     bodyLimit: 1 * 1024 * 1024, // 1 MiB (plan §14); webhook route raises its own limit
-    trustProxy: false,
-  });
-
-  // POU-18: Trust only explicitly allowed proxies for X-Forwarded-For.
-  app.addHook('onRequest', async (req, reply) => {
-    const socketIp = req.socket?.remoteAddress ?? req.ip;
-    if (isTrustedProxy(socketIp)) {
-      const forwarded = req.headers['x-forwarded-for'];
-      const realIp = req.headers['x-real-ip'];
-      if (realIp) req.ip = realIp;
-      else if (forwarded) {
-        const first = forwarded.split(',').map((s: string) => s.trim()).filter(Boolean)[0];
-        if (first) req.ip = first;
-      }
-    }
+    // POU-18: only explicitly trusted proxies may set the client IP via X-Forwarded-For.
+    trustProxy: (addr: string) => isTrustedProxy(addr),
   });
 
   app.setValidatorCompiler(validatorCompiler);

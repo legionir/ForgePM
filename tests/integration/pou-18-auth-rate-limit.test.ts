@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../apps/api/src/app/app';
 import { buildRegistry } from '../../apps/api/src/app/modules';
 import { createHarness, type Harness } from '../harness';
-import { seedOrg, type SeedFixture } from '../seed';
+import { seedOrg } from '../seed';
 
 const env = {
   NODE_ENV: 'test',
@@ -36,14 +36,6 @@ beforeEach(async () => {
   await h.reset();
 });
 
-async function loginAs(seed: SeedFixture, email: string, password: string): Promise<{ cookies: string; csrf: string }> {
-  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
-  expect(res.statusCode).toBe(200, `login ${email}: ${res.body}`);
-  const cookies = res.headers['set-cookie'] as unknown as string[];
-  const session = cookies.find((c) => c.startsWith('fpm_session='))!;
-  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
-  return { cookies: `${session.split(';')[0]}; fpm_csrf=${csrf}`, csrf };
-}
 
 describe('POU-18: IP spoofing protection', () => {
   it('direct request uses real socket IP for rate limit key', async () => {
