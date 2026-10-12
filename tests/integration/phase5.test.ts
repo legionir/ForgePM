@@ -47,6 +47,9 @@ beforeEach(async () => {
   await h.reset();
   // webhook secret is read from env (bootstrap); keep it fixed for tests.
   process.env.GITHUB_WEBHOOK_SECRET = 'whsec_test';
+  // enabling the module now requires all three secrets (POU-36)
+  process.env.GITHUB_APP_ID = '12345';
+  process.env.GITHUB_APP_PRIVATE_KEY = 'test-private-key';
   await session();
 });
 
