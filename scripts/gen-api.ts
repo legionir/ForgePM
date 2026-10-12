@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import openapiTS, { astToString } from 'openapi-typescript';
 import { createDb, loadEnv } from '@forgepm/core';
 import { buildApp } from '../apps/api/src/app/app';
@@ -16,7 +17,7 @@ import { buildRegistry } from '../apps/api/src/app/modules';
  * Needs a reachable Postgres (DATABASE_URL); the app is built in-process, never
  * listened on. Secrets are irrelevant to route/schema collection.
  */
-const ROOT = join(dirname(new URL(import.meta.url).pathname), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SPEC_OUT = join(ROOT, 'apps', 'api', 'openapi.json');
 const CLIENT_OUT = join(ROOT, 'apps', 'web', 'src', 'api', 'schema.d.ts');
 const CHECK = process.argv.includes('--check');

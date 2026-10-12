@@ -1226,6 +1226,14 @@
             "_cached": null
           }
         }
+      },
+      "delete": {
+        "summary": "DELETE /api/v1/milestones/:id",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/v1/saved-views": {
