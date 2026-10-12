@@ -2,8 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../apps/api/src/app/app';
 import { buildRegistry } from '../../apps/api/src/app/modules';
-import { createHarness, type Harness } from '../harness';
-import { seedOrg } from '../seed';
+import { createHarness, type Harness } from './harness';
+import { seedOrg } from './seed';
 
 const env = {
   NODE_ENV: 'test',

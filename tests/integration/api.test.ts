@@ -7,6 +7,7 @@ import {
 import { buildApp } from '../../apps/api/src/app/app';
 import { buildRegistry } from '../../apps/api/src/app/modules';
 import { createHarness, type Harness } from './harness';
+import { seedOrg } from './seed';
 
 const env = {
   NODE_ENV: 'test',
@@ -82,7 +83,12 @@ describe('module lifecycle over REST (plan §3b-1, §4 acceptance)', () => {
 
   it('enabling via the admin route makes it return 200 without restart', async () => {
     // enable through the real route (which writes the setting + invalidates cache)
-    const enable = await app.inject({ method: 'PUT', url: '/api/v1/modules/sample/enabled', payload: { enabled: true } });
+    await seedOrg(h.db, { email: 'mod@x.io', password: 'hunter22x' });
+    const login = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'mod@x.io', password: 'hunter22x' } });
+    const cookies = login.headers['set-cookie'] as unknown as string[];
+    const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
+    const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
+    const enable = await app.inject({ method: 'PUT', url: '/api/v1/modules/sample/enabled', headers: { cookie: `${session}; fpm_csrf=${csrf}`, 'x-csrf-token': csrf }, payload: { enabled: true } });
     expect(enable.statusCode).toBe(200);
     expect(enable.json().modules.find((m: { name: string }) => m.name === 'sample').enabled).toBe(true);
 

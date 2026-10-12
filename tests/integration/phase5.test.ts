@@ -56,7 +56,7 @@ function sign(secret: string, body: string): string {
 
 async function enableGithub(): Promise<void> {
   // toggle via the route so the running app's module cache is invalidated too.
-  const r = await app.inject({ method: 'PUT', url: '/api/v1/modules/github/enabled', payload: { enabled: true } });
+  const r = await app.inject({ method: 'PUT', url: '/api/v1/modules/github/enabled', headers: { cookie: AUTH.cookies, 'x-csrf-token': AUTH.csrf }, payload: { enabled: true } });
   expect(r.statusCode).toBeLessThan(300);
 }
 

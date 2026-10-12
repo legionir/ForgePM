@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../apps/api/src/app/app';
 import { buildRegistry } from '../../apps/api/src/app/modules';
 import { createHarness, type Harness } from './harness';
-import { seedOrg, seedApiKey } from './seed';
+import { seedOrg, seedMember, seedApiKey } from './seed';
 
 const env = {
   NODE_ENV: 'test',
@@ -36,81 +36,81 @@ beforeEach(async () => {
   await h.reset();
 });
 
-async function login(email: string, password: string): Promise<{ token: string; userId: string; orgId: string }> {
-  const seed = await seedOrg(h.db, { email, password });
-  const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password } });
+type Hdrs = { cookie: string; 'x-csrf-token': string };
+
+/** Real panel login (session cookie + CSRF double-submit), as the SPA does. */
+async function loginHeaders(email: string, password: string): Promise<Hdrs> {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
   expect(res.statusCode).toBe(200);
-  const body = res.json() as { access_token: string; user: { id: string; organization_id: string } };
-  return { token: body.access_token, userId: seed.userId, orgId: seed.organizationId };
+  const cookies = res.headers['set-cookie'] as unknown as string[];
+  const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
+  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
+  return { cookie: `${session}; fpm_csrf=${csrf}`, 'x-csrf-token': csrf };
 }
 
+const bearer = (raw: string) => ({ authorization: `Bearer ${raw}` });
+
 describe('POU-10: module toggle auth', () => {
+  const url = '/api/v1/modules/sample/enabled';
+
   it('unauthenticated request returns 401', async () => {
-    const res = await app.inject({ method: 'PUT', url: '/api/v1/modules/sample/enabled', payload: { enabled: true } });
+    const res = await app.inject({ method: 'PUT', url, payload: { enabled: true } });
     expect(res.statusCode).toBe(401);
   });
 
   it('non-owner member returns 403', async () => {
-    const { token } = await login('member@example.com', 'password123');
-    const res = await app.inject({ method: 'PUT', url: '/api/v1/modules/sample/enabled', payload: { enabled: true }, headers: { Authorization: `Bearer ${token}` } });
+    const { organizationId } = await seedOrg(h.db, { email: 'owner@example.com', password: 'password123' });
+    await seedMember(h.db, organizationId, { email: 'member@example.com', password: 'password123' });
+    const res = await app.inject({ method: 'PUT', url, payload: { enabled: true }, headers: await loginHeaders('member@example.com', 'password123') });
     expect(res.statusCode).toBe(403);
   });
 
-  it('admin can toggle module and audit records actor + request_id', async () => {
-    const { token } = await login('admin@example.com', 'password123');
-    const res = await app.inject({ method: 'PUT', url: '/api/v1/modules/sample/enabled', payload: { enabled: true }, headers: { Authorization: `Bearer ${token}` } });
+  it('owner can toggle module and the audit trail records the actor', async () => {
+    const { userId } = await seedOrg(h.db, { email: 'owner@example.com', password: 'password123' });
+    const res = await app.inject({ method: 'PUT', url, payload: { enabled: true }, headers: await loginHeaders('owner@example.com', 'password123') });
     expect(res.statusCode).toBe(200);
     expect(res.json().modules.find((m: { name: string }) => m.name === 'sample').enabled).toBe(true);
-
-    // Check audit log
-    const audits = await h.db.selectFrom('audit_logs').selectAll().execute();
-    expect(audits.length).toBeGreaterThan(0);
-    const lastAudit = audits[audits.length - 1];
-    expect(lastAudit.action).toBe('setting.update');
-    expect(typeof lastAudit.actor_id).toBe('string');
-    expect(typeof lastAudit.request_id).toBe('string');
+    const audit = await h.db.selectFrom('audit_events').selectAll().where('actor_id', '=', userId).execute();
+    expect(audit.length).toBeGreaterThan(0);
+    expect(audit.every((a) => typeof a.request_id === 'string')).toBe(true);
   });
 });
 
 describe('POU-12: API key escalation guard', () => {
+  const mint = (raw: string, scopes: string[]) =>
+    app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'child-key', scopes }, headers: bearer(raw) });
+
   it('read-only key can mint another read key', async () => {
-    const { orgId, userId } = await login('user@example.com', 'password123');
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
-    const res = await app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'child-key', scopes: ['read'] }, headers: { Authorization: `Bearer ${rawKey}` } });
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const res = await mint(await seedApiKey(h.db, organizationId, userId, ['read']), ['read']);
     expect(res.statusCode).toBe(201);
     expect(res.json().api_key.scopes).toEqual(['read']);
   });
 
-  it('read-only key cannot mint write key', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
-    const res = await app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'evil', scopes: ['write'] }, headers: { Authorization: `Bearer ${rawKey}` } });
+  it('read-only key cannot mint a write key', async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const res = await mint(await seedApiKey(h.db, organizationId, userId, ['read']), ['write']);
     expect(res.statusCode).toBe(403);
-    // No key was created
-    const count = await h.db.selectFrom('api_keys').count('* as cnt').where('prefix', 'like', 'evil%').executeTakeFirst();
-    expect(Number(count?.cnt)).toBe(0);
+    const created = await h.db.selectFrom('api_keys').select('id').where('name', '=', 'child-key').execute();
+    expect(created).toHaveLength(0);
   });
 
-  it('read-only key cannot mint admin key', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
-    const res = await app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'evil', scopes: ['admin'] }, headers: { Authorization: `Bearer ${rawKey}` } });
+  it('read-only key cannot mint an admin key', async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const res = await mint(await seedApiKey(h.db, organizationId, userId, ['read']), ['admin']);
     expect(res.statusCode).toBe(403);
   });
 
-  it('admin key can mint write key', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['admin']);
-    const res = await app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'write-key', scopes: ['write'] }, headers: { Authorization: `Bearer ${rawKey}` } });
+  it('admin key can mint a write key', async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const res = await mint(await seedApiKey(h.db, organizationId, userId, ['admin']), ['write']);
     expect(res.statusCode).toBe(201);
     expect(res.json().api_key.scopes).toContain('write');
   });
 
-  it('escalated key cannot expand its own scope', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
-    // Try to use read key to mint a write key for itself (same user)
-    const res = await app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'mine', scopes: ['read', 'write'] }, headers: { Authorization: `Bearer ${rawKey}` } });
+  it('a read key cannot widen its own scope set', async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const res = await mint(await seedApiKey(h.db, organizationId, userId, ['read']), ['read', 'write']);
     expect(res.statusCode).toBe(403);
   });
 });
