@@ -17,7 +17,6 @@ describe('POU-36: github/config validateConfig', () => {
   });
 
   it('throws when any of app_id, private_key, webhook_secret is missing', async () => {
-    const { validateConfig } = await import('../../../apps/api/src/modules/github/config');
     const db = {
       selectFrom: vi.fn().mockReturnThis(),
       select: vi.fn().mockReturnThis(),

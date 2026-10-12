@@ -17,7 +17,7 @@ Status: **complete** (local pass, remote pass — CI run 37879871008; tag v0.3.0
 
 ## Phase 4 — v0.4.0 (server side)
 Status: **complete** — 4a shipped: Streamable-HTTP `/mcp`, real-SDK-client
-integration test, `pnpm mcp:smoke` green against a running server.
+integration test, `npm run mcp:smoke` green against a running server.
 4b (optional MCP client) deferred with B-006. Panel MCP settings deferred
 with the rest of the panel (B-005).
 
@@ -32,7 +32,7 @@ Status: **complete** (local pass, remote pass — CI run 37907130578; tag v0.6.0
 engine + Code Review + Refactor Review in core; REST + 8 MCP tools + worker
 webhook auto-run; settings registry incl. 422 redeclaration rule; migration
 `0008_reviews` matches Schema Contract §G (43 tables verified). 54 new tests;
-suite 227 green; `pnpm verify` green; CI-equivalent gates (fresh-DB migrate,
+suite 227 green; `npm run verify` green; CI-equivalent gates (fresh-DB migrate,
 schema:check + selftest, docs:check, migration-hash guard, phase-report
 selftest) all re-run green. Panel Reviews page + octokit diff/comment writers
 deferred with the panel (B-007/B-008, same family as B-005).
@@ -49,15 +49,15 @@ open §11 gate B-005 tracked:
   health/jobs/backup, Users+Audit).
 - i18n fa/en + RTL with `i18n-check.mjs` parity gate (120 keys); axe sweep no
   serious/critical; 360/1280 no-overflow checks — all in the §11 chain spec.
-- `pnpm seed:perf` + `pnpm perf` (P-01..P-03) + P-05 Playwright first-paint
+- `npm run seed:perf` + `npm run perf` (P-01..P-03) + P-05 Playwright first-paint
   gate (`e2e-perf.sh`) all green; `0009_perf` cursor indexes fixed the P-02
   ~6s scan the load run exposed (now ~70ms).
 
-Gates (local): `pnpm verify` 39 files / 269 tests green; `gen:api:check` green;
+Gates (local): `npm run verify` 39 files / 269 tests green; `gen:api:check` green;
 `schema:check` green (43 contract tables; 0009 adds indexes, no new table); `docs:check` green;
 migration-hash guard green; `bash apps/web/e2e.sh` (flagship + full §11 chain +
 a11y/RTL/overflow) green; `bash apps/web/e2e-perf.sh` (P-05, 217ms) green;
-`pnpm perf` (P-01..P-03) green.
+`npm run perf` (P-01..P-03) green.
 
 Squash-merged to `main` as one commit (plan §2 step 5). Remote CI runs on the
 push; tag `v0.7.0` is applied only after that run is green (never before).

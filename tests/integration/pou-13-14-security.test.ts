@@ -59,7 +59,7 @@ describe('POU-13: org-scoped user mutation', () => {
   });
 
   it('member cannot update another member in same org', async () => {
-    const { token: memberToken, userId: memberId } = await login('member@example.com', 'password123');
+    const { token: memberToken } = await login('member@example.com', 'password123');
     const { userId: targetId } = await seedOrg(h.db, { email: 'target@example.com', password: 'p' });
     const status = await patchUser(memberToken, targetId, { display_name: 'Hacked' });
     expect(status).toBe(404);

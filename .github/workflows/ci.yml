@@ -36,53 +36,50 @@ jobs:
         # in the `secrets` table (§3b-1.5), and this job touches none.
         run: echo "FORGEPM_SECRET_KEY=$(openssl rand -base64 32)" >> "$GITHUB_ENV"
 
-      - uses: pnpm/action-setup@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: pnpm
+          cache: npm
 
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Build workspace libs (shared+core) for tsx scripts
         # scripts/*.ts import @forgepm/{shared,core}, whose package.json "main"
         # points at dist/. Locally dist may already exist; on a clean CI runner
         # it must be built before any tsx script runs.
-        run: pnpm --filter @forgepm/shared --filter @forgepm/core run build
+        run: npm run build -w @forgepm/shared -w @forgepm/core
 
       - name: Migration hash guard (merged migrations must not be edited)
         run: node scripts/check-migration-hashes.mjs
 
       - name: "Migrations on an empty DB"
-        run: pnpm migrate
+        run: npm run migrate
 
       - name: Verify (lint, typecheck, unit+integration+coverage, build)
-        run: pnpm verify
+        run: npm run verify
 
       - name: "gen:api drift check (OpenAPI spec + typed client are committed)"
-        run: pnpm gen:api:check
+        run: npm run gen:api:check
 
       - name: "Panel build (Angular) + Playwright flagship E2E"
         run: |
-          corepack enable
-          (cd apps/web && pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium)
+          (cd apps/web && npm ci && npx playwright install --with-deps chromium)
           bash apps/web/e2e.sh
 
       - name: "i18n key parity check (plan §11)"
         run: (cd apps/web && node scripts/i18n-check.mjs)
 
-      - name: "Performance budget: seed + pnpm perf + P-05 first paint (plan §3b-7/§11)"
+      - name: "Performance budget: seed + npm run perf + P-05 first paint (plan §3b-7/§11)"
         run: |
           # dedicated perf dataset DB — never the functional test DB
           export PERF_DB_URL="postgres://postgres:postgres@localhost:5432/forgepm_perf"
           psql "postgres://postgres:postgres@localhost:5432/postgres" -qc "CREATE DATABASE forgepm_perf"
-          DATABASE_URL="$PERF_DB_URL" pnpm seed:perf | tee /tmp/seed-perf.log
+          DATABASE_URL="$PERF_DB_URL" npm run seed:perf | tee /tmp/seed-perf.log
           PERF_API_KEY="$(grep -oE 'fpm_[a-z0-9]+' /tmp/seed-perf.log | head -1)"
           (DATABASE_URL="$PERF_DB_URL" REDIS_URL="$REDIS_URL" FORGEPM_SECRET_KEY="$FORGEPM_SECRET_KEY" PORT=3101 HOST=127.0.0.1 LOG_LEVEL=fatal node apps/api/dist/main.js & echo $! > /tmp/perf-api.pid)
           for i in $(seq 1 30); do curl -sf http://127.0.0.1:3101/health/live >/dev/null && break; sleep 1; done
-          DATABASE_URL="$PERF_DB_URL" PERF_API_KEY="$PERF_API_KEY" pnpm perf
+          DATABASE_URL="$PERF_DB_URL" PERF_API_KEY="$PERF_API_KEY" npm run perf
           kill "$(cat /tmp/perf-api.pid)" 2>/dev/null || true
 
       - name: "P-05 panel first paint through Playwright (perf dataset)"
@@ -92,13 +89,13 @@ jobs:
           DATABASE_URL="postgres://postgres:postgres@localhost:5432/postgres" bash apps/web/e2e-perf.sh
 
       - name: "schema:check (live vs DATA_MODEL.md)"
-        run: pnpm schema:check
+        run: npm run schema:check
 
       - name: "schema:check must fail on a deliberate diff"
         run: node scripts/schema-check-selftest.mjs
 
       - name: "docs:check"
-        run: pnpm docs:check
+        run: npm run docs:check
 
       - name: phase-report script self-test (local/remote lines)
         run: node scripts/phase-report-selftest.mjs
@@ -116,8 +113,8 @@ jobs:
           docker compose ps
           docker compose down -v
 
-      - name: pnpm audit (production deps; high+ fails)
+      - name: npm audit (production deps; high+ fails)
         # The shipped surface is the production dependency tree. Dev-only
         # advisories with no upstream patch (see docs/SECURITY.md "Audit
         # exceptions") are reviewed, not silently ignored, via --prod.
-        run: pnpm audit --prod --audit-level=high
+        run: npm audit --omit=dev --audit-level=high

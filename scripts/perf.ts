@@ -2,8 +2,8 @@ import autocannon from 'autocannon';
 import { createDb } from '@forgepm/core';
 
 /**
- * pnpm perf — PERFORMANCE_BUDGET.md load gates P-01..P-03 with autocannon
- * against the `pnpm seed:perf` dataset: 20 connections, 30s warm-up, 60s
+ * npm run perf — PERFORMANCE_BUDGET.md load gates P-01..P-03 with autocannon
+ * against the `npm run seed:perf` dataset: 20 connections, 30s warm-up, 60s
  * measurement, p95 thresholds and the 20% fail band (§3b-7). P-04 (no
  * seq-scan) lives in phase7-explain.test.ts; P-05/P-06 are panel gates
  * (Playwright first paint, angular.json bundle budget).

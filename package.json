@@ -5,17 +5,16 @@
   "description": "ForgePM: self-hosted, AI-native project planning with MCP",
   "engines": {
     "node": ">=22 <23",
-    "pnpm": ">=9"
+    "npm": ">=10"
   },
-  "packageManager": "pnpm@12.5.1",
   "scripts": {
     "lint": "eslint .",
-    "typecheck": "pnpm -r run typecheck",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "vitest run --coverage",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "build": "pnpm -r run build",
-    "verify": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "build": "npm run build --workspaces --if-present",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build",
     "schema:check": "tsx scripts/schema-check.ts",
     "docs:check": "tsx scripts/docs-check.ts",
     "migrate": "tsx scripts/migrate.ts",
@@ -53,5 +52,12 @@
     "tsx": "4.19.2",
     "typescript": "5.7.2",
     "vitest": "3.2.6"
-  }
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/core",
+    "apps/api",
+    "apps/worker",
+    "tests"
+  ]
 }

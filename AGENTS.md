@@ -9,7 +9,7 @@ the derived documents — do not duplicate them here.
 1. Branch `phase/<N>-<slug>` from `main`.
 2. Write the phase's acceptance-criteria tests first (red).
 3. Implement until green; API and panel pages of that phase ship together.
-4. **Local Verification:** `pnpm verify` (lint, typecheck, unit, integration,
+4. **Local Verification:** `npm run verify` (lint, typecheck, unit, integration,
    coverage thresholds, build) must finish without errors.
 5. Update `CHANGELOG.md` + phase docs, commit, squash-merge to `main`, tag
    `v0.<N>.0`.

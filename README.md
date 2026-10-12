@@ -14,21 +14,21 @@ Bilingual panel (فارسی RTL / English).
 ```bash
 cp .env.example .env                # fill DATABASE_URL / REDIS_URL / FORGEPM_SECRET_KEY
 docker compose up -d                # api + worker + web + postgres + redis
-pnpm install && pnpm migrate        # apply forward-only migrations
-pnpm seed                           # default org (idempotent)
+npm install && npm run migrate        # apply forward-only migrations
+npm run seed                           # default org (idempotent)
 curl http://localhost:3001/health/ready
 ```
 
 ## Development
 
 ```bash
-pnpm install
+npm install
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis
-pnpm dev:api      # http://localhost:3001
-pnpm dev:worker
-pnpm verify       # lint + typecheck + unit + integration + coverage + build
-pnpm schema:check # live schema vs docs/DATA_MODEL.md
-pnpm docs:check   # required docs + internal links
+npm run dev:api      # http://localhost:3001
+npm run dev:worker
+npm run verify       # lint + typecheck + unit + integration + coverage + build
+npm run schema:check # live schema vs docs/DATA_MODEL.md
+npm run docs:check   # required docs + internal links
 ```
 
 ## Repo map

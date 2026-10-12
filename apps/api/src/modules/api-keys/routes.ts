@@ -164,7 +164,3 @@ export function registerApiKeysRoutes(app: FastifyInstance, deps: AppDeps): void
     },
   );
 }
-
-function requireAgentManage(actor: { orgRole: string | null }): boolean {
-  return actor.orgRole === 'owner' || actor.orgRole === 'admin';
-}

@@ -25,7 +25,7 @@ export function collectRoutes(app: FastifyInstance): () => CollectedRoute[] {
 /**
  * Minimal OpenAPI 3.0 document from the collected Fastify routes.
  * fastify-type-provider-zod attaches JSON schemas to route configs; the full
- * generated-client pipeline (`pnpm gen:api`) is wired in Phase 1/7.
+ * generated-client pipeline (`npm run gen:api`) is wired in Phase 1/7.
  */
 export function buildOpenApiDocument(routes: CollectedRoute[]) {
   const paths: Record<string, Record<string, unknown>> = {};

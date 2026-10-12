@@ -14,4 +14,4 @@ if [ "$COUNT" -gt 0 ]; then
 fi
 
 pg_restore --dbname="$DATABASE_URL" --no-owner --exit-on-error "$DUMP"
-echo "restore: applied $DUMP; run 'pnpm schema:check' to confirm."
+echo "restore: applied $DUMP; run 'npm run schema:check' to confirm."

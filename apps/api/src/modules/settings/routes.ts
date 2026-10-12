@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
-import { AppError } from '@forgepm/shared';
 import type { AppDeps } from '../../app/app';
 import { actorOf, requireAuth } from '../../app/auth-context';
 import { authorize } from '@forgepm/core';
@@ -45,7 +44,7 @@ export function registerModulesRoutes(app: FastifyInstance, deps: AppDeps): void
     },
     async (req) => {
       const actor = actorOf(req);
-      authorize(actor, 'org:manage');
+      authorize({ orgRole: actor.orgRole, projectRole: null }, 'org:manage');
       const { name } = req.params;
       const { enabled } = req.body;
       if (enabled) await deps.registry.enable(deps.db, name, null);

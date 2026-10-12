@@ -2,7 +2,7 @@
 
 Full contracts: `EXECUTION_PLAN.md` §3 and §3b. This file is the quick map.
 
-## Stack (monorepo, pnpm workspace)
+## Stack (monorepo, npm workspaces)
 
 | Layer | Choice |
 | --- | --- |
@@ -61,7 +61,7 @@ scripts/           seed, backup, restore, publish, doctor, schema-check, docs-ch
    idempotency scope `(actor_id, operation, key)`.
 4. **Migrations:** forward-only `NNNN_slug`; CI runs fresh + upgrade-from-tag.
 5. **Schema Contract:** `DATA_MODEL.md` DDL precedes migrations;
-   `pnpm schema:check` compares real schema to the doc.
+   `npm run schema:check` compares real schema to the doc.
 6. **Runtime authorization order (all REST + MCP):** credentials → module →
    organization → project → scope/permission → approval policy → rate limit →
    idempotency. `tools/list` is never a security control.

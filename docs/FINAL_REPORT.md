@@ -8,7 +8,7 @@ Plan §16 (فاز نهایی: پوش روی GitHub و تحویل). Generated 202
 - remote: pass
 
 Neither line is claimed unless its gate actually ran. `local` = a real
-`pnpm verify` + `pnpm gen:api:check` + full E2E + `pnpm perf` on this machine
+`npm run verify` + `npm run gen:api:check` + full E2E + `npm run perf` on this machine
 (`.verify-local` evidence marker). `remote` = GitHub Actions on the pushed
 commit, watched to completion via `gh run watch`.
 
@@ -27,14 +27,14 @@ commit, watched to completion via `gh run watch`.
 - [x] `gitleaks detect` over full history: **no leaks** (default rules; one
   narrow regex allowlist entry for the documented CI throwaway placeholder that
   was forward-fixed out of the tip — D-037).
-- [x] Local Verification: `pnpm verify` green (39 test files / 269 tests;
+- [x] Local Verification: `npm run verify` green (39 test files / 269 tests;
   lint + typecheck + unit + integration + coverage + build), `gen:api:check`,
   `schema:check` (43 contract tables), `docs:check`, migration-hash guard,
   `e2e.sh` (flagship + full §11 chain + axe/RTL/overflow), `e2e-perf.sh` (P-05,
-  203 ms), `pnpm perf` (P-01 34 ms / P-02 62 ms / P-03 40 ms p99, all inside
+  203 ms), `npm run perf` (P-01 34 ms / P-02 62 ms / P-03 40 ms p99, all inside
   thresholds at 20 connections).
-- [x] Clean-clone check: `git clone` + `pnpm install --frozen-lockfile` green
-  locally. `docker compose up -d && pnpm smoke` runs in CI (Docker is
+- [x] Clean-clone check: `git clone` + `npm ci` green
+  locally. `docker compose up -d && npm run smoke` runs in CI (Docker is
   unavailable in this sandbox — B-001/B-002; CI uses postgres:16 + redis:7
   services and the compose job ships green on the same commits).
 - [x] `CHANGELOG.md` + `1.0.0-rc.1` in all workspace `package.json` files +
@@ -92,7 +92,7 @@ commit, watched to completion via `gh run watch`.
   (Work Items List+Board, item detail, Features/Milestones, Planner, Approvals,
   Reviews, AI Providers, GitHub, MCP log, Settings inheritance matrix, System,
   Users/Audit), bilingual fa/en + RTL + `i18n-check`, axe + overflow checks,
-  the full 9-step flagship E2E chain, `seed:perf` + `pnpm perf` + P-05, and the
+  the full 9-step flagship E2E chain, `seed:perf` + `npm run perf` + P-05, and the
   `0009_perf` cursor indexes the load run proved necessary.
 
 ## Decisions (docs/DECISIONS.md)
@@ -132,9 +132,9 @@ these additive rather than a core rewrite.
 
 ```bash
 git clone https://github.com/legionir/ForgePM && cd ForgePM
-pnpm install && pnpm verify
+npm install && npm run verify
 bash apps/web/e2e.sh          # flagship + §11 chain + axe/RTL/overflow
 bash apps/web/e2e-perf.sh     # P-05 first paint
-DATABASE_URL=... pnpm seed:perf && pnpm perf   # P-01..P-03
-docker compose up -d --wait && pnpm smoke      # clean machine (§16 step 3)
+DATABASE_URL=... npm run seed:perf && npm run perf   # P-01..P-03
+docker compose up -d --wait && npm run smoke      # clean machine (§16 step 3)
 ```

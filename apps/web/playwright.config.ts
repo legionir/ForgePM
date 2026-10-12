@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 /**
  * Plan §15/§11 E2E gate for the panel. Base URL is the Angular dev-server,
  * which proxies /api to the backend on :3001 (see proxy.conf.json).
- * `webServer` starts both backend (via pnpm dev:api against a fresh DB) and
+ * `webServer` starts both backend (via npm run dev:api against a fresh DB) and
  * the dev-server; local E2E scripts pre-seed DATABASE_URL to a throwaway DB.
  */
 export default defineConfig({

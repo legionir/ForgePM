@@ -1,7 +1,7 @@
 import { createDb, runMigrations, migrations, pingDb } from '../packages/core/src';
 
 /**
- * pnpm smoke — README-command smoke (§15): connects, runs migrations
+ * npm run smoke — README-command smoke (§15): connects, runs migrations
  * (forward-only + idempotent), and pings. Used by CI on a clean clone.
  */
 async function main(): Promise<void> {

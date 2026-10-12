@@ -9,7 +9,7 @@ import { FA } from './i18n/fa';
  * a flat key map would blow the 500 KB initial-bundle budget (§11) for no
  * feature gain, so we keep the same `{ key }` interpolation contract in ~40
  * lines. Recorded in DECISIONS.md (D-034). Keys live in i18n/{en,fa}.ts and
- * `pnpm i18n:check` fails CI if the two key sets ever diverge (the §11
+ * `npm run i18n:check` fails CI if the two key sets ever diverge (the §11
  * "اسکریپت بررسی کلیدهای i18n" gate).
  */
 export type Lang = 'en' | 'fa';

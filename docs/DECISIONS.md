@@ -23,7 +23,7 @@ Format per plan §2: Context / Decision / Reason.
   single source of truth and `schema:check` passes on both versions.
 
 ## D-003 — `verify` composition
-- Context: §2 mandates `pnpm verify` = lint, typecheck, unit, integration,
+- Context: §2 mandates `npm run verify` = lint, typecheck, unit, integration,
   build. Coverage thresholds are part of Definition of Done.
 - Decision: `verify` runs `lint → typecheck → test (unit+integration with v8
   coverage thresholds) → build`.
@@ -102,7 +102,7 @@ Format per plan §2: Context / Decision / Reason.
   exception" collided with dev-tree advisories that have no upstream patch
   (e.g. `braces`, a transitive of the eslint-boundaries test parser) and with
   the test runner's own advisories. None of these ship in any image.
-- Decision: CI runs `pnpm audit --prod --audit-level=high` (ships-surface
+- Decision: CI runs `npm audit --omit=dev --audit-level=high` (ships-surface
   gate). Dev tooling moved to devDependencies where it is purely a build/test
   consumer (tests package). Every finding is listed with rationale in
   docs/SECURITY.md "Dependencies"; the list is re-reviewed at each dep update.
@@ -204,7 +204,7 @@ Format per plan §2: Context / Decision / Reason.
   Streamable-HTTP MCP Server, exercised with the real SDK client.
 - Decision: ship 4a complete (Streamable HTTP `/mcp`, scope+module+rate gates,
   `mcp_tool_calls` log with masked input, idempotency, planner contract,
-  real-SDK-client integration + `pnpm mcp:smoke` against a live server).
+  real-SDK-client integration + `npm run mcp:smoke` against a live server).
   4b is implemented as a follow-up effort; the mcp_servers table + `read`-only
   allowlist shape already exist. Recorded in BLOCKERS B-006.
 - Reason: honours "MCP Server internal is mandatory in v1" while deferring the
@@ -314,17 +314,17 @@ Format per plan §2: Context / Decision / Reason.
   (2 runs summary ⇒ 2 publishes updating one comment; `off` ⇒ 0). The real
   octokit writer ships with the phase-7 GitHub panel wiring.
 
-## D-031 — Panel is a standalone pnpm workspace (TS 6.x), outside root `verify`
+## D-031 — Panel is a standalone npm project (TS 6.x), outside root `verify`
 - Context: Phase 7 ships the long-deferred Angular panel (B-005/D-013). Angular
   22's compiler requires TypeScript 6.x; the backend pins TS 5.7.2. A shared
   root workspace would force one TS major on both, breaking either `ng build`
   or the backend `tsc`.
-- Decision: `apps/web` is its own pnpm workspace (`apps/web/pnpm-workspace.yaml`,
-  own `node_modules` + `pnpm-lock.yaml`), excluded from root `eslint`/
-  `pnpm -r build`/`pnpm verify`. It has independent gates: `ng build` (bundle
+- Decision: `apps/web` is its own npm project (not listed in the root `workspaces`,
+  own `node_modules` + `package-lock.json`), excluded from root `eslint`/
+  `npm run build --workspaces`/`npm run verify`. It has independent gates: `ng build` (bundle
   budget) and `bash apps/web/e2e.sh` (Playwright against the real API). CI runs
   both explicitly. The panel consumes the OpenAPI client produced by
-  `pnpm gen:api`.
+  `npm run gen:api`.
 - Reason: honest isolation — the backend suite stays green and reproducible on
   TS 5.7 while the panel builds on its required TS major; no version compromise
   or `any`-casting to force a shared toolchain.
@@ -368,7 +368,7 @@ Format per plan §2: Context / Decision / Reason.
   dependency weight; keeps P-06 bundle headroom. Non-sensitive technical
   ambiguity resolved to the simplest option per §2 hard rules.
 
-## D-035 — pnpm perf asserts p99 as the p95 stand-in
+## D-035 — npm run perf asserts p99 as the p95 stand-in
 - Context: §3b-7 fixes the measurement as "p95 زمان پاسخ HTTP سرتاسری با
   autocannon". autocannon 8 exposes latency percentiles p50/p90/p99 — p95 is
   not among them.
@@ -379,7 +379,7 @@ Format per plan §2: Context / Decision / Reason.
   warm-up, 60 s measure) without inventing an off-the-cuff percentile.
 
 ## D-036 — 0009_perf: partial cursor indexes discovered by the load run
-- Context: with the seeded dataset, `pnpm perf` measured P-02 (filtered list
+- Context: with the seeded dataset, `npm run perf` measured P-02 (filtered list
   on the 200k-item project) at p95 ≈ 6 s: the planner picked
   workitems_org_created_idx and filtered out ~310k rows from other projects.
   §12 mandates list indexes that start with project_id/organization_id and
@@ -408,3 +408,14 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: honest §16 compliance — the immutable historical line is a documented
   placeholder (auditable here), the live tree no longer contains it, and the
   allowlist is the minimal carve-out consistent with "no secret committed".
+
+## D-038 — Package manager: pnpm → npm workspaces
+- Context: the owner asked to drop pnpm and use plain npm.
+- Decision: root `package.json` declares `workspaces` (shared, core, api, worker,
+  tests — explicit order so `build`/`typecheck` run dependencies first);
+  `workspace:*` became `*`; `pnpm-lock.yaml`/`pnpm-workspace.yaml`/`.npmrc` were
+  removed in favour of `package-lock.json`. `apps/web` stays a separate npm
+  project (own `package-lock.json`) per D-031. CI/Docker use `npm ci`;
+  the audit gate is `npm audit --omit=dev --audit-level=high`.
+- Reason: single, ubiquitous toolchain with no corepack step; dependency
+  versions stay exact-pinned in each `package.json`.

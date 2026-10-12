@@ -2,7 +2,7 @@
 # apps/web/e2e.sh — reproducible panel E2E gate (plan §11/§15).
 # Resets a throwaway DB, boots the real API + Angular dev-server (which proxies
 # /api to it), runs Playwright chromium, then tears everything down.
-# Requires: Postgres + Redis on localhost, chromium (`pnpm exec playwright install`).
+# Requires: Postgres + Redis on localhost, chromium (`npx playwright install`).
 set -euo pipefail
 WEB_DIR="$(cd "$(dirname "$0")" && pwd)"   # apps/web
 ROOT="$(cd "$WEB_DIR/../.." && pwd)"        # repo root
@@ -28,7 +28,7 @@ if [[ "$RESET_DB" == "1" ]]; then
   psql "$PGURI" -qc "CREATE DATABASE $E2E_DB" >/dev/null
 fi
 echo "e2e: migrate + build api"
-( cd "$ROOT" && DATABASE_URL="$API_URL" pnpm migrate >/dev/null && pnpm --filter @forgepm/shared --filter @forgepm/core --filter @forgepm/api run build >/dev/null )
+( cd "$ROOT" && DATABASE_URL="$API_URL" npm run migrate >/dev/null && npm run build -w @forgepm/shared -w @forgepm/core -w @forgepm/api >/dev/null )
 
 echo "e2e: api on :$API_PORT"
 ( cd "$ROOT" && DATABASE_URL="$API_URL" REDIS_URL="${REDIS_URL:-redis://localhost:6379}" \
@@ -37,7 +37,7 @@ echo "e2e: api on :$API_PORT"
 for i in $(seq 1 30); do curl -sf "http://127.0.0.1:$API_PORT/health/live" >/dev/null && break; [[ $i -eq 30 ]] && { echo "api down:"; cat /tmp/forgepm-e2e-api.log; exit 1; }; sleep 1; done
 
 echo "e2e: Angular dev-server on :$WEB_PORT (proxy -> :$API_PORT)"
-( cd "$WEB_DIR" && pnpm exec ng serve --port "$WEB_PORT" --host 127.0.0.1 --proxy-config proxy.e2e.json > /tmp/forgepm-e2e-web.log 2>&1 ) & WEB_PID=$!
+( cd "$WEB_DIR" && npx ng serve --port "$WEB_PORT" --host 127.0.0.1 --proxy-config proxy.e2e.json > /tmp/forgepm-e2e-web.log 2>&1 ) & WEB_PID=$!
 for i in $(seq 1 90); do curl -sf "http://127.0.0.1:$WEB_PORT/" >/dev/null && break; [[ $i -eq 90 ]] && { echo "web down:"; cat /tmp/forgepm-e2e-web.log; exit 1; }; sleep 1; done
 # The Angular dev-server does on-demand JIT; warm every route once so the
 # first real browser navigation is not billed the cold compile (slower CI).
@@ -52,6 +52,6 @@ for spec in $(cd "$WEB_DIR" && ls e2e/*.spec.ts | grep -v 'perf.spec.ts'); do
   if [[ "$RESET_DB" == "1" ]]; then
     ( cd "$WEB_DIR" && DATABASE_URL="$API_URL" node scripts/e2e-reset.mjs >/dev/null )
   fi
-  ( cd "$WEB_DIR" && PANEL_URL="http://127.0.0.1:$WEB_PORT" pnpm exec playwright test --project=chromium "$spec" ) || STATUS=1
+  ( cd "$WEB_DIR" && PANEL_URL="http://127.0.0.1:$WEB_PORT" npx playwright test --project=chromium "$spec" ) || STATUS=1
 done
 exit "$STATUS"

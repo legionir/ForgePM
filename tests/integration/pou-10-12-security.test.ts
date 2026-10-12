@@ -74,7 +74,7 @@ describe('POU-10: module toggle auth', () => {
 
 describe('POU-12: API key escalation guard', () => {
   it('read-only key can mint another read key', async () => {
-    const { token, orgId, userId } = await login('user@example.com', 'password123');
+    const { orgId, userId } = await login('user@example.com', 'password123');
     const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
     const res = await app.inject({ method: 'POST', url: '/api/v1/api-keys', payload: { name: 'child-key', scopes: ['read'] }, headers: { Authorization: `Bearer ${rawKey}` } });
     expect(res.statusCode).toBe(201);

@@ -1,5 +1,5 @@
 /**
- * pnpm migrate — apply forward-only migrations. Needs only DATABASE_URL
+ * npm run migrate — apply forward-only migrations. Needs only DATABASE_URL
  * (runs without the full runtime env so it works in CI/bootstrap).
  */
 import { createDb, runMigrations, migrations } from '../packages/core/src';

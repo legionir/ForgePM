@@ -65,4 +65,4 @@ allowlisted commands, own process, timeouts, memory caps, no inherited env,
 path/network allowlists); credentials encrypted in `secrets`, masked in logs;
 HTTP targets SSRF-checked, HTTPS mandatory except explicit localhost.
 
-Client config examples: see `docs/MCP.md`; smoke via `pnpm mcp:smoke` (Phase 4).
+Client config examples: see `docs/MCP.md`; smoke via `npm run mcp:smoke` (Phase 4).

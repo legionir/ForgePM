@@ -1,5 +1,5 @@
 /**
- * pnpm docs:check — every required doc exists, is non-empty, and its
+ * npm run docs:check — every required doc exists, is non-empty, and its
  * relative markdown links resolve (§15). Also fails if EXECUTION_PLAN.md
  * differs from the committed plan source-of-truth is NOT checked (that file
  * is a copy); only structure/links are verified here.

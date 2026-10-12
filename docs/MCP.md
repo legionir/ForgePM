@@ -1,7 +1,7 @@
 # MCP — connecting a client
 
 The built-in MCP server ships in Phase 4. Contract in `MCP_CONTRACTS.md`;
-example client configuration below, verified by `pnpm mcp:smoke`.
+example client configuration below, verified by `npm run mcp:smoke`.
 
 ## Streamable HTTP
 

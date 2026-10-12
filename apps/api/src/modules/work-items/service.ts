@@ -1,4 +1,4 @@
-import { AppError, type WorkItemDto, type CreateWorkItemInput, type WorkItemFilter } from '@forgepm/shared';
+import { AppError, type Priority, type WorkItemType, type WorkItemDto, type CreateWorkItemInput, type WorkItemFilter } from '@forgepm/shared';
 import {
   findCycle,
   newId,
@@ -119,7 +119,7 @@ export async function patchWorkItem(db: Db, actor: Actor, key: string, patch: Pa
   const existing = await getWorkItemByKey(db, actor.organizationId, key);
   if (!existing) throw new AppError('NOT_FOUND', 'work item not found');
   await assertProjectAccess(db, actor, existing.project_id as string, 'project:write');
-  const gateResult = await gateAgentOperation(db, actor, 'work_item.update_content', { item_type: existing.type as any, priority: existing.priority });
+  const gateResult = await gateAgentOperation(db, actor, 'work_item.update_content', { item_type: existing.type as WorkItemType, priority: existing.priority as Priority });
   if (gateResult) throw new AppError('APPROVAL_REQUIRED', 'agent action requires approval', { approval_request_id: gateResult.approval_request_id });
 
   await unitOfWork(db, async ({ tx }) => {
@@ -173,7 +173,7 @@ export async function transitionWorkItem(db: Db, actor: Actor, key: string, toSt
   await assertProjectAccess(db, actor, item.project_id as string, 'project:write');
   const toState = (await listStates(db, item.project_id as string)).find((s) => s.id === toStateId);
   if (!toState) throw new AppError('VALIDATION_ERROR', 'unknown state for this project');
-  const gateResult = await gateAgentOperation(db, actor, 'work_item.transition', { item_type: item.type as any, priority: item.priority, transition_category: toState.category });
+  const gateResult = await gateAgentOperation(db, actor, 'work_item.transition', { item_type: item.type as WorkItemType, priority: item.priority as Priority, transition_category: toState.category });
   if (gateResult) throw new AppError('APPROVAL_REQUIRED', 'agent action requires approval', { approval_request_id: gateResult.approval_request_id });
   if (toState.category === 'completed') {
     const open = await openBlockers(db, item.id as string);
@@ -218,7 +218,7 @@ export async function softDelete(db: Db, actor: Actor, key: string): Promise<voi
   const item = await getWorkItemByKey(db, actor.organizationId, key);
   if (!item) throw new AppError('NOT_FOUND', 'work item not found');
   await assertProjectAccess(db, actor, item.project_id as string, 'project:write');
-  const gateResult = await gateAgentOperation(db, actor, 'work_item.delete', { item_type: item.type as any, priority: item.priority });
+  const gateResult = await gateAgentOperation(db, actor, 'work_item.delete', { item_type: item.type as WorkItemType, priority: item.priority as Priority });
   if (gateResult) throw new AppError('APPROVAL_REQUIRED', 'agent action requires approval', { approval_request_id: gateResult.approval_request_id });
   await unitOfWork(db, async ({ tx }) => {
     await softDeleteWorkItem(tx as never, item.id as string);
@@ -245,7 +245,7 @@ export async function addRelation(db: Db, actor: Actor, key: string, toKey: stri
   await assertProjectAccess(db, actor, from.project_id as string, 'project:write');
   const to = await getWorkItemByKey(db, actor.organizationId, toKey);
   if (!to) throw new AppError('NOT_FOUND', 'target work item not found');
-  const gateResult = await gateAgentOperation(db, actor, 'work_item.relation_add', { item_type: from.type as any, priority: from.priority });
+  const gateResult = await gateAgentOperation(db, actor, 'work_item.relation_add', { item_type: from.type as WorkItemType, priority: from.priority as Priority });
   if (gateResult) throw new AppError('APPROVAL_REQUIRED', 'agent action requires approval', { approval_request_id: gateResult.approval_request_id });
 
   if (type === 'blocks') {
@@ -343,7 +343,7 @@ export async function bulkCreate(db: Db, actor: Actor, projectId: string, items:
 }
 
 /** Gate agent mutations under the approval policy; returns { pending } if approval is needed. */
-async function gateAgentOperation(db: DbLike, actor: Actor, operation: string, desc: OperationDesc): Promise<{ pending: true; approval_request_id: string } | null> {
+async function gateAgentOperation(db: DbLike, actor: Actor, operation: string, desc: Omit<OperationDesc, 'operation'>): Promise<{ pending: true; approval_request_id: string } | null> {
   if (actor.type !== 'agent') return null;
   const allowed = new Set(((await getEffective(db as Db, 'approval.auto_operations', actor.organizationId, null))?.value as string[]) ?? ['work_item.create', 'work_item.update_content', 'work_item.comment', 'work_item.link']);
   const rateOk = await autoRateOk(db, actor.id);

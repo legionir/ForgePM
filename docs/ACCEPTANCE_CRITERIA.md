@@ -21,4 +21,4 @@ carries separate `local:` and `remote:` lines; nothing is declared green
 without its gate actually having run.
 
 Phase 0 status against §4 is recorded in `docs/PHASE0_REPORT.md` with
-`local:` / `remote:` lines produced by `pnpm report:phase`.
+`local:` / `remote:` lines produced by `npm run report:phase`.

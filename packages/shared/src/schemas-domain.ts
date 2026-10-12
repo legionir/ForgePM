@@ -125,6 +125,7 @@ export type FeatureDto = z.infer<typeof featureDtoSchema>;
 export const milestoneSchema = z.object({
   name: z.string().min(1).max(200),
   target_date: z.string().date().nullable().optional(),
+  status: z.enum(['open', 'closed']).optional(),
 });
 export const milestoneDtoSchema = z.object({
   id: z.string().uuid(),

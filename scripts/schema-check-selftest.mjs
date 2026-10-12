@@ -1,5 +1,5 @@
 // scripts/schema-check-selftest.mjs
-// Acceptance §15: "pnpm schema:check ... با اختلاف عمدی خطا می‌دهد" — prove the
+// Acceptance §15: "npm run schema:check ... با اختلاف عمدی خطا می‌دهد" — prove the
 // checker actually fails on a deliberate mismatch instead of silently passing.
 // We run schema:check against a scratch database where we DROP one contract
 // index, expect a non-zero exit, then verify a correct DB exits 0.
@@ -17,13 +17,13 @@ function psql(sql) {
 
 try {
   // 1. good schema → schema:check exits 0
-  execSync('pnpm schema:check', { stdio: 'inherit', env: process.env });
+  execSync('npm run schema:check', { stdio: 'inherit', env: process.env });
 
   // 2. drop a required contract index → schema:check must exit non-zero
   psql('DROP INDEX IF EXISTS outbox_pending_idx;');
   let failed = false;
   try {
-    execSync('pnpm schema:check', { stdio: 'pipe', env: process.env });
+    execSync('npm run schema:check', { stdio: 'pipe', env: process.env });
   } catch {
     failed = true;
   }
@@ -34,7 +34,7 @@ try {
 
   // 3. restore → green again (DB left usable)
   psql('CREATE INDEX IF NOT EXISTS outbox_pending_idx ON outbox (dispatched_at NULLS FIRST, created_at);');
-  execSync('pnpm schema:check', { stdio: 'pipe', env: process.env });
+  execSync('npm run schema:check', { stdio: 'pipe', env: process.env });
 
   console.log('schema-check selftest OK (deliberate diff correctly fails)');
 } catch (e) {

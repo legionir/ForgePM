@@ -6,12 +6,12 @@ import { buildApp } from '../apps/api/src/app/app';
 import { buildRegistry } from '../apps/api/src/app/modules';
 
 /**
- * pnpm gen:api — regenerate the OpenAPI spec + typed client from the live app
+ * npm run gen:api — regenerate the OpenAPI spec + typed client from the live app
  * (plan §11: "the API client is generated from the OpenAPI spec"). Deterministic
  * because route order equals registration order.
  *
- *   pnpm gen:api           write apps/api/openapi.json + apps/web/src/api/schema.d.ts
- *   pnpm gen:api --check   exit 1 if the committed files differ from generated
+ *   npm run gen:api           write apps/api/openapi.json + apps/web/src/api/schema.d.ts
+ *   npm run gen:api --check   exit 1 if the committed files differ from generated
  *
  * Needs a reachable Postgres (DATABASE_URL); the app is built in-process, never
  * listened on. Secrets are irrelevant to route/schema collection.
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
     for (const [path, content] of [[SPEC_OUT, spec], [CLIENT_OUT, client]] as const) {
       const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
       if (current !== content) {
-        process.stderr.write(`gen:api drift: ${path} is out of date — run 'pnpm gen:api'\n`);
+        process.stderr.write(`gen:api drift: ${path} is out of date — run 'npm run gen:api'\n`);
         process.exit(1);
       }
     }

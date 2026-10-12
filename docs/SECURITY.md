@@ -29,7 +29,7 @@ Full text: EXECUTION_PLAN §14 and §3b-6. Enforced everywhere, verified in Phas
 
 ## Dependencies
 
-`pnpm audit` runs in CI at `--prod --audit-level=high`: the gate applies to the
+`npm audit` runs in CI at `--omit=dev --audit-level=high`: the gate applies to the
 **production dependency tree** (the shipped surface). Dev-only advisories are
 reviewed, not silently ignored. Documented exceptions (plan §14: "مگر با
 استثنای مستند"):

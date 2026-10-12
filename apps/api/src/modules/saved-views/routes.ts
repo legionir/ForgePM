@@ -34,7 +34,6 @@ export function registerSavedViewsRoutes(app: FastifyInstance, deps: AppDeps): v
         .selectFrom('saved_views')
         .select(['id', 'project_id', 'owner_id', 'name', 'filter', 'shared', 'created_at'])
         .where('project_id', '=', req.query.project_id)
-        .where('deleted_at', 'is', null)
         .where((eb) => eb.or([eb('shared', '=', true), eb('owner_id', '=', actor.id)]))
         .orderBy('created_at', 'desc')
         .execute();
@@ -74,12 +73,12 @@ export function registerSavedViewsRoutes(app: FastifyInstance, deps: AppDeps): v
     { schema: { params: z.object({ id: z.string().uuid() }) }, preHandler: guard(db, {}) },
     async (req, reply) => {
       const actor = requireActor(req);
-      const existing = await db.selectFrom('saved_views').select(['id', 'owner_id']).where('id', '=', req.params.id).executeTakeFirst();
+      const existing = await db.selectFrom('saved_views').select(['id', 'project_id', 'owner_id']).where('id', '=', req.params.id).executeTakeFirst();
       if (!existing) throw new AppError('NOT_FOUND', 'saved view not found');
       await assertProjectAccess(db, actor, existing.project_id as string, 'project:write');
       if (existing.owner_id !== actor.id && actor.orgRole !== 'owner' && actor.orgRole !== 'admin') throw new AppError('FORBIDDEN', 'not your view');
       await unitOfWork(db, async ({ tx }) => {
-        await tx.updateTable('saved_views').set({ deleted_at: new Date() as never }).where('id', '=', req.params.id).execute();
+        await tx.deleteFrom('saved_views').where('id', '=', req.params.id).execute();
         await recordAudit(tx, {
           organization_id: actor.organizationId,
           actor_type: actor.type === 'agent' ? 'agent' : 'user',

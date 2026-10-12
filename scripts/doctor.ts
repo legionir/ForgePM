@@ -1,5 +1,5 @@
 /**
- * pnpm doctor — environment self-check (plan §3 scripts list): validates env,
+ * npm run doctor — environment self-check (plan §3 scripts list): validates env,
  * then probes Postgres and Redis and prints a PASS/FAIL line per dependency.
  */
 import { loadEnv, createDb, createRedis, pingDb } from '../packages/core/src';

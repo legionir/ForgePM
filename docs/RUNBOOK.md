@@ -6,7 +6,7 @@
   `./backups/<timestamp>.dump` plus the storage dir; keeps the last
   `BACKUP_KEEP` copies (default 7).
 - `scripts/restore.sh <dump>` — drops into an empty target DB only
-  (refuses a non-empty one), restores, then runs `pnpm schema:check`.
+  (refuses a non-empty one), restores, then runs `npm run schema:check`.
 - Nightly CI test: backup → fresh DB → restore → row-count + checksum
   comparison of key tables.
 
@@ -20,7 +20,7 @@
 
 ## Upgrade
 
-1. `pnpm schema:check` on the current DB (must pass).
+1. `npm run schema:check` on the current DB (must pass).
 2. Take a backup (above).
 3. Deploy the new image; migrations run forward-only at boot and are
    idempotent; never edit a merged migration.

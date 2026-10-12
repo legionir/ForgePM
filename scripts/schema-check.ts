@@ -1,5 +1,5 @@
 /**
- * pnpm schema:check — compares the live database schema against
+ * npm run schema:check — compares the live database schema against
  * docs/DATA_MODEL.md for every table that currently exists (§3b-5).
  *
  * The contract is machine-readable: each table block in DATA_MODEL.md lists
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   const url = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/forgepm_dev';
   const db = createDb(url);
   // NOTE: schema:check never migrates — it measures the live schema only.
-  // Run `pnpm migrate` first (CI does). This keeps a deliberate diff (the CI
+  // Run `npm run migrate` first (CI does). This keeps a deliberate diff (the CI
   // selftest) from being silently repaired by re-applying forward-only SQL.
 
   const expected = parseContract();

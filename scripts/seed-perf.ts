@@ -1,13 +1,13 @@
 #!/usr/bin/env tsx
 /**
- * pnpm seed:perf — the PERFORMANCE_BUDGET.md seed dataset (plan §5.10, behind
+ * npm run seed:perf — the PERFORMANCE_BUDGET.md seed dataset (plan §5.10, behind
  * a flag): N projects; one BIG project and the rest sharing OTHER_ITEMS.
  * Bulk INSERT ... SELECT (synthetic measurement data, not a product mutation —
  * so it bypasses the service layer by design). Keys are 3-letter base-26 codes
  * to satisfy projects.key CHECK '^[A-Z]{3,5}$' while staying unique per org.
  * Idempotent: refuses to double-seed.
  *
- *   DATABASE_URL=... pnpm seed:perf
+ *   DATABASE_URL=... npm run seed:perf
  *
  * Env: PERF_PROJECTS (default 10000), PERF_BIG_ITEMS (200000),
  * PERF_OTHER_ITEMS (300000).
@@ -108,13 +108,13 @@ async function main(): Promise<void> {
 
   const total = await sql<{ c: string }>`SELECT count(*)::text c FROM work_items`.execute(db);
   // bulk INSERT ... SELECT leaves stale planner statistics; ANALYZE so the
-  // load gates (pnpm perf) plan against real distributions, exactly as a
+  // load gates (npm run perf) plan against real distributions, exactly as a
   // night's autovacuum analyze would in production.
   await sql`ANALYZE`.execute(db);
   console.log(`seed:perf: done in ${Math.round(performance.now() - t0)}ms — ${total.rows[0].c} work items (analyzed)`);
 
   // 5) a loginable admin (argon2id, real hash) + an admin-owned read/write API
-  // key so `pnpm perf` (autocannon) and the P-05 Playwright first-paint gate
+  // key so `npm run perf` (autocannon) and the P-05 Playwright first-paint gate
   // can drive authenticated endpoints. Test-only dataset — this DB never
   // holds real credentials, and the password is a fixed seed constant.
   const perfUserId = newId();

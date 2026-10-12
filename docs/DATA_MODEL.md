@@ -1,7 +1,7 @@
 # ForgePM — Data Model (Schema Contract)
 
 > Contract per EXECUTION_PLAN §3b-5 and §12. The complete DDL below precedes
-> the migrations of each phase; `pnpm schema:check` compares the **live**
+> the migrations of each phase; `npm run schema:check` compares the **live**
 > database schema against this document for every table that currently exists.
 > Tables are grouped by the phase that creates them.
 >

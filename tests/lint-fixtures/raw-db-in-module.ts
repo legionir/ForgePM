@@ -1,5 +1,5 @@
 // FORBIDDEN sample for the ESLint raw-connection rule (acceptance §4).
-// This file lives under tests/lint-fixtures/ which is excluded from `pnpm lint`
+// This file lives under tests/lint-fixtures/ which is excluded from `npm run lint`
 // but included by the `lint:fixtures` test, which asserts eslint errors here.
 // eslint-disable-next-line use-isomorphic-code
 import { Pool } from 'pg';

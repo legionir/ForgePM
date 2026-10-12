@@ -8,8 +8,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@forgepm/shared": "workspace:*",
-    "@forgepm/core": "workspace:*",
+    "@forgepm/shared": "*",
+    "@forgepm/core": "*",
     "bullmq": "5.34.10",
     "ioredis": "5.4.2",
     "kysely": "0.28.17",

@@ -1,11 +1,11 @@
 # Performance Budget
 
-Per EXECUTION_PLAN §3b-7. `pnpm perf` (Phase 7) measures these nightly.
+Per EXECUTION_PLAN §3b-7. `npm run perf` (Phase 7) measures these nightly.
 
 - **Reference environment:** 4 vCPU, 8 GB RAM, SSD, all services on one box via
   docker compose; PostgreSQL 16 with `shared_buffers=2GB`; Redis on; no
   application cache.
-- **Seed dataset** (`pnpm seed:perf`, behind a flag): 10,000 projects; one
+- **Seed dataset** (`npm run seed:perf`, behind a flag): 10,000 projects; one
   200,000-item project + 9,999 others totalling 300,000 items.
 - **Method:** end-to-end p95 HTTP latency with autocannon, 20 concurrent
   connections, 30 s warm-up + 60 s measurement; exceeding a threshold by 20 %

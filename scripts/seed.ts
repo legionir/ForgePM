@@ -1,7 +1,7 @@
 import { createDb, runMigrations, migrations, upsertSetting, getEffective } from '../packages/core/src';
 
 /**
- * pnpm seed — Phase 0 seed: register the sample module as disabled by default
+ * npm run seed — Phase 0 seed: register the sample module as disabled by default
  * (the row the registry guard reads). Domain seed (default org, admin bootstrap)
  * lands in Phase 1. Idempotent.
  */

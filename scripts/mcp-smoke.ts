@@ -1,5 +1,5 @@
 /**
- * pnpm mcp:smoke — real SDK client against a running server.
+ * npm run mcp:smoke — real SDK client against a running server.
  * Requires FORGEPM_URL and FORGEPM_API_KEY env or --url/--key args.
  * Exercises initialize→tools/list→tools/call against `/mcp` via StreamableHTTP.
  */

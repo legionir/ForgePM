@@ -1,25 +1,23 @@
 # Multi-stage build for api + worker (plan §4.8).
-# The runtime stage carries the pnpm workspace node_modules produced at build
+# The runtime stage carries the npm workspace node_modules produced at build
 # so workspace-linked deps (kysely, bullmq, fastify, ...) resolve for both
 # apps and @forgepm/core.
 FROM node:22-bookworm-slim AS base
-ENV PNPM_HOME=/pnpm PATH=$PNPM_HOME:$PATH
-RUN corepack enable
 WORKDIR /app
 
 FROM base AS deps
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc* ./
+COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/core/package.json packages/core/
 COPY apps/api/package.json apps/api/
 COPY apps/worker/package.json apps/worker/
 COPY tests/package.json tests/
-RUN pnpm install --frozen-lockfile
+RUN npm ci
 
 FROM base AS build
 COPY --from=deps /app /app
 COPY . .
-RUN pnpm --filter @forgepm/shared --filter @forgepm/core --filter @forgepm/api --filter @forgepm/worker run build
+RUN npm run build -w @forgepm/shared -w @forgepm/core -w @forgepm/api -w @forgepm/worker
 
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production

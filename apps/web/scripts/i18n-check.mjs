@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// pnpm i18n:check — plan §11 gate "اسکریپت بررسی کلیدهای i18n": the fa key set
+// npm run i18n:check — plan §11 gate "اسکریپت بررسی کلیدهای i18n": the fa key set
 // must equal the en key set exactly (no untranslated UI in either locale) and
 // every i18n.instant('key') literal used in sources must exist in both.
 // Pure-node (no TS loader): the dictionaries are flat `export const X = {...}`

@@ -48,7 +48,7 @@ ForgePM یک پلتفرم self-hosted برای برنامه‌ریزی و مدی
 1. شاخه‌ی `phase/<N>-<slug>` از `main` بساز.
 2. ابتدا تست‌های معیار پذیرش آن فاز را (قرمز) بنویس.
 3. پیاده‌سازی کن تا همه‌ی تست‌ها سبز شوند؛ API و صفحه‌های پنل همان فاز با هم تحویل می‌شوند.
-4. **Local Verification:** `pnpm verify` (lint، typecheck، unit، integration، build) باید بدون خطا پایان یابد.
+4. **Local Verification:** `npm run verify` (lint، typecheck، unit، integration، build) باید بدون خطا پایان یابد.
 5. `CHANGELOG.md` و مستندات فاز را به‌روز کن، commit بزن، با squash به `main` merge کن، tag بزن: `v0.<N>.0`.
 6. اگر remote وجود دارد، push کن و **Remote CI** باید سبز شود. گزارش هر فاز دو خط جدا دارد: `local: pass|fail` و `remote: pass|fail|not-configured`؛ هیچ مرحله‌ای سبز اعلام نمی‌شود مگر معیار همان مرحله واقعاً اجرا شده باشد.
 7. فقط وقتی تمام معیارهای آن فاز سبز است به فاز بعد برو.
@@ -195,7 +195,7 @@ forgepm/
 
 ### ۵. Schema Contract
 
-پیش از اولین migration دامنه، `docs/DATA_MODEL.md` باید DDL کامل را شامل شود: همه‌ی ستون‌ها و نوع‌ها، FKها (از جمله مرکب‌ها)، ایندکس‌ها با ستون‌های واقعی، قیدهای یکتایی با رفتار NULL (`UNIQUE NULLS NOT DISTINCT` یا ایندکس partial)، CHECKها و رفتار soft-delete (ایندکس‌های یکتا partial با `deleted_at IS NULL`). Migrationها از روی همین سند ساخته می‌شوند و اسکریپت `pnpm schema:check` تطابق schema واقعی با سند را در CI می‌سنجد.
+پیش از اولین migration دامنه، `docs/DATA_MODEL.md` باید DDL کامل را شامل شود: همه‌ی ستون‌ها و نوع‌ها، FKها (از جمله مرکب‌ها)، ایندکس‌ها با ستون‌های واقعی، قیدهای یکتایی با رفتار NULL (`UNIQUE NULLS NOT DISTINCT` یا ایندکس partial)، CHECKها و رفتار soft-delete (ایندکس‌های یکتا partial با `deleted_at IS NULL`). Migrationها از روی همین سند ساخته می‌شوند و اسکریپت `npm run schema:check` تطابق schema واقعی با سند را در CI می‌سنجد.
 
 ### ۶. کنترل مجوز زمان اجرا (همه‌ی REST و MCP)
 
@@ -218,28 +218,28 @@ forgepm/
 
 1. `git init`، ساخت monorepo با pnpm workspace و پکیج‌های `packages/shared`، `apps/api`، `apps/worker`، `apps/web`.
 2. TypeScript strict، ESLint (قاعده‌ی مرز ماژول‌ها و ممنوعیت اتصال خام DB خارج از `infrastructure/`)، Prettier، `commitlint`، `husky`.
-3. اسکریپت `pnpm verify` به ترتیب `lint`، `typecheck`، `test`، `build`.
+3. اسکریپت `npm run verify` به ترتیب `lint`، `typecheck`، `test`، `build`.
 4. `apps/api`: Fastify با `GET /health/live` و `GET /health/ready` (چک Postgres و Redis)، error handler یکپارچه، `request_id`، و **module registry** (`registerModule`، `requireModule`، خواندن `modules.<name>.enabled` از تنظیمات) مطابق بخش ۳ب با یک ماژول نمونه برای تست.
 5. Migration `0001_infra`: جدول‌های `outbox`، `jobs`، `idempotency_keys`، `settings` (جدول‌های بخش ۱۲ با این سه مورد در فاز ۰ ساخته می‌شوند)؛ `unitOfWork` و `scopedDb`.
 6. `apps/worker`: BullMQ، **outbox dispatcher** و **job sweeper** مطابق بخش ۳ب، و job نمونه‌ی `system.ping` که از مسیر outbox اجرا می‌شود.
 7. `apps/web`: پروژه‌ی Angular Standalone با صفحه‌ی ساده‌ی «ForgePM» و تنظیم RTL/LTR و i18n (`fa`، `en`).
 8. `docker-compose.yml` برای پنج سرویس با healthcheck و volume پایدار Postgres؛ Dockerfile چندمرحله‌ای.
 9. `.env.example` با توضیح هر متغیر؛ اعتبارسنجی env با Zod (خطای واضح و توقف).
-10. `.github/workflows/ci.yml`: روی PR و push به `main` اجرای `pnpm verify` با سرویس‌های Postgres و Redis.
+10. `.github/workflows/ci.yml`: روی PR و push به `main` اجرای `npm run verify` با سرویس‌های Postgres و Redis.
 11. **مستندات مرجع:** این سند را بدون تغییر در `docs/EXECUTION_PLAN.md` کپی کن و فایل‌های `PRODUCT.md`، `ARCHITECTURE.md`، `SECURITY.md`، `API_CONTRACTS.md`، `MCP_CONTRACTS.md`، `ACCEPTANCE_CRITERIA.md`، `DECISIONS.md`، `BLOCKERS.md` را از بخش‌های متناظر آن بنویس؛ `AGENTS.md` فقط قوانین بخش ۲ و ارجاع به این فایل‌ها را دارد.
-12. **Schema Contract:** `docs/DATA_MODEL.md` را با DDL کامل همه‌ی جدول‌های بخش ۱۲ بنویس (ستون‌ها، FKهای مرکب، ایندکس‌ها، یکتایی‌ها، CHECKها، soft-delete) و `pnpm schema:check` را بساز؛ همچنین `docs/PERFORMANCE_BUDGET.md` مطابق بخش ۳ب-۷.
+12. **Schema Contract:** `docs/DATA_MODEL.md` را با DDL کامل همه‌ی جدول‌های بخش ۱۲ بنویس (ستون‌ها، FKهای مرکب، ایندکس‌ها، یکتایی‌ها، CHECKها، soft-delete) و `npm run schema:check` را بساز؛ همچنین `docs/PERFORMANCE_BUDGET.md` مطابق بخش ۳ب-۷.
 13. اگر `GITHUB_TOKEN` یا `gh auth` در دسترس است، همین‌جا مخزن private را طبق بخش ۱۶ (مراحل ۵ و ۶) بساز و push کن تا Remote CI از فاز ۰ فعال باشد؛ در غیر این صورت `remote: not-configured` ثبت کن و ادامه بده.
 
 ### معیار پذیرش
 
-- [ ] `pnpm install && pnpm verify` روی کلون تمیز بدون خطا تمام می‌شود.
+- [ ] `npm install && npm run verify` روی کلون تمیز بدون خطا تمام می‌شود.
 - [ ] `docker compose up -d` در کمتر از ۳ دقیقه همه‌ی سرویس‌ها را healthy می‌کند و `/health/ready` پاسخ `200` با `{"status":"ok"}` می‌دهد.
 - [ ] قطع Redis باعث `503` در `/health/ready` می‌شود و `/health/live` همچنان `200` است (تست خودکار).
 - [ ] اجرای برنامه با env ناقص با پیام مشخص و کد خروج غیرصفر پایان می‌یابد.
 - [ ] قاعده‌های ESLint (مرز ماژول‌ها، اتصال خام DB) با نمونه‌ی ممنوع آزمایشی خطا می‌دهند.
 - [ ] ماژول نمونه: در حالت غیرفعال همه‌ی ورودی‌هایش `503 MODULE_DISABLED` می‌دهند؛ با تغییر تنظیم `modules.sample.enabled` بدون restart فعال می‌شود و `200` می‌دهد.
 - [ ] یک ردیف outbox باعث اجرای دقیقاً یک اثر job می‌شود؛ اگر dispatcher قبل از enqueue متوقف شود، بعد از راه‌اندازی دوباره همان job اجرا می‌شود و اثر تکراری ندارد؛ sweeper یک job گیرکرده را بازیابی می‌کند.
-- [ ] فایل‌های `docs/` بخش ۳ب و `EXECUTION_PLAN.md` وجود دارند و `pnpm docs:check` سبز است؛ `pnpm schema:check` روی DB خالی بعد از migrationها سبز است.
+- [ ] فایل‌های `docs/` بخش ۳ب و `EXECUTION_PLAN.md` وجود دارند و `npm run docs:check` سبز است؛ `npm run schema:check` روی DB خالی بعد از migrationها سبز است.
 - [ ] Local Verification سبز؛ Remote CI سبز یا صریحاً `not-configured` در گزارش ثبت شده است.
 - [ ] تگ `v0.0.0` ساخته شده است.
 
@@ -258,7 +258,7 @@ forgepm/
 7. **Settings با ارث‌بری:** سه سطح `system` ← `organization` ← `project`؛ هر کلید در registry با schema، پیش‌فرض و دسته؛ مقدار مؤثر = نزدیک‌ترین سطح تعریف‌شده؛ API مقدار مؤثر + منشأ را برمی‌گرداند؛ ثبت Secretها در `secrets` از طریق API/پنل.
 8. **Audit:** در `unitOfWork` برای هر mutation رویداد (actor، action، resource، خلاصه‌ی before/after، request\_id).
 9. **Pagination و خطا:** cursor-pagination استاندارد (`?limit&cursor`، حداکثر ۲۰۰) و پاسخ خطای یکپارچه.
-10. **Seed بار:** اسکریپت `pnpm seed:perf` برای دیتاست `PERFORMANCE_BUDGET.md` (پشت فلگ).
+10. **Seed بار:** اسکریپت `npm run seed:perf` برای دیتاست `PERFORMANCE_BUDGET.md` (پشت فلگ).
 11. **پنل پایه (Angular):** ورود و setup اولیه، فهرست و ساخت/ویرایش/archive پروژه، مدیریت کاربران و نقش‌ها، صفحه‌ی Settings (system و project با نشان ارث‌برده/override‌شده)، API Keys، Audit Logs، System Health و Jobs؛ layout، ناوبری، i18n و RTL.
 
 ### ماتریس نقش‌ها (حداقل)
@@ -451,7 +451,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 - [ ] یک agent نمی‌تواند `approval_request` خودش را تأیید کند (`FORBIDDEN_SELF_APPROVAL`).
 - [ ] ۱۳۰ فراخوانی در یک دقیقه با یک کلید: فراخوانی‌های بعد از ۱۲۰ با `RATE_LIMITED` رد می‌شوند.
 - [ ] هر فراخوانی در `mcp_tool_calls` ثبت می‌شود و مقدار توکن‌ها/کلیدها در ورودی ثبت‌شده ماسک است.
-- [ ] نمونه‌ی config برای اتصال یک MCP client در `docs/MCP.md` وجود دارد و راهنما با یک اسکریپت smoke (`pnpm mcp:smoke`) واقعاً اجرا و سبز می‌شود.
+- [ ] نمونه‌ی config برای اتصال یک MCP client در `docs/MCP.md` وجود دارد و راهنما با یک اسکریپت smoke (`npm run mcp:smoke`) واقعاً اجرا و سبز می‌شود.
 - [ ] (۴ب) سرور خارجی تستی با ۲ ابزار، یکی در allowlist و یکی نه؛ فقط اولی قابل‌استفاده است و فراخوانی دومی `TOOL_NOT_ALLOWED` می‌دهد.
 - [ ] تگ `v0.4.0` ساخته شده است.
 
@@ -556,7 +556,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 
 ### اصول فنی
 
-- کلاینت API از OpenAPI تولیدشده ساخته می‌شود (`pnpm gen:api`) و CI اختلاف خروجی با فایل commit‌شده را خطا می‌گیرد (از فاز ۱ فعال است؛ این فاز کامل‌بودن آن را می‌سنجد).
+- کلاینت API از OpenAPI تولیدشده ساخته می‌شود (`npm run gen:api`) و CI اختلاف خروجی با فایل commit‌شده را خطا می‌گیرد (از فاز ۱ فعال است؛ این فاز کامل‌بودن آن را می‌سنجد).
 - Standalone components، Signals، lazy routes، `OnPush`؛ لیست‌های بلند با CDK virtual scroll و cursor-pagination؛ سقف bundle اولیه ۵۰۰ کیلوبایت gzip.
 - طراحی واکنش‌گرا از ۳۶۰ تا ۱۹۲۰ پیکسل، تم روشن/تاریک، تقویم میلادی با نمایش جلالی اختیاری.
 - دسترس‌پذیری: ناوبری کامل با کیبورد، برچسب‌های ARIA، تضاد رنگ AA.
@@ -587,7 +587,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 - [ ] axe روی صفحه‌های اصلی هیچ خطای جدی/بحرانی ندارد؛ همه‌ی کنترل‌ها با کیبورد در دسترس‌اند.
 - [ ] کلید API خام فقط هنگام ساخت دیده می‌شود.
 - [ ] چک CI کلاینت OpenAPI اختلافی گزارش نمی‌کند؛ اندازه‌ی bundle اولیه از سقف بیشتر نیست.
-- [ ] تمام معیارهای بخش ۱۴ سبز است؛ اجرای `pnpm perf` معیارهای `PERFORMANCE_BUDGET.md` را در آستانه‌ها نشان می‌دهد.
+- [ ] تمام معیارهای بخش ۱۴ سبز است؛ اجرای `npm run perf` معیارهای `PERFORMANCE_BUDGET.md` را در آستانه‌ها نشان می‌دهد.
 - [ ] Local Verification سبز؛ وضعیت Remote CI در گزارش؛ تگ `v0.7.0` ساخته شده است.
 
 ## ۱۲. مدل داده
@@ -600,7 +600,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 - مقادیر شمارشی با `CHECK` یا جدول مرجع؛ ارجاع چندریخت (مثل assignee) با دو ستون FK جدا و `CHECK` حداکثر یکی.
 - قیدهای یکتایی روی ستون‌های nullable با `NULLS NOT DISTINCT` یا ایندکس partial؛ یکتایی جدول‌های soft-delete‌شونده partial با `deleted_at IS NULL`.
 - JSONB فقط برای داده‌ی نیمه‌ساخت‌یافته‌ی واقعی (تنظیمات، payload خام، ایندکس ساختار).
-- Migration فقط forward-only با نام `NNNN_<slug>.ts`؛ تست‌های بخش ۳ب-۴ و تطابق با `docs/DATA_MODEL.md` (`pnpm schema:check`).
+- Migration فقط forward-only با نام `NNNN_<slug>.ts`؛ تست‌های بخش ۳ب-۴ و تطابق با `docs/DATA_MODEL.md` (`npm run schema:check`).
 
 ### جدول‌های اصلی
 
@@ -781,7 +781,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 
 ### CI (GitHub Actions)
 
-مراحل: install با cache ← lint ← typecheck ← unit ← integration (Postgres/Redis) ← تست‌های migration (بخش ۳ب-۴) و `schema:check` ← build image ← اسکن trivy ← E2E (روی `main` و PRهای با برچسب `e2e`). شکست هر مرحله CI را قرمز می‌کند و merge به `main` فقط با CI سبز است. **Local Verification** (اجرای `pnpm verify` روی ماشین ایجنت) و **Remote CI** (GitHub Actions) دو وضعیت جدا هستند و در گزارش هر فاز جدا ثبت می‌شوند؛ تا وقتی remote وجود ندارد، وضعیت Remote برابر `not-configured` است و هیچ مرحله‌ای «CI سبز» اعلام نمی‌شود.
+مراحل: install با cache ← lint ← typecheck ← unit ← integration (Postgres/Redis) ← تست‌های migration (بخش ۳ب-۴) و `schema:check` ← build image ← اسکن trivy ← E2E (روی `main` و PRهای با برچسب `e2e`). شکست هر مرحله CI را قرمز می‌کند و merge به `main` فقط با CI سبز است. **Local Verification** (اجرای `npm run verify` روی ماشین ایجنت) و **Remote CI** (GitHub Actions) دو وضعیت جدا هستند و در گزارش هر فاز جدا ثبت می‌شوند؛ تا وقتی remote وجود ندارد، وضعیت Remote برابر `not-configured` است و هیچ مرحله‌ای «CI سبز» اعلام نمی‌شود.
 
 ### مستندات الزامی
 
@@ -805,14 +805,14 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 
 ### معیار پذیرش
 
-- [ ] `pnpm test` همه‌ی سطوح unit/integration/contract را در محیط بدون اینترنت (به‌جز نصب اولیه) سبز اجرا می‌کند.
+- [ ] `npm test` همه‌ی سطوح unit/integration/contract را در محیط بدون اینترنت (به‌جز نصب اولیه) سبز اجرا می‌کند.
 - [ ] snapshot قرارداد OpenAPI و فهرست ابزارهای MCP commit شده و تغییر ناخواسته در CI خطا می‌دهد.
 - [ ] آستانه‌های پوشش در CI اعمال شده‌اند (کاهش پوشش زیر آستانه ← شکست).
-- [ ] همه‌ی فایل‌های جدول مستندات وجود دارند، خالی نیستند و لینک‌های داخلی آن‌ها شکسته نیست (اسکریپت `pnpm docs:check`).
+- [ ] همه‌ی فایل‌های جدول مستندات وجود دارند، خالی نیستند و لینک‌های داخلی آن‌ها شکسته نیست (اسکریپت `npm run docs:check`).
 - [ ] دستورهای README روی کلون تمیز کلمه‌به‌کلمه اجرا و موفق می‌شوند (تست در CI با اسکریپت smoke).
 
 * [ ] تست ارتقاء migration از دامپ تگ قبلی به نسخه‌ی فعلی در CI اجرا و سبز است و هیچ migration قبلاً merge‌شده‌ای ویرایش نشده است (چک hash فایل‌ها).
-* [ ] `pnpm schema:check` تطابق schema واقعی با `docs/DATA_MODEL.md` را می‌سنجد و با اختلاف عمدی خطا می‌دهد.
+* [ ] `npm run schema:check` تطابق schema واقعی با `docs/DATA_MODEL.md` را می‌سنجد و با اختلاف عمدی خطا می‌دهد.
 * [ ] گزارش هر فاز دو وضعیت `local` و `remote` را جدا نشان می‌دهد (تست اسکریپت گزارش).
 
 ## ۱۶. فاز نهایی: پوش روی GitHub و تحویل
@@ -831,8 +831,8 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 ### مراحل
 
 1. **اسکن secret:** `gitleaks detect` روی کل تاریخچه؛ هر یافته قبل از ادامه رفع شود (در صورت نیاز با `git filter-repo` روی تاریخچه‌ی محلیِ هنوز push‌نشده؛ اگر قبلاً push شده، secret ابطال و تاریخچه‌ی جدید با یک commit اصلاحی ادامه یابد، بدون force-push).
-2. **تأیید نهایی:** `pnpm verify` و `pnpm test:e2e` بدون خطا (Local Verification).
-3. **تأیید روی کلون تمیز:** `git clone` محلی در دایرکتوری موقت و اجرای دقیق دستورهای README (`pnpm install`، `docker compose up -d`، `pnpm smoke`)؛ هر شکست یعنی بازگشت به رفع مشکل.
+2. **تأیید نهایی:** `npm run verify` و `npm test:e2e` بدون خطا (Local Verification).
+3. **تأیید روی کلون تمیز:** `git clone` محلی در دایرکتوری موقت و اجرای دقیق دستورهای README (`npm install`، `docker compose up -d`، `npm run smoke`)؛ هر شکست یعنی بازگشت به رفع مشکل.
 4. **آماده‌سازی انتشار:** `CHANGELOG.md`، نسخه‌ی `1.0.0-rc.1` در `package.json`ها، تگ `v1.0.0-rc.1`؛ تگ‌های `v0.0.0` تا `v0.7.0` باید وجود داشته باشند.
 5. **مخزن راه‌دور:** اگر `origin` تنظیم است همان را بردار (اگر در فاز ۰ ساخته شده، این مرحله idempotent است). در غیر این صورت: `gh repo create "$OWNER/$REPO" --"$VISIBILITY" --source . --remote origin --description "ForgePM: self-hosted, AI-native project planning with MCP"`؛ بدون `gh` از REST API با `GITHUB_TOKEN`.
 6. **پوش بدون force:** `git push -u origin main --follow-tags` و `git push origin --tags`.
@@ -847,7 +847,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 ### معیار پذیرش
 
 - [ ] `gitleaks` هیچ یافته‌ای در کل تاریخچه ندارد.
-- [ ] روی کلون تمیز، `pnpm install && docker compose up -d && pnpm smoke` بدون مداخله‌ی دستی سبز است.
+- [ ] روی کلون تمیز، `npm install && docker compose up -d && npm run smoke` بدون مداخله‌ی دستی سبز است.
 - [ ] `git ls-remote origin` شامل `refs/heads/main` و تگ‌های `v0.0.0` تا `v0.7.0` و `v1.0.0-rc.1` است.
 - [ ] آخرین commit روی `origin/main` دقیقاً برابر commit محلی است (`git rev-parse HEAD == git rev-parse origin/main`).
 - [ ] CI روی آخرین commit `success` است و لینک run در `docs/FINAL_REPORT.md` آمده است.
