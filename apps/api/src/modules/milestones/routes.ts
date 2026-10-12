@@ -63,8 +63,7 @@ export function registerMilestonesRoutes(app: FastifyInstance, deps: AppDeps): v
     async (req, reply) => {
       const actor = requireActor(req);
       await assertProjectAccess(db, actor, req.params.id, 'project:write');
-      const id = newId();
-      await createMilestone(db, actor, req.params.id, req.body.name, req.body.target_date ?? null, req.body.status ?? 'open');
+      const id = await createMilestone(db, actor, req.params.id, req.body.name, req.body.target_date ?? null, req.body.status ?? 'open');
       const r = await db.selectFrom('milestones').select(COLS).where('id', '=', id).executeTakeFirstOrThrow();
       return reply.status(201).send(toDto(r as unknown as Row, await progress(db, id)));
     },
@@ -123,7 +122,7 @@ export function registerMilestonesRoutes(app: FastifyInstance, deps: AppDeps): v
   );
 }
 
-export async function createMilestone(db: Db, actor: Actor, projectId: string, name: string, targetDate: string | null, status: 'open' | 'closed'): Promise<void> {
+export async function createMilestone(db: Db, actor: Actor, projectId: string, name: string, targetDate: string | null, status: 'open' | 'closed'): Promise<string> {
   const id = newId();
   await unitOfWork(db, async ({ tx }) => {
     await tx
@@ -148,6 +147,7 @@ export async function createMilestone(db: Db, actor: Actor, projectId: string, n
       request_id: actor.requestId,
     });
   });
+  return id;
 }
 
 export async function updateMilestone(db: Db, actor: Actor, milestoneId: string, patch: { name?: string; target_date?: string | null; status?: 'open' | 'closed' }): Promise<void> {

@@ -67,7 +67,7 @@ async function session(): Promise<void> {
 }
 
 async function enable(mod: string): Promise<void> {
-  const r = await app.inject({ method: 'PUT', url: `/api/v1/modules/${mod}/enabled`, payload: { enabled: true } });
+  const r = await app.inject({ method: 'PUT', url: `/api/v1/modules/${mod}/enabled`, headers: { cookie: AUTH.cookies, 'x-csrf-token': AUTH.csrf }, payload: { enabled: true } });
   expect(r.statusCode, r.body).toBeLessThan(300);
 }
 

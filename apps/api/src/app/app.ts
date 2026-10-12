@@ -34,6 +34,7 @@ import { makeReviewProviderResolver } from './review-resolver';
 import { setReviewProviderResolver } from '@forgepm/core';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 import { installMetrics } from './metrics';
+import { isTrustedProxy } from './trusted-proxy';
 
 export interface AppDeps {
   env: Env;
@@ -70,7 +71,8 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
     genReqId: () => randomUUID(),
     bodyLimit: 1 * 1024 * 1024, // 1 MiB (plan §14); webhook route raises its own limit
-    trustProxy: true,
+    // POU-18: only explicitly trusted proxies may set the client IP via X-Forwarded-For.
+    trustProxy: (addr: string) => isTrustedProxy(addr),
   });
 
   app.setValidatorCompiler(validatorCompiler);

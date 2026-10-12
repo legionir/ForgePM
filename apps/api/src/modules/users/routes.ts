@@ -123,7 +123,7 @@ export function registerUsersRoutes(app: FastifyInstance, deps: AppDeps): void {
       // POU-13: verify target belongs to actor's org before any mutation
       const target = await db
         .selectFrom('users')
-        .select(USER_COLUMNS)
+        .select(['users.id'])
         .innerJoin('memberships', 'memberships.user_id', 'users.id')
         .where('users.id', '=', req.params.id)
         .where('users.deleted_at', 'is', null)

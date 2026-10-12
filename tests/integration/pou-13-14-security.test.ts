@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../../apps/api/src/app/app';
 import { buildRegistry } from '../../apps/api/src/app/modules';
 import { createHarness, type Harness } from './harness';
-import { seedOrg, seedApiKey } from './seed';
+import { seedOrg, seedMember, seedApiKey } from './seed';
 
 const env = {
   NODE_ENV: 'test',
@@ -36,88 +36,95 @@ beforeEach(async () => {
   await h.reset();
 });
 
-async function login(email: string, password: string): Promise<{ token: string; userId: string; orgId: string }> {
-  const seed = await seedOrg(h.db, { email, password });
-  const res = await app.inject({ method: 'POST', url: '/auth/login', payload: { email, password } });
+type Hdrs = { cookie: string; 'x-csrf-token': string };
+
+/** Real panel login (session cookie + CSRF double-submit), as the SPA does. */
+async function loginHeaders(email: string, password: string): Promise<Hdrs> {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
   expect(res.statusCode).toBe(200);
-  const body = res.json() as { access_token: string; user: { id: string; organization_id: string } };
-  return { token: body.access_token, userId: seed.userId, orgId: seed.organizationId };
+  const cookies = res.headers['set-cookie'] as unknown as string[];
+  const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
+  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
+  return { cookie: `${session}; fpm_csrf=${csrf}`, 'x-csrf-token': csrf };
 }
 
-async function patchUser(token: string, userId: string, body: Record<string, unknown>): Promise<number> {
-  const res = await app.inject({ method: 'PATCH', url: `/api/v1/users/${userId}`, payload: body, headers: { Authorization: `Bearer ${token}` } });
+const bearer = (raw: string) => ({ authorization: `Bearer ${raw}` });
+
+async function patchUser(headers: Hdrs, userId: string, body: Record<string, unknown>): Promise<number> {
+  const res = await app.inject({ method: 'PATCH', url: `/api/v1/users/${userId}`, payload: body, headers });
   return res.statusCode;
 }
 
+async function displayName(id: string): Promise<string | undefined> {
+  return (await h.db.selectFrom('users').select('display_name').where('id', '=', id).executeTakeFirst())?.display_name;
+}
+
 describe('POU-13: org-scoped user mutation', () => {
-  it('actor can update own user in their org', async () => {
-    const { token, userId } = await login('admin@example.com', 'password123');
-    const status = await patchUser(token, userId, { display_name: 'Updated' });
-    expect(status).toBe(200);
-    const u = await h.db.selectFrom('users').select(['display_name']).where('id', '=', userId).executeTakeFirst();
-    expect(u?.display_name).toBe('Updated');
+  it('owner can update users in their own org', async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'owner@example.com', password: 'password123' });
+    const memberId = await seedMember(h.db, organizationId, { email: 'm@example.com', password: 'password123' });
+    const headers = await loginHeaders('owner@example.com', 'password123');
+    expect(await patchUser(headers, userId, { display_name: 'Updated' })).toBe(200);
+    expect(await patchUser(headers, memberId, { display_name: 'Member Updated' })).toBe(200);
+    expect(await displayName(memberId)).toBe('Member Updated');
   });
 
-  it('member cannot update another member in same org', async () => {
-    const { token: memberToken } = await login('member@example.com', 'password123');
-    const { userId: targetId } = await seedOrg(h.db, { email: 'target@example.com', password: 'p' });
-    const status = await patchUser(memberToken, targetId, { display_name: 'Hacked' });
+  it('a plain member cannot update another user in the same org', async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'owner@example.com', password: 'password123' });
+    await seedMember(h.db, organizationId, { email: 'm@example.com', password: 'password123' });
+    const status = await patchUser(await loginHeaders('m@example.com', 'password123'), userId, { display_name: 'Hacked' });
+    expect(status).toBe(403);
+    expect(await displayName(userId)).not.toBe('Hacked');
+  });
+
+  it('an owner cannot touch a user in a different org (isolation)', async () => {
+    await seedOrg(h.db, { email: 'org1@example.com', password: 'password123' });
+    const { userId: otherUserId } = await seedOrg(h.db, { email: 'org2@example.com', password: 'password123' });
+    const status = await patchUser(await loginHeaders('org1@example.com', 'password123'), otherUserId, { display_name: 'Hacked' });
     expect(status).toBe(404);
-    // data unchanged
-    const u = await h.db.selectFrom('users').select(['display_name']).where('id', '=', targetId).executeTakeFirst();
-    expect(u?.display_name).not.toBe('Hacked');
+    expect(await displayName(otherUserId)).not.toBe('Hacked');
   });
 
-  it('actor cannot touch user in different org (isolation)', async () => {
-    const { token: adminToken } = await login('org1@example.com', 'password123');
-    const { userId: otherOrgUserId } = await seedOrg(h.db, { email: 'otherorg@example.com', password: 'p' });
-    const status = await patchUser(adminToken, otherOrgUserId, { display_name: 'Hacked' });
-    expect(status).toBe(404);
-    const u = await h.db.selectFrom('users').select(['display_name']).where('id', '=', otherOrgUserId).executeTakeFirst();
-    expect(u?.display_name).not.toBe('Hacked');
-  });
-
-  it('deleted user is invisible to mutation', async () => {
-    const { token, userId } = await login('admin@example.com', 'password123');
-    await h.db.updateTable('users').set({ deleted_at: new Date() }).where('id', '=', userId).execute();
-    const status = await patchUser(token, userId, { display_name: 'Hacked' });
+  it('a soft-deleted user is invisible to mutation', async () => {
+    const { organizationId } = await seedOrg(h.db, { email: 'owner@example.com', password: 'password123' });
+    const memberId = await seedMember(h.db, organizationId, { email: 'm@example.com', password: 'password123' });
+    await h.db.updateTable('users').set({ deleted_at: new Date() }).where('id', '=', memberId).execute();
+    const status = await patchUser(await loginHeaders('owner@example.com', 'password123'), memberId, { display_name: 'Hacked' });
     expect(status).toBe(404);
   });
 });
 
 describe('POU-14: key authorization after user disabled/deleted', () => {
-  it('disabled user key returns 401 immediately', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
-    // disable the user
+  it("a disabled owner's key returns 401 immediately", async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const raw = await seedApiKey(h.db, organizationId, userId, ['admin']);
     await h.db.updateTable('users').set({ status: 'disabled' }).where('id', '=', userId).execute();
-    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: { Authorization: `Bearer ${rawKey}` } });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: bearer(raw) });
     expect(res.statusCode).toBe(401);
   });
 
-  it('deleted user key returns 401 immediately', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
+  it("a deleted owner's key returns 401 immediately", async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const raw = await seedApiKey(h.db, organizationId, userId, ['admin']);
     await h.db.updateTable('users').set({ deleted_at: new Date() }).where('id', '=', userId).execute();
-    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: { Authorization: `Bearer ${rawKey}` } });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: bearer(raw) });
     expect(res.statusCode).toBe(401);
   });
 
-  it('disabled user session also returns 401', async () => {
-    const { token } = await login('u@ex.com', 'p');
-    const { userId } = await seedOrg(h.db, { email: 'u@ex.com', password: 'p' });
+  it("a disabled user's existing session also returns 401", async () => {
+    const { userId } = await seedOrg(h.db, { email: 'u@example.com', password: 'password123' });
+    const headers = await loginHeaders('u@example.com', 'password123');
     await h.db.updateTable('users').set({ status: 'disabled' }).where('id', '=', userId).execute();
-    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: { Authorization: `Bearer ${token}` } });
+    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers });
     expect(res.statusCode).toBe(401);
   });
 
-  it('active user keys still work after another user is disabled', async () => {
-    const { orgId, userId } = await seedOrg(h.db, { email: 'u1@ex.com', password: 'p' });
-    await seedOrg(h.db, { email: 'u2@ex.com', password: 'p' });
-    const rawKey = await seedApiKey(h.db, orgId, userId, ['read']);
-    // disable a different user
-    await h.db.updateTable('users').set({ status: 'disabled' }).where('email', '=', 'u2@ex.com').execute();
-    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: { Authorization: `Bearer ${rawKey}` } });
+  it("active users' keys still work after another user is disabled", async () => {
+    const { organizationId, userId } = await seedOrg(h.db, { email: 'u1@example.com', password: 'password123' });
+    const otherId = await seedMember(h.db, organizationId, { email: 'u2@example.com', password: 'password123' });
+    const raw = await seedApiKey(h.db, organizationId, userId, ['admin']);
+    await h.db.updateTable('users').set({ status: 'disabled' }).where('id', '=', otherId).execute();
+    const res = await app.inject({ method: 'GET', url: '/api/v1/users', headers: bearer(raw) });
     expect(res.statusCode).toBe(200);
   });
 });

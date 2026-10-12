@@ -82,6 +82,24 @@ export async function seedApiKey(
   return raw;
 }
 
+/** Add another user (default role `member`) to an existing org. */
+export async function seedMember(
+  db: Db,
+  organizationId: string,
+  opts: { email: string; password: string; role?: OrgRole },
+): Promise<string> {
+  const userId = newId();
+  await db
+    .insertInto('users')
+    .values({ id: userId, email: opts.email.toLowerCase(), password_hash: await hashPassword(opts.password), display_name: opts.email })
+    .execute();
+  await db
+    .insertInto('memberships')
+    .values({ id: newId(), organization_id: organizationId, user_id: userId, role: opts.role ?? 'member' })
+    .execute();
+  return userId;
+}
+
 function cryptoRandomBytes(n: number): Uint8Array {
   const b = new Uint8Array(n);
   globalThis.crypto.getRandomValues(b);

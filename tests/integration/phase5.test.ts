@@ -47,6 +47,9 @@ beforeEach(async () => {
   await h.reset();
   // webhook secret is read from env (bootstrap); keep it fixed for tests.
   process.env.GITHUB_WEBHOOK_SECRET = 'whsec_test';
+  // enabling the module now requires all three secrets (POU-36)
+  process.env.GITHUB_APP_ID = '12345';
+  process.env.GITHUB_APP_PRIVATE_KEY = 'test-private-key';
   await session();
 });
 
@@ -56,7 +59,7 @@ function sign(secret: string, body: string): string {
 
 async function enableGithub(): Promise<void> {
   // toggle via the route so the running app's module cache is invalidated too.
-  const r = await app.inject({ method: 'PUT', url: '/api/v1/modules/github/enabled', payload: { enabled: true } });
+  const r = await app.inject({ method: 'PUT', url: '/api/v1/modules/github/enabled', headers: { cookie: AUTH.cookies, 'x-csrf-token': AUTH.csrf }, payload: { enabled: true } });
   expect(r.statusCode).toBeLessThan(300);
 }
 

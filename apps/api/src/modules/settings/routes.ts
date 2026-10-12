@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { type ZodTypeProvider } from 'fastify-type-provider-zod';
 import type { AppDeps } from '../../app/app';
 import { actorOf, requireAuth } from '../../app/auth-context';
-import { authorize } from '@forgepm/core';
+import { authorize, newId, recordAudit, unitOfWork } from '@forgepm/core';
 
 /**
  * Module lifecycle admin routes (plan §3b-1, §4.4).
@@ -49,6 +49,18 @@ export function registerModulesRoutes(app: FastifyInstance, deps: AppDeps): void
       const { enabled } = req.body;
       if (enabled) await deps.registry.enable(deps.db, name, null);
       else await deps.registry.disable(deps.db, name, null);
+      await unitOfWork(deps.db, async ({ tx }) => {
+        await recordAudit(tx, {
+          organization_id: actor.organizationId,
+          actor_type: actor.type === 'agent' ? 'agent' : 'user',
+          actor_id: actor.id,
+          action: enabled ? 'module.enable' : 'module.disable',
+          resource_type: 'module',
+          resource_id: newId(),
+          summary: { module: name, enabled },
+          request_id: actor.requestId,
+        });
+      });
       return list();
     },
   );
