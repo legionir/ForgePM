@@ -17,18 +17,22 @@ const CSRF_HEADER = 'x-csrf-token';
 export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): void {
   const t = app.withTypeProvider<ZodTypeProvider>();
 
-  // A stable per-process store so we can hit the rate limiter without a real
-  // Redis instance in the API (rate-limit uses an LRU in-memory store here).
+  // POU-18: Login rate limit — both IP-bounded AND account-bounded.
+  // In-memory fallback (no Redis). Cross-instance requires Redis-backed store.
   const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-  function tooMany(key: string): boolean {
+  const accountAttempts = new Map<string, { count: number; resetAt: number }>();
+  const WINDOW_MS = 15 * 60 * 1000;
+  const MAX_ATTEMPTS = 10;
+
+  function recordAttempt(map: Map<string, { count: number; resetAt: number }>, key: string): boolean {
     const now = Date.now();
-    const hit = loginAttempts.get(key);
+    const hit = map.get(key);
     if (!hit || hit.resetAt <= now) {
-      loginAttempts.set(key, { count: 1, resetAt: now + 15 * 60 * 1000 });
+      map.set(key, { count: 1, resetAt: now + WINDOW_MS });
       return false;
     }
     hit.count += 1;
-    return hit.count > 10;
+    return hit.count > MAX_ATTEMPTS;
   }
 
   t.post(
@@ -40,9 +44,13 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): void {
     async (req, reply) => {
       const { email, password } = req.body;
       const rlKey = `${req.ip}|${email.toLowerCase()}`;
-      if (tooMany(rlKey)) throw new AppError('RATE_LIMITED', 'too many login attempts');
+      const acctKey = `acct:${email.toLowerCase()}`;
+      if (recordAttempt(loginAttempts, rlKey) || recordAttempt(accountAttempts, acctKey)) {
+        throw new AppError('RATE_LIMITED', 'too many login attempts');
+      }
       const res = await login(deps.db, email, password, { ip: req.ip, userAgent: req.headers['user-agent'] });
-      loginAttempts.delete(rlKey); // success clears the failure counter
+      loginAttempts.delete(rlKey);
+      accountAttempts.delete(acctKey); // success clears both counters
       setSessionCookies(reply, res.sessionToken);
       return { status: 'ok' };
     },
