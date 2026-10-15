@@ -2,15 +2,16 @@
   "name": "@forgepm/web",
   "version": "1.0.0-rc.1",
   "private": true,
-  "description": "ForgePM panel \u2014 Angular (standalone + signals) client of the OpenAPI surface",
+  "description": "ForgePM panel — Angular (standalone + signals) client of the OpenAPI surface",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "lint": "eslint .",
-    "verify": "npm run lint && npm run build",
+    "verify": "npm run lint && npm run check:contrast && npm run build",
     "e2e": "playwright test",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "check:contrast": "node scripts/contrast-check.mjs"
   },
   "dependencies": {
     "@angular/common": "22.2.2",

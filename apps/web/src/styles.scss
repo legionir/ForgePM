@@ -100,6 +100,8 @@
     --color-accent: #8ab4f8;
     --color-error: #ff6b61;
     --color-ok: #6fdc8c;
+    --color-warning: #d29922;
+    --color-info: #58a6ff;
     --color-surface: #1f2429;
     --color-on-accent: #16191d;
   }
@@ -113,6 +115,8 @@ html.theme-dark {
   --color-accent: #8ab4f8;
   --color-error: #ff6b61;
   --color-ok: #6fdc8c;
+  --color-warning: #d29922;
+  --color-info: #58a6ff;
   --color-surface: #1f2429;
   --color-on-accent: #16191d;
 }
@@ -747,6 +751,44 @@ a {
   table.ui-table {
     display: block;
     overflow-x: auto;
+  }
+}
+
+/* Small phones (<= 640px, RSP-002): forms stack, inputs go full-width,
+   content padding tightens. Tables keep their horizontal scroll. */
+@media (max-width: 640px) {
+  main {
+    padding: var(--space-2);
+  }
+
+  form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  form .ui-field,
+  form label,
+  form input,
+  form select,
+  form textarea {
+    inline-size: 100%;
+  }
+
+  form button[type='submit'] {
+    inline-size: 100%;
+  }
+
+  .ui-board {
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  }
+
+  .ui-dt-pager {
+    flex-wrap: wrap;
+  }
+
+  .ui-toasts {
+    inset-inline: var(--space-2);
+    max-inline-size: none;
   }
 }
 
