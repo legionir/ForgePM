@@ -36,5 +36,6 @@ export const routes: Routes = [
   { path: 'settings', loadComponent: () => import('./pages/settings').then((m) => m.SettingsPage), canActivate: [authed] },
   { path: 'system', loadComponent: () => import('./pages/system').then((m) => m.SystemPage), canActivate: [authed] },
   { path: 'admin', loadComponent: () => import('./pages/admin').then((m) => m.AdminPage), canActivate: [authed] },
+  { path: 'design-system', loadComponent: () => import('./pages/design-system').then((m) => m.DesignSystemPage), canActivate: [authed] },
   { path: '', pathMatch: 'full', redirectTo: 'projects' },
 ];

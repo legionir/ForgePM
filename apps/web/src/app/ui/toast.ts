@@ -6,6 +6,9 @@ export interface UiToast {
   id: number;
   message: string;
   kind: UiToastKind;
+  /** Optional inline action (e.g. Undo); keeps the toast open on click. */
+  actionLabel?: string;
+  action?: () => void;
 }
 
 /**
@@ -20,10 +23,10 @@ export class UiToastService {
 
   readonly toasts = signal<UiToast[]>([]);
 
-  show(message: string, kind: UiToastKind = 'info', durationMs?: number): number {
+  show(message: string, kind: UiToastKind = 'info', durationMs?: number, action?: { label: string; run: () => void }): number {
     const id = ++this.next;
     const ms = durationMs ?? (kind === 'error' ? UiToastService.ERROR_MS : UiToastService.DEFAULT_MS);
-    this.toasts.update((list) => [...list, { id, message, kind }]);
+    this.toasts.update((list) => [...list, { id, message, kind, actionLabel: action?.label, action: action?.run }]);
     setTimeout(() => this.dismiss(id), ms);
     return id;
   }
@@ -58,6 +61,15 @@ export class UiToastService {
         (click)="svc.dismiss(t.id)"
       >
         {{ t.message }}
+        @if (t.action) {
+          <button
+            type="button"
+            class="ui-btn ui-btn--secondary ui-btn--sm ui-toast-action"
+            (click)="$event.stopPropagation(); t.action?.(); svc.dismiss(t.id)"
+          >
+            {{ t.actionLabel }}
+          </button>
+        }
       </div>
     }
   `,

@@ -116,7 +116,22 @@ export class ProjectsPage implements OnInit {
   async archive(id: string): Promise<void> {
     try {
       await this.api.post(`/api/v1/projects/${id}/archive`);
-      this.toast.ok(this.i18n.instant('projects.archived_done'));
+      await this.load();
+      // Undo (plan Phase 8): unarchive endpoint exists, so the toast gets a
+      // real reverse action within its display window.
+      this.toast.show(this.i18n.instant('projects.archived_done'), 'ok', 7000, {
+        label: this.i18n.instant('common.undo'),
+        run: () => void this.undoArchive(id),
+      });
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
+  }
+
+  async undoArchive(id: string): Promise<void> {
+    try {
+      await this.api.post(`/api/v1/projects/${id}/unarchive`);
+      this.toast.ok(this.i18n.instant('projects.restored'));
       await this.load();
     } catch (err) {
       this.error.set((err as Error).message);

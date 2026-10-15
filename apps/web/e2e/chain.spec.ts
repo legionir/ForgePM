@@ -16,7 +16,7 @@ import AxeBuilder from '@axe-core/playwright';
 const EMAIL = 'admin@e2e.test';
 const PASSWORD = 'e2e-password-1';
 
-async function login(page: Page): Promise<void> {
+export async function login(page: Page): Promise<void> {
   await page.goto('/login');
   await page.getByTestId('field-email').fill(EMAIL);
   await page.getByTestId('field-password').fill(PASSWORD);

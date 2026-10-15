@@ -31,7 +31,8 @@
     "report:phase": "tsx scripts/phase-report.ts",
     "prepare": "husky || true",
     "seed:perf": "tsx scripts/seed-perf.ts",
-    "perf": "tsx scripts/perf.ts"
+    "perf": "tsx scripts/perf.ts",
+    "test:web": "vitest run --project web-ui"
   },
   "devDependencies": {
     "@commitlint/cli": "19.6.1",

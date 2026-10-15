@@ -10,6 +10,8 @@ import { UiControl, UiField } from '../ui/field';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiBadge } from '../ui/badge';
 import { UiAvatar } from '../ui/avatar';
+import { UiIcon } from '../ui/icon';
+import { UiMarkdown } from '../ui/markdown';
 import { stateVariant } from './work-items';
 import { ProjectContext } from '../project-context';
 
@@ -60,12 +62,12 @@ interface MilestoneDto {
 @Component({
   selector: 'page-work-item-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, UiButton, UiPage, UiBreadcrumbs, UiTabs, UiBadge, UiAvatar, UiField, UiControl],
+  imports: [FormsModule, RouterLink, UiButton, UiPage, UiBreadcrumbs, UiTabs, UiBadge, UiAvatar, UiIcon, UiMarkdown, UiField, UiControl],
   template: `
     @if (item(); as it) {
       <ui-page data-testid="wi-detail" [title]="it.key + ' — ' + it.title">
         <ui-breadcrumbs [items]="[{ label: i18n.instant('nav.projects'), link: '/projects' }, { label: i18n.instant('nav.work_items'), link: '/work-items' }, { label: it.key }]" />
-        <a routerLink="/work-items" class="ui-back" data-testid="wi-back">← {{ i18n.instant('common.back') }}</a>
+        <a routerLink="/work-items" class="ui-back" data-testid="wi-back"><ui-icon name="arrow-left" [size]="14" /> {{ i18n.instant('common.back') }}</a>
 
         @if (error()) {
           <p class="ui-error" role="alert" data-testid="wi-detail-error">{{ error() }}</p>
@@ -86,7 +88,7 @@ interface MilestoneDto {
               }
             </p>
             @if (it.description) {
-              <p class="ui-detail-desc">{{ it.description }}</p>
+              <ui-markdown class="ui-detail-desc" [text]="it.description" />
             }
 
             <ui-tabs [items]="tabs" [active]="tab()" [ariaLabel]="i18n.instant('work_items.view')" (tabChange)="tab.set($event)" />
@@ -96,7 +98,7 @@ interface MilestoneDto {
                 @for (c of comments(); track c.id) {
                   <li>
                     <ui-avatar [name]="c.author_type" size="sm" />
-                    <span class="ui-comment-body">{{ c.body }}</span>
+                    <span class="ui-comment-body"><ui-markdown [text]="c.body" /></span>
                   </li>
                 } @empty {
                   <li data-testid="wi-comments-empty">{{ i18n.instant('common.empty') }}</li>
@@ -121,7 +123,7 @@ interface MilestoneDto {
                       (click)="toggleAc(i)"
                       data-testid="wi-ac-toggle"
                     >
-                      {{ c.done ? '☑' : '☐' }} {{ c.text }}
+                      <ui-icon [name]="c.done ? 'check-square' : 'square'" [size]="16" /> {{ c.text }}
                     </button>
                   </li>
                 } @empty {

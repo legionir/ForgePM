@@ -5,6 +5,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiBadge } from '../ui/badge';
+import { UiIcon } from '../ui/icon';
 import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
@@ -12,7 +13,9 @@ import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
-import { UiBadgeVariant } from '../ui/badge';
+import { stateVariant } from '../ui/logic';
+
+export { stateVariant };
 
 interface StateDto {
   id: string;
@@ -44,7 +47,7 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiField, UiControl, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
       <ui-project-picker />
@@ -96,7 +99,7 @@ interface ItemDto {
                   [attr.aria-label]="i18n.instant('work_items.quick_add') + ' — ' + st.name"
                   (click)="toggleQuickAdd(st.id)"
                   data-testid="board-quick-add"
-                >+</button>
+                ><ui-icon name="plus" [size]="14" /></button>
               </h2>
               @if (quickAddFor() === st.id) {
                 <input
@@ -135,10 +138,10 @@ interface ItemDto {
                   <span class="ui-board-card-move">
                     <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, -1)"
                       [attr.aria-label]="i18n.instant('work_items.move_prev')"
-                      (click)="moveRel(it, -1)" data-testid="board-move-prev">‹</button>
+                      (click)="moveRel(it, -1)" data-testid="board-move-prev"><ui-icon name="chevron-left" [size]="14" /></button>
                     <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, 1)"
                       [attr.aria-label]="i18n.instant('work_items.move_next')"
-                      (click)="moveRel(it, 1)" data-testid="board-move-next">›</button>
+                      (click)="moveRel(it, 1)" data-testid="board-move-next"><ui-icon name="chevron-right" [size]="14" /></button>
                   </span>
                 </div>
               }
@@ -365,18 +368,4 @@ export class WorkItemsPage implements OnInit {
   }
 }
 
-/** Colour mapping for workflow-state badges (GitHub open/closed feel). */
-export function stateVariant(category: string): UiBadgeVariant {
-  switch (category) {
-    case 'completed':
-      return 'success';
-    case 'started':
-      return 'info';
-    case 'canceled':
-      return 'default';
-    case 'in_review':
-      return 'warning';
-    default:
-      return 'default';
-  }
-}
+

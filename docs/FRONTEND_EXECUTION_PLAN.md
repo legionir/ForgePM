@@ -8,8 +8,10 @@
 - Phase 3 (state hardening + a11y: busy/loading guards on every async action, MODULE_DISABLED-aware reviews/github, immutable settings rows, role=alert sweep, board keyboard move, i18n API-key label, e2e testids) — done (`d07546b`).
 - Phase 4 (ui/data-table with sort/pagination/selection/row-action overflow; migrated work-items, mcp, settings, system jobs, admin users+audit) — done (`db50c1a`).
 - Phase 5 (responsive stack at ≤640px, 360px-hardening, RTL audit clean, dark warning/info tokens + `check:contrast` WCAG gate, self-tested fail path) — done (`83a95a5`).
-- Phase 6 (parity MVP: rich board card w/ chips+due+AC progress, column count+quick-add, rich list w/ selection+chips+state badges, detail sidebar w/ PATCH edits, detail tabs conversation/acceptance/activity — Links tab omitted: no read API; shell avatar) — done.
-- Remaining: Phases 7–8.
+- Phase 6 (parity MVP: rich board card w/ chips+due+AC progress, column count+quick-add, rich list w/ selection+chips+state badges, detail sidebar w/ PATCH edits, detail tabs conversation/acceptance/activity — Links tab omitted: no read API; shell avatar) — done (`87855f9`).
+- Phase 7 (polish + enforcement: `/design-system` living reference route [P7-1], opt-in Playwright visual regression w/ per-theme baselines [P7-2], `ui/logic.ts` pure-logic module at 100% stmts/lines + vitest `web-ui` project [P7-3], ⌘K command palette + `/` [P7-4], XSS-safe typed-segment markdown renderer [P7-5], dependency-free `ui-icon` replacing glyph/emoji icons [P7-6]) — done.
+- Phase 8 (post-MVP): UNDO for destructive actions done — archive shows a toast with a real Undo action (unarchive endpoint exists); reactions/board-themes/drag-animation deferred: reactions need an API surface (out of frontend scope), board themes are §8.1-optional, drag animation needs a DnD lib that would break the no-dep/budget discipline (D-034) for a polish-only gain.
+- Remaining: none — all plan phases executed or explicitly deferred with rationale.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract

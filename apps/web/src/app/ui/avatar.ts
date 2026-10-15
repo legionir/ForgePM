@@ -1,4 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { initialsOf } from './logic';
+
+export { initialsOf };
 
 export type UiAvatarSize = 'sm' | 'md' | 'lg';
 
@@ -22,12 +25,5 @@ export class UiAvatar {
   readonly name = input('');
   readonly size = input<UiAvatarSize>('md');
 
-  readonly initials = computed(() =>
-    this.name()
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((w) => w.charAt(0).toUpperCase())
-      .join(''),
-  );
+  readonly initials = computed(() => initialsOf(this.name()));
 }

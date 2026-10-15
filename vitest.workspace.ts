@@ -29,4 +29,15 @@ export default defineWorkspace([
       include: ['tests/integration/**/*.test.ts', 'apps/api/test/integration/**/*.test.ts', 'apps/worker/test/integration/**/*.test.ts'],
     },
   },
+  {
+    // Panel unit tests (plan §10 P7-3): pure UI logic (token/theme math,
+    // table sort/paginate, tabs roving index, palette filter, markdown
+    // tokenizer). No DOM render — components are covered by Playwright.
+    test: {
+      name: 'web-ui',
+      environment: 'node',
+      setupFiles: ['apps/web/test/setup.ts'],
+      include: ['apps/web/test/**/*.test.ts'],
+    },
+  },
 ]);

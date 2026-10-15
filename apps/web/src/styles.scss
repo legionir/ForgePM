@@ -1105,3 +1105,177 @@ td.ui-dt-actions {
     grid-template-columns: 1fr;
   }
 }
+
+/* ui/icon — inline alignment */
+.ui-icon {
+  display: inline-flex;
+  vertical-align: -0.15em;
+}
+
+.ui-icon svg {
+  display: block;
+}
+
+button .ui-icon,
+a .ui-icon,
+summary .ui-icon {
+  margin-inline-end: var(--space-1);
+}
+
+/* ui/command-palette (P7-4) */
+.ui-cmdk-backdrop {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--color-fg) 25%, transparent);
+  z-index: var(--z-overlay);
+}
+
+.ui-cmdk {
+  position: fixed;
+  inset-inline: 0;
+  top: 15%;
+  margin-inline: auto;
+  inline-size: min(32rem, calc(100vw - 2 * var(--space-4)));
+  background: var(--color-bg);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  z-index: var(--z-modal);
+  overflow: hidden;
+}
+
+.ui-cmdk-input {
+  inline-size: 100%;
+  border: none;
+  border-block-end: 1px solid var(--color-line);
+  border-radius: 0;
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--font-size-body);
+  background: var(--color-bg);
+}
+
+.ui-cmdk-input:focus-visible {
+  outline-offset: -2px;
+}
+
+.ui-cmdk-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  max-block-size: 18rem;
+  overflow-y: auto;
+}
+
+.ui-cmdk-list li {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.ui-cmdk-list li.active {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.ui-cmdk-empty {
+  color: var(--color-muted);
+  cursor: default;
+}
+
+.ui-cmdk-hint {
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-muted);
+  font-size: var(--font-size-caption);
+  border-block-start: 1px solid var(--color-line);
+}
+
+/* ui-markdown (P7-5) */
+.ui-markdown .ui-md-p {
+  margin: 0 0 var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.ui-markdown .ui-md-p:last-child {
+  margin-block-end: 0;
+}
+
+.ui-markdown code {
+  font-family: ui-monospace, monospace;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  font-size: 0.9em;
+}
+
+/* /design-system reference page (P7-1) */
+.ds-swatches code,
+.ds-value {
+  font-family: ui-monospace, monospace;
+  font-size: var(--font-size-caption);
+  color: var(--color-muted);
+}
+
+.ds-swatch {
+  display: inline-block;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.ds-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ds-wrap {
+  flex-wrap: wrap;
+}
+
+.ds-space {
+  display: inline-block;
+  block-size: var(--space-4);
+  background: var(--color-accent);
+  border-radius: var(--radius-sm);
+}
+
+.ds-radius {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 6rem;
+  block-size: 2.5rem;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+  font-size: var(--font-size-caption);
+}
+
+.ds-form {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.ds-icon {
+  display: inline-flex;
+  padding: var(--space-2);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+/* Undo action inside a toast (Phase 8) */
+.ui-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-toast-action {
+  margin-inline-start: auto;
+  flex-shrink: 0;
+}

@@ -1,4 +1,7 @@
 import { Injectable, signal } from '@angular/core';
+import { resolveTheme } from './logic';
+
+export { resolveTheme };
 
 /**
  * Theme tokens (docs/FRONTEND_EXECUTION_PLAN.md §3 / DSN-T01..T05).
@@ -46,14 +49,9 @@ export class Tokens {
 
   private apply(): void {
     const root = document.documentElement;
-    const t = this.theme();
-    root.classList.toggle('theme-dark', t === 'dark' || (t === 'system' && this.systemDark()));
-    root.classList.toggle('theme-light', t === 'light' || (t === 'system' && !this.systemDark()));
-    root.style.colorScheme = this.resolveDark() ? 'dark' : 'light';
-  }
-
-  private resolveDark(): boolean {
-    const t = this.theme();
-    return t === 'dark' || (t === 'system' && this.systemDark());
+    const dark = resolveTheme(this.theme(), this.systemDark()) === 'dark';
+    root.classList.toggle('theme-dark', dark);
+    root.classList.toggle('theme-light', !dark);
+    root.style.colorScheme = dark ? 'dark' : 'light';
   }
 }

@@ -12,6 +12,10 @@ import { I18n } from '../i18n';
 import { UiBadge, UiBadgeVariant } from './badge';
 import { UiEmptyState } from './empty-state';
 import { UiLoading } from './loading';
+import { UiIcon } from './icon';
+import { pageSlice, sortRows } from './logic';
+
+export { pageSlice, sortRows };
 
 export interface UiTableColumn<T> {
   key: string;
@@ -54,7 +58,7 @@ export interface UiTableRowAction<T> {
 @Component({
   selector: 'ui-data-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiBadge, UiEmptyState, UiLoading],
+  imports: [RouterLink, UiBadge, UiEmptyState, UiLoading, UiIcon],
   template: `
     @if (error()) {
       <p class="ui-error" role="alert" [attr.data-testid]="testid() ? testid() + '-error' : null">{{ error() }}</p>
@@ -81,7 +85,7 @@ export interface UiTableRowAction<T> {
                   @if (col.sortable) {
                     <button type="button" class="ui-dt-sort" (click)="toggleSort(col)">
                       {{ col.label }}
-                      <span aria-hidden="true">{{ sortIcon(col) }}</span>
+                      <ui-icon [name]="sortIcon(col)" [size]="12" />
                     </button>
                   } @else {
                     {{ col.label }}
@@ -147,7 +151,7 @@ export interface UiTableRowAction<T> {
                     </span>
                     @if (overflowActions(row).length) {
                       <details class="ui-dt-menu">
-                        <summary [attr.aria-label]="i18n.instant('table.more')">…</summary>
+                        <summary [attr.aria-label]="i18n.instant('table.more')"><ui-icon name="dots-h" [size]="14" /></summary>
                         <div class="ui-dt-menu-list" role="menu">
                           @for (a of overflowActions(row); track a.label) {
                             <button type="button" role="menuitem" (click)="a.run(row); closeMenu($event)" [attr.data-testid]="a.testid ?? null">
@@ -215,31 +219,12 @@ export class UiDataTable<T> {
   readonly page = signal(0);
   readonly selected = signal<Set<string>>(new Set());
 
-  readonly sorted = computed(() => {
-    const list = [...this.rows()];
-    const key = this.sortKey();
-    if (!key) return list;
-    const col = this.columns().find((c) => c.key === key);
-    const get = (r: T): string | number =>
-      col?.sortValue ? col.sortValue(r) : col?.value ? col.value(r) : String((r as Record<string, unknown>)[key] ?? '');
-    const asc = this.sortAsc();
-    return list.sort((a, b) => {
-      const va = get(a);
-      const vb = get(b);
-      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
-      return asc ? cmp : -cmp;
-    });
-  });
+  readonly sorted = computed(() => sortRows(this.rows(), this.columns(), this.sortKey(), this.sortAsc()));
 
   readonly pageCount = computed(() =>
     this.pageSize() > 0 ? Math.max(1, Math.ceil(this.sorted().length / this.pageSize())) : 1,
   );
-  readonly visible = computed(() => {
-    const ps = this.pageSize();
-    if (!ps) return this.sorted();
-    const p = Math.min(this.page(), this.pageCount() - 1);
-    return this.sorted().slice(p * ps, p * ps + ps);
-  });
+  readonly visible = computed(() => pageSlice(this.sorted(), this.page(), this.pageSize()));
   readonly from = computed(() => (this.pageSize() ? this.page() * this.pageSize() + 1 : 1));
   readonly to = computed(() =>
     this.pageSize() ? Math.min((this.page() + 1) * this.pageSize(), this.sorted().length) : this.sorted().length,
@@ -290,8 +275,8 @@ export class UiDataTable<T> {
   }
 
   sortIcon(col: UiTableColumn<T>): string {
-    if (this.sortKey() !== col.key) return '↕';
-    return this.sortAsc() ? '▲' : '▼';
+    if (this.sortKey() !== col.key) return 'sort-neutral';
+    return this.sortAsc() ? 'caret-up' : 'caret-down';
   }
 
   cellText(col: UiTableColumn<T>, row: T): string | number {

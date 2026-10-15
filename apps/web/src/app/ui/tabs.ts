@@ -1,4 +1,7 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import { nextTabIndex } from './logic';
+
+export { nextTabIndex };
 
 export interface UiTabItem {
   id: string;
@@ -46,12 +49,7 @@ export class UiTabs {
 
   onKeydown(ev: KeyboardEvent, index: number): void {
     const items = this.items();
-    if (!items.length) return;
-    let next: number | null = null;
-    if (ev.key === 'ArrowRight' || ev.key === 'ArrowDown') next = (index + 1) % items.length;
-    else if (ev.key === 'ArrowLeft' || ev.key === 'ArrowUp') next = (index - 1 + items.length) % items.length;
-    else if (ev.key === 'Home') next = 0;
-    else if (ev.key === 'End') next = items.length - 1;
+    const next = nextTabIndex(items.length, index, ev.key);
     if (next === null) return;
     ev.preventDefault();
     this.select(items[next].id);

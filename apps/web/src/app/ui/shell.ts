@@ -6,6 +6,8 @@ import { Tokens } from './tokens';
 import { UiButton } from './button';
 import { UiToasts } from './toast';
 import { UiAvatar } from './avatar';
+import { UiIcon } from './icon';
+import { CommandPalette, UiCommand, UiCommandPalette } from './command-palette';
 import { UiNavCurrent } from './nav-current';
 
 interface NavItem {
@@ -22,7 +24,7 @@ interface NavItem {
 @Component({
   selector: 'ui-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, UiNavCurrent, UiButton, UiToasts, UiAvatar],
+  imports: [RouterLink, RouterLinkActive, UiNavCurrent, UiButton, UiToasts, UiAvatar, UiIcon, UiCommandPalette],
   template: `
     <header class="ui-shell" [class.nav-open]="navOpen()">
       <button
@@ -37,9 +39,7 @@ interface NavItem {
         (click)="navOpen.set(!navOpen())"
         data-testid="nav-toggle"
       >
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <path d="M3 6h18M3 12h18M3 18h18" stroke-linecap="round" />
-        </svg>
+        <ui-icon name="menu" [size]="18" [inline]="false" />
       </button>
       <nav id="primary-nav" data-testid="nav" aria-label="Primary">
         @for (item of nav; track item.link) {
@@ -61,6 +61,7 @@ interface NavItem {
       </div>
     </header>
     <main><ng-content /></main>
+    <ui-command-palette />
     <ui-toasts />
   `,
 })
@@ -68,9 +69,25 @@ export class UiShell {
   readonly session = inject(Session);
   readonly i18n = inject(I18n);
   readonly tokens = inject(Tokens);
+  readonly palette = inject(CommandPalette);
   private readonly router = inject(Router);
 
   readonly navOpen = signal(false);
+
+  constructor() {
+    // Command palette entries (P7-4): every nav destination + theme/lang.
+    const cmds: UiCommand[] = this.nav.map((n) => ({
+      id: `nav:${n.link}`,
+      labelKey: n.labelKey,
+      run: () => void this.router.navigate([n.link]),
+    }));
+    cmds.push(
+      { id: 'theme:cycle', labelKey: 'command.theme', run: () => this.tokens.cycle() },
+      { id: 'lang:toggle', labelKey: 'command.language', run: () => this.i18n.toggle() },
+      { id: 'nav:/design-system', labelKey: 'command.design_system', run: () => void this.router.navigate(['/design-system']) },
+    );
+    this.palette.register(cmds);
+  }
 
   /** Single source of the primary IA (plan §6.1); order = group order. */
   readonly nav: NavItem[] = [
