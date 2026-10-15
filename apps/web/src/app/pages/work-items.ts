@@ -58,7 +58,7 @@ interface ItemDto {
         </select>
       </ui-field>
       @if (error()) {
-        <p class="ui-error" data-testid="wi-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="wi-error">{{ error() }}</p>
       }
 
       @if (loadingList()) {
@@ -107,7 +107,17 @@ interface ItemDto {
               <h2>{{ st.name }}</h2>
               @for (it of items().filter((x) => x.state_id === st.id); track it.id) {
                 <div class="ui-board-card" draggable="true" (dragstart)="drag(it, ev($event))" data-testid="board-card">
-                  <a [routerLink]="['/work-items', it.key]">{{ it.key }}</a> {{ it.title }}
+                  <span class="ui-board-card-title">
+                    <a [routerLink]="['/work-items', it.key]">{{ it.key }}</a> {{ it.title }}
+                  </span>
+                  <span class="ui-board-card-move">
+                    <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, -1)"
+                      [attr.aria-label]="i18n.instant('work_items.move_prev')"
+                      (click)="moveRel(it, -1)" data-testid="board-move-prev">‹</button>
+                    <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, 1)"
+                      [attr.aria-label]="i18n.instant('work_items.move_next')"
+                      (click)="moveRel(it, 1)" data-testid="board-move-next">›</button>
+                  </span>
                 </div>
               }
             </div>
@@ -242,6 +252,20 @@ export class WorkItemsPage implements OnInit {
     const item = this.items().find((i) => i.key === key);
     if (!item || item.state_id === stateId) return;
     await this.transition(key, stateId);
+  }
+
+  /** Keyboard alternative to drag-and-drop (STT-009): move ±1 column. */
+  hasRel(item: ItemDto, delta: number): boolean {
+    const sts = this.states();
+    const idx = sts.findIndex((st) => st.id === item.state_id);
+    return idx >= 0 && !!sts[idx + delta];
+  }
+
+  moveRel(item: ItemDto, delta: number): void {
+    const sts = this.states();
+    const idx = sts.findIndex((st) => st.id === item.state_id);
+    const target = sts[idx + delta];
+    if (target) void this.transition(item.key, target.id);
   }
 
   async transition(key: string, toStateId: string): Promise<void> {

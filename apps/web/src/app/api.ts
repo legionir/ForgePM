@@ -45,8 +45,11 @@ export class ApiClient {
     const text = await res.text();
     const parsed: unknown = text ? JSON.parse(text) : null;
     if (!res.ok) {
-      const msg = (parsed as { error?: { message?: string } })?.error?.message ?? `HTTP ${res.status}`;
-      throw new Error(msg);
+      const body = parsed as { error?: { message?: string; code?: string } } | null;
+      const msg = body?.error?.message ?? `HTTP ${res.status}`;
+      // status/code ride along so callers can distinguish policy errors
+      // (e.g. 503 MODULE_DISABLED) from transport failures (STT-006).
+      throw Object.assign(new Error(msg), { status: res.status, code: body?.error?.code });
     }
     return parsed as T;
   }

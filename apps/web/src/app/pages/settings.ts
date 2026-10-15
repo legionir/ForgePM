@@ -53,14 +53,14 @@ interface EffDto {
               <td>{{ row.key }}</td>
               <td data-testid="setting-source">{{ row.source }}</td>
               <td>
-                <input [name]="row.key" [(ngModel)]="row.input" data-testid="setting-input" />
+                <input [name]="row.key" [ngModel]="row.input" (ngModelChange)="setInput(row.key, $event)" data-testid="setting-input" />
               </td>
               <td>
-                <button type="button" ui-button (click)="override(row)" data-testid="setting-override">
+                <button type="button" ui-button (click)="override(row)" [disabled]="busy()" data-testid="setting-override">
                   {{ i18n.instant('settings.override') }}
                 </button>
                 @if (row.source === scope()) {
-                  <button type="button" ui-button (click)="inherit(row.key)" data-testid="setting-inherit">
+                  <button type="button" ui-button (click)="inherit(row.key)" [disabled]="busy()" data-testid="setting-inherit">
                     {{ i18n.instant('settings.inherit') }}
                   </button>
                 }
@@ -70,7 +70,7 @@ interface EffDto {
         </tbody>
       </table>
       @if (error()) {
-        <p class="ui-error" data-testid="settings-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="settings-error">{{ error() }}</p>
       }
     </ui-page>
   `,
@@ -81,6 +81,7 @@ export class SettingsPage implements OnInit {
   readonly ctx = inject(ProjectContext);
 
   readonly scope = signal<'system' | 'project'>('system');
+  readonly busy = signal(false);
 
   get scopeTabs(): UiTabItem[] {
     return [
@@ -94,9 +95,19 @@ export class SettingsPage implements OnInit {
   private defs: DefDto[] = [];
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
-    this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
-    await this.refresh();
+    this.error.set('');
+    try {
+      await this.ctx.load();
+      this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
+      await this.refresh();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
+  }
+
+  /** Immutable row edit (FRM-006): never mutate objects held by a signal. */
+  setInput(key: string, value: string): void {
+    this.rows.update((list) => list.map((r) => (r.key === key ? { ...r, input: value } : r)));
   }
 
   setScope(v: string): void {
@@ -111,29 +122,45 @@ export class SettingsPage implements OnInit {
   async refresh(): Promise<void> {
     const sid = this.scopeId();
     if (this.scope() === 'project' && !sid) return;
-    const rows: Row[] = [];
-    for (const d of this.defs) {
-      const eff = await this.api.get<EffDto>(
-        `/api/v1/settings/effective?key=${encodeURIComponent(d.key)}&scope=${this.scope()}&scope_id=${sid}`,
-      );
-      rows.push({ key: d.key, value: eff.value, source: eff.source, input: display(d.default, eff.value) });
-    }
-    this.rows.set(rows);
-  }
-
-  async override(row: Row): Promise<void> {
     this.error.set('');
     try {
-      await this.api.put(`/api/v1/settings/${this.scope()}/${this.scopeId()}/${row.key}`, { value: parse(row.input) });
-      await this.refresh();
+      const rows: Row[] = [];
+      for (const d of this.defs) {
+        const eff = await this.api.get<EffDto>(
+          `/api/v1/settings/effective?key=${encodeURIComponent(d.key)}&scope=${this.scope()}&scope_id=${sid}`,
+        );
+        rows.push({ key: d.key, value: eff.value, source: eff.source, input: display(d.default, eff.value) });
+      }
+      this.rows.set(rows);
     } catch (err) {
       this.error.set((err as Error).message);
     }
   }
 
+  async override(row: Row): Promise<void> {
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.put(`/api/v1/settings/${this.scope()}/${this.scopeId()}/${row.key}`, { value: parse(row.input) });
+      await this.refresh();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   async inherit(key: string): Promise<void> {
-    await this.api.send('DELETE', `/api/v1/settings/${this.scope()}/${this.scopeId()}/${key}`);
-    await this.refresh();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.send('DELETE', `/api/v1/settings/${this.scope()}/${this.scopeId()}/${key}`);
+      await this.refresh();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }
 

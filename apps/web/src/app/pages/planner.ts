@@ -46,7 +46,7 @@ interface ApplyReport {
         <button type="submit" ui-button variant="primary" data-testid="plan-create">{{ i18n.instant('planner.create') }}</button>
       </form>
       @if (error()) {
-        <p class="ui-error" data-testid="plan-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="plan-error">{{ error() }}</p>
       }
 
       @if (plan(); as p) {
@@ -57,15 +57,15 @@ interface ApplyReport {
             <strong data-testid="plan-status">{{ p.status }}</strong>
           </p>
           @if (p.status === 'generating' || p.status === 'generation_failed') {
-            <button type="button" ui-button (click)="generate()" data-testid="plan-generate">
+            <button type="button" ui-button (click)="generate()" [disabled]="busy()" data-testid="plan-generate">
               {{ i18n.instant('planner.generate') }}
             </button>
           }
           @if (p.status === 'ready') {
-            <button type="button" ui-button (click)="approve()" data-testid="plan-approve">{{ i18n.instant('planner.approve') }}</button>
+            <button type="button" ui-button (click)="approve()" [disabled]="busy()" data-testid="plan-approve">{{ i18n.instant('planner.approve') }}</button>
           }
           @if (p.status === 'approved') {
-            <button type="button" ui-button (click)="apply()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
+            <button type="button" ui-button (click)="apply()" [disabled]="busy()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
           }
           @if (report()) {
             <pre class="ui-report" data-testid="plan-report">{{ report() | json }}</pre>
@@ -83,6 +83,7 @@ export class PlannerPage implements OnInit {
   readonly plan = signal<PlanDto | null>(null);
   readonly report = signal<ApplyReport | null>(null);
   readonly error = signal('');
+  readonly busy = signal(false);
   goal = 'Ship the login flow';
   constraints = '';
 
@@ -113,24 +114,50 @@ export class PlannerPage implements OnInit {
   async generate(): Promise<void> {
     const p = this.plan();
     if (!p) return;
-    const res = await this.api.post<{ status: string }>(`/api/v1/plans/${p.id}/generate`);
-    this.plan.set({ ...p, status: res.status });
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      const res = await this.api.post<{ status: string }>(`/api/v1/plans/${p.id}/generate`);
+      this.plan.set({ ...p, status: res.status });
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async approve(): Promise<void> {
     const p = this.plan();
     if (!p) return;
-    await this.api.post(`/api/v1/plans/${p.id}/approve`);
-    this.plan.set({ ...p, status: 'approved' });
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/plans/${p.id}/approve`);
+      this.plan.set({ ...p, status: 'approved' });
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async apply(): Promise<void> {
     const p = this.plan();
     if (!p) return;
+    this.error.set('');
+    this.busy.set(true);
+    try {
+    const p = this.plan();
+    if (!p) return;
     const rep = await this.api.post<ApplyReport>(`/api/v1/plans/${p.id}/apply`, {
       idempotency_key: `panel-${Date.now()}`,
     });
-    this.report.set(rep);
-    this.plan.set({ ...p, status: (rep as { status?: string }).status ?? 'applied' });
+      this.report.set(rep);
+      this.plan.set({ ...p, status: (rep as { status?: string }).status ?? 'applied' });
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

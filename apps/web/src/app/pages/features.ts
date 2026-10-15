@@ -33,7 +33,7 @@ interface MilestoneDto {
     <ui-page data-testid="features" [title]="i18n.instant('features.title')">
       <ui-project-picker />
       @if (error()) {
-        <p class="ui-error" data-testid="feature-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="feature-error">{{ error() }}</p>
       }
       <ul class="ui-list" data-testid="feature-list">
         @for (f of features(); track f.id) {
@@ -55,6 +55,10 @@ interface MilestoneDto {
         </label>
         <button type="submit" ui-button variant="primary">{{ i18n.instant('features.new') }}</button>
       </form>
+
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="features-error">{{ error() }}</p>
+      }
 
       <h2>{{ i18n.instant('milestones.title') }}</h2>
       <ul class="ui-list" data-testid="milestone-list">
@@ -79,6 +83,7 @@ export class FeaturesPage implements OnInit {
   readonly features = signal<FeatureDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly error = signal('');
+  readonly busy = signal(false);
   fkey = 'FEAT';
   ftitle = 'First feature';
   facText = 'it works';
@@ -92,8 +97,13 @@ export class FeaturesPage implements OnInit {
   async load(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid) return;
-    this.features.set((await this.api.get<{ items: FeatureDto[] }>(`/api/v1/projects/${pid}/features`)).items);
-    this.milestones.set((await this.api.get<{ items: MilestoneDto[] }>(`/api/v1/projects/${pid}/milestones`)).items);
+    this.error.set('');
+    try {
+      this.features.set((await this.api.get<{ items: FeatureDto[] }>(`/api/v1/projects/${pid}/features`)).items);
+      this.milestones.set((await this.api.get<{ items: MilestoneDto[] }>(`/api/v1/projects/${pid}/milestones`)).items);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
   }
 
   async createFeature(): Promise<void> {
@@ -111,7 +121,15 @@ export class FeaturesPage implements OnInit {
   }
 
   async createMilestone(): Promise<void> {
-    await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/milestones`, { name: this.mname });
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/milestones`, { name: this.mname });
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

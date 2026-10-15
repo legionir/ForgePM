@@ -24,10 +24,10 @@ interface ApprovalDto {
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
             <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
-            <button type="button" ui-button (click)="decide(a.id, 'approved')" data-testid="approval-approve">
+            <button type="button" ui-button (click)="decide(a.id, 'approved')" [disabled]="busy()" data-testid="approval-approve">
               {{ i18n.instant('approvals.approve') }}
             </button>
-            <button type="button" ui-button variant="destructive" (click)="decide(a.id, 'rejected')" data-testid="approval-reject">
+            <button type="button" ui-button variant="destructive" (click)="decide(a.id, 'rejected')" [disabled]="busy()" data-testid="approval-reject">
               {{ i18n.instant('approvals.reject') }}
             </button>
           </li>
@@ -38,6 +38,9 @@ interface ApprovalDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="approval-msg">{{ msg() }}</p>
       }
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="approval-error">{{ error() }}</p>
+      }
     </ui-page>
   `,
 })
@@ -46,18 +49,33 @@ export class ApprovalsPage implements OnInit {
   readonly i18n = inject(I18n);
   readonly items = signal<ApprovalDto[]>([]);
   readonly msg = signal('');
+  readonly error = signal('');
+  readonly busy = signal(false);
 
   async ngOnInit(): Promise<void> {
     await this.load();
   }
 
   async load(): Promise<void> {
-    this.items.set((await this.api.get<{ items: ApprovalDto[] }>('/api/v1/approvals')).items);
+    this.error.set('');
+    try {
+      this.items.set((await this.api.get<{ items: ApprovalDto[] }>('/api/v1/approvals')).items);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
   }
 
   async decide(id: string, decision: 'approved' | 'rejected'): Promise<void> {
-    await this.api.post(`/api/v1/approvals/${id}/decide`, { decision });
-    this.msg.set(`#${id.slice(0, 8)} ${decision}`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/approvals/${id}/decide`, { decision });
+      this.msg.set(`#${id.slice(0, 8)} ${decision}`);
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

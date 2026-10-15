@@ -25,15 +25,15 @@ test('setup → project → api key → logout → login', async ({ page }) => {
 
   // 2) land on Projects, create one
   await expect(page.getByTestId('projects')).toBeVisible();
-  await page.getByLabel('Key').fill('EPRJ');
-  await page.getByLabel('Name').fill('E2E Project');
+  await page.getByTestId('project-key').fill('EPRJ');
+  await page.getByTestId('project-name').fill('E2E Project');
   await page.getByTestId('project-create').click();
   await expect(page.getByText('EPRJ · E2E Project')).toBeVisible();
 
   // 3) API keys: create → raw visible exactly once, then only prefix remains
   await page.getByTestId('nav-api-keys').click();
   await expect(page.getByTestId('api-keys')).toBeVisible();
-  await page.getByLabel('Name').fill('ci');
+  await page.getByTestId('apikey-name').fill('ci');
   const resp = page
     .waitForResponse((r) => r.request().method() === 'POST' && /\/api\/v1\/api-keys$/.test(r.url()), { timeout: 30_000 })
     .catch(() => null);

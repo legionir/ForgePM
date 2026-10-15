@@ -44,7 +44,7 @@ interface HealthDto {
         @for (m of health()?.modules ?? []; track m.name) {
           <li data-testid="module-row">
             {{ m.name }}
-            <button type="button" ui-button (click)="toggle(m)" data-testid="module-toggle">
+            <button type="button" ui-button (click)="toggle(m)" [disabled]="busy()" data-testid="module-toggle">
               {{ m.enabled ? i18n.instant('system.enabled') : i18n.instant('system.disabled') }}
             </button>
           </li>
@@ -61,7 +61,7 @@ interface HealthDto {
               <td>{{ j.error ?? '' }}</td>
               <td>
                 @if (j.status === 'failed' || j.status === 'dead') {
-                  <button type="button" ui-button (click)="retry(j.id)" data-testid="job-retry">
+                  <button type="button" ui-button (click)="retry(j.id)" [disabled]="busy()" data-testid="job-retry">
                     {{ i18n.instant('system.retry') }}
                   </button>
                 }
@@ -76,9 +76,12 @@ interface HealthDto {
       </table>
 
       <h2>{{ i18n.instant('system.backups') }}</h2>
-      <button type="button" ui-button (click)="backup()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
+      <button type="button" ui-button (click)="backup()" [disabled]="busy()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
       @if (backupMsg()) {
         <p class="ui-ok" data-testid="backup-msg">{{ backupMsg() }}</p>
+      }
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="system-error">{{ error() }}</p>
       }
     </ui-page>
   `,
@@ -90,28 +93,59 @@ export class SystemPage implements OnInit {
   readonly health = signal<HealthDto | null>(null);
   readonly jobs = signal<JobDto[]>([]);
   readonly backupMsg = signal('');
+  readonly error = signal('');
+  readonly busy = signal(false);
 
   async ngOnInit(): Promise<void> {
     await this.load();
   }
 
   async load(): Promise<void> {
-    this.health.set(await this.api.get<HealthDto>('/api/v1/system/health'));
-    this.jobs.set((await this.api.get<{ items: JobDto[] }>('/api/v1/jobs')).items);
+    this.error.set('');
+    try {
+      this.health.set(await this.api.get<HealthDto>('/api/v1/system/health'));
+      this.jobs.set((await this.api.get<{ items: JobDto[] }>('/api/v1/jobs')).items);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
   }
 
   async toggle(m: ModuleDto): Promise<void> {
-    await this.api.put('/api/v1/modules/' + m.name + '/enabled', { enabled: !m.enabled });
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.put('/api/v1/modules/' + m.name + '/enabled', { enabled: !m.enabled });
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async retry(id: string): Promise<void> {
-    await this.api.post(`/api/v1/jobs/${id}/retry`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/jobs/${id}/retry`);
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async backup(): Promise<void> {
-    const res = await this.api.post<{ file: string }>('/api/v1/system/backup');
-    this.backupMsg.set(this.i18n.instant('system.backup_done', { file: res.file }));
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      const res = await this.api.post<{ file: string }>('/api/v1/system/backup');
+      this.backupMsg.set(this.i18n.instant('system.backup_done', { file: res.file }));
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

@@ -31,10 +31,10 @@ interface ProjectDto {
     <ui-page data-testid="projects" [title]="i18n.instant('projects.title')">
       <form class="ui-new" (ngSubmit)="create()">
         <ui-field [label]="i18n.instant('common.key')" required>
-          <input uiControl name="key" [(ngModel)]="key" required maxlength="8" />
+          <input uiControl name="key" [(ngModel)]="key" required maxlength="8" data-testid="project-key" />
         </ui-field>
         <ui-field [label]="i18n.instant('common.name')" required>
-          <input uiControl name="name" [(ngModel)]="name" required />
+          <input uiControl name="name" [(ngModel)]="name" required data-testid="project-name" />
         </ui-field>
         <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="project-create">
           {{ i18n.instant('common.create') }}

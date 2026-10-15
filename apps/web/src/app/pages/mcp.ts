@@ -56,6 +56,9 @@ interface CallDto {
           }
         </tbody>
       </table>
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="mcp-error">{{ error() }}</p>
+      }
     </ui-page>
   `,
 })
@@ -64,6 +67,7 @@ export class McpPage implements OnInit {
   readonly i18n = inject(I18n);
 
   readonly calls = signal<CallDto[]>([]);
+  readonly error = signal('');
   outcome = '';
 
   async ngOnInit(): Promise<void> {
@@ -71,6 +75,15 @@ export class McpPage implements OnInit {
   }
 
   async load(): Promise<void> {
+    this.error.set('');
+    try {
+      await this.loadInner();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
+  }
+
+  private async loadInner(): Promise<void> {
     const q = this.outcome ? `?outcome=${this.outcome}` : '';
     const res = await this.api.get<{ items: CallDto[] }>(`/api/v1/mcp/calls${q}`);
     this.calls.set(res.items);

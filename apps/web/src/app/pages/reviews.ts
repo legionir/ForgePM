@@ -4,6 +4,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
+import { UiToastService } from '../ui/toast';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -40,6 +41,10 @@ interface RepoDto {
     <ui-page data-testid="reviews" [title]="i18n.instant('reviews.title')">
       <ui-project-picker />
 
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="reviews-error">{{ error() }}</p>
+      }
+
       @if (disabled()) {
         <p class="ui-hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
       } @else {
@@ -52,7 +57,7 @@ interface RepoDto {
             </select>
           </label>
           <label>{{ i18n.instant('reviews.pr') }}<input name="pr" type="number" [(ngModel)]="prNumber" required data-testid="review-pr" /></label>
-          <button type="submit" ui-button variant="primary" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
+          <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
         </form>
 
         <h2>{{ i18n.instant('reviews.runs') }}</h2>
@@ -96,6 +101,9 @@ export class ReviewsPage implements OnInit {
   readonly findings = signal<FindingDto[]>([]);
   readonly repos = signal<RepoDto[]>([]);
   readonly disabled = signal(false);
+  readonly error = signal('');
+  readonly busy = signal(false);
+  private readonly toast = inject(UiToastService);
   repoId = '';
   prNumber = 1;
 
@@ -117,9 +125,16 @@ export class ReviewsPage implements OnInit {
       this.repos.set((await this.api.get<{ items: RepoDto[] }>('/api/v1/repositories')).items);
       if (!this.repoId && this.repos()[0]) this.repoId = this.repos()[0].id;
       this.disabled.set(false);
-    } catch {
-      // 503 / MODULE_DISABLED => guidance mode (§11 "فقط راهنمای فعال‌سازی")
-      this.disabled.set(true);
+    } catch (err) {
+      // 503 / MODULE_DISABLED => guidance mode (§11 "فقط راهنمای فعال‌سازی").
+      // Any OTHER failure is a real error and must not hide the page (STT-006).
+      const e = err as { status?: number; message?: string };
+      if (e.status === 503 || /MODULE_DISABLED/i.test(e.message ?? '')) {
+        this.disabled.set(true);
+      } else {
+        this.disabled.set(false);
+        this.error.set(e.message ?? 'error');
+      }
     }
   }
 
@@ -127,6 +142,18 @@ export class ReviewsPage implements OnInit {
   async runCode(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid || !this.repoId) return;
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.runCodeInner(pid);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async runCodeInner(pid: string): Promise<void> {
     await this.api.post('/api/v1/review/code-runs', {
       project_id: pid,
       repository_id: this.repoId,
@@ -139,12 +166,29 @@ export class ReviewsPage implements OnInit {
   }
 
   async decide(id: string, status: 'dismissed' | 'accepted'): Promise<void> {
-    await this.api.post(`/api/v1/review/findings/${id}/decision`, { status });
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/review/findings/${id}/decision`, { status });
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async createIssue(id: string): Promise<void> {
-    await this.api.post(`/api/v1/review/findings/${id}/create-work-item`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/review/findings/${id}/create-work-item`);
+      this.toast.ok(this.i18n.instant('reviews.issue_created'));
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

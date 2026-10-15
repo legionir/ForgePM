@@ -38,7 +38,7 @@ interface StatusDto {
           <textarea name="pk" [(ngModel)]="privateKey" rows="3" data-testid="gh-private-key"></textarea>
         </label>
         <label>{{ i18n.instant('github.webhook_secret') }}<input name="ws" [(ngModel)]="webhookSecret" data-testid="gh-webhook-secret" /></label>
-        <button type="submit" ui-button variant="primary" data-testid="gh-save">{{ i18n.instant('github.save') }}</button>
+        <button type="submit" ui-button variant="primary" [disabled]="busy()" data-testid="gh-save">{{ i18n.instant('github.save') }}</button>
       </form>
       @if (status(); as s) {
         <p data-testid="gh-status">
@@ -54,7 +54,7 @@ interface StatusDto {
           @for (r of repos(); track r.id) {
             <li data-testid="gh-repo-row">
               {{ r.full_name }}
-              <button type="button" ui-button (click)="link(r.id)" data-testid="gh-link">
+              <button type="button" ui-button (click)="link(r.id)" [disabled]="busy()" data-testid="gh-link">
                 {{ i18n.instant('github.link') }}
               </button>
             </li>
@@ -70,6 +70,9 @@ interface StatusDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="gh-msg">{{ msg() }}</p>
       }
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="gh-error">{{ error() }}</p>
+      }
     </ui-page>
   `,
 })
@@ -81,6 +84,8 @@ export class GithubPage implements OnInit {
   readonly status = signal<StatusDto | null>(null);
   readonly repos = signal<RepoDto[]>([]);
   readonly msg = signal('');
+  readonly error = signal('');
+  readonly busy = signal(false);
   appId = '';
   privateKey = '';
   webhookSecret = '';
@@ -91,26 +96,51 @@ export class GithubPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.status.set(await this.api.get<StatusDto>('/api/v1/integrations/github/status'));
-    if (this.status()?.enabled) {
-      this.repos.set((await this.api.get<{ items: RepoDto[] }>('/api/v1/repositories')).items);
+    this.error.set('');
+    try {
+      this.status.set(await this.api.get<StatusDto>('/api/v1/integrations/github/status'));
+      if (this.status()?.enabled) {
+        this.repos.set((await this.api.get<{ items: RepoDto[] }>('/api/v1/repositories')).items);
+      }
+    } catch (err) {
+      // Module off => 503 MODULE_DISABLED: the disabled hint branch handles it.
+      const e = err as { status?: number; message?: string };
+      if (e.status !== 503 && !/MODULE_DISABLED/i.test(e.message ?? '')) {
+        this.error.set(e.message ?? 'error');
+      }
     }
   }
 
   async save(): Promise<void> {
-    const body: { app_id?: string; app_private_key?: string; webhook_secret?: string } = {};
-    if (this.appId) body.app_id = this.appId;
-    if (this.privateKey) body.app_private_key = this.privateKey;
-    if (this.webhookSecret) body.webhook_secret = this.webhookSecret;
-    const res = await this.api.post<{ configured: string[] }>('/api/v1/integrations/github/config', body);
-    this.msg.set(`stored: ${res.configured.join(', ')}`);
-    this.privateKey = '';
-    this.webhookSecret = '';
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      const body: { app_id?: string; app_private_key?: string; webhook_secret?: string } = {};
+      if (this.appId) body.app_id = this.appId;
+      if (this.privateKey) body.app_private_key = this.privateKey;
+      if (this.webhookSecret) body.webhook_secret = this.webhookSecret;
+      const res = await this.api.post<{ configured: string[] }>('/api/v1/integrations/github/config', body);
+      this.msg.set(`stored: ${res.configured.join(', ')}`);
+      this.privateKey = '';
+      this.webhookSecret = '';
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async link(repositoryId: string): Promise<void> {
-    await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/repositories`, { repository_id: repositoryId });
-    this.msg.set('linked');
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/repositories`, { repository_id: repositoryId });
+      this.msg.set('linked');
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

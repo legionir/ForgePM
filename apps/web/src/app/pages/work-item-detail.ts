@@ -62,10 +62,10 @@ interface ActivityDto {
               }
             </select>
           </label>
-          <button type="submit" ui-button variant="primary">{{ i18n.instant('common.save') }}</button>
+          <button type="submit" ui-button variant="primary" [loading]="busy()">{{ i18n.instant('common.save') }}</button>
         </form>
         @if (error()) {
-          <p class="ui-error" data-testid="wi-detail-error">{{ error() }}</p>
+          <p class="ui-error" role="alert" data-testid="wi-detail-error">{{ error() }}</p>
         }
 
         <h2>{{ i18n.instant('work_items.comment') }}</h2>
@@ -76,7 +76,7 @@ interface ActivityDto {
         </ul>
         <form class="ui-new" (ngSubmit)="addComment()">
           <label>{{ i18n.instant('work_items.comment') }}<input name="cm" [(ngModel)]="comment" required data-testid="wi-comment-input" /></label>
-          <button type="submit" ui-button variant="primary" data-testid="wi-comment-add">{{ i18n.instant('work_items.add_comment') }}</button>
+          <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-comment-add">{{ i18n.instant('work_items.add_comment') }}</button>
         </form>
 
         <h2>{{ i18n.instant('work_items.activity') }}</h2>
@@ -101,18 +101,24 @@ export class WorkItemDetailPage implements OnInit {
   readonly comments = signal<CommentDto[]>([]);
   readonly activity = signal<ActivityDto[]>([]);
   readonly error = signal('');
+  readonly busy = signal(false);
   comment = '';
   toState = '';
 
   async ngOnInit(): Promise<void> {
     const key = location.pathname.split('/').pop() ?? '';
-    await this.ctx.load();
-    const pid = this.ctx.selectedId();
-    if (pid) {
-      const st = await this.api.get<{ items: { id: string; name: string }[] }>(`/api/v1/projects/${pid}/states`);
-      this.states.set(st.items);
+    this.error.set('');
+    try {
+      await this.ctx.load();
+      const pid = this.ctx.selectedId();
+      if (pid) {
+        const st = await this.api.get<{ items: { id: string; name: string }[] }>(`/api/v1/projects/${pid}/states`);
+        this.states.set(st.items);
+      }
+      await this.reload(key);
+    } catch (err) {
+      this.error.set((err as Error).message);
     }
-    await this.reload(key);
   }
 
   async reload(key: string): Promise<void> {
@@ -124,20 +130,31 @@ export class WorkItemDetailPage implements OnInit {
   async addComment(): Promise<void> {
     const key = this.item()?.key;
     if (!key) return;
-    await this.api.post(`/api/v1/work-items/${key}/comments`, { body: this.comment });
-    this.comment = '';
-    await this.reload(key);
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/work-items/${key}/comments`, { body: this.comment });
+      this.comment = '';
+      await this.reload(key);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async move(): Promise<void> {
     const key = this.item()?.key;
     if (!key || !this.toState) return;
     this.error.set('');
+    this.busy.set(true);
     try {
       await this.api.post(`/api/v1/work-items/${key}/transition`, { to_state_id: this.toState });
       await this.reload(key);
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
     }
   }
 }

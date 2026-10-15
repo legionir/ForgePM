@@ -4,6 +4,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
+import { UiToastService } from '../ui/toast';
 
 interface ProviderDto {
   id: string;
@@ -33,8 +34,8 @@ interface ProviderDto {
             }
           </select>
         </label>
-        <label>API key<input name="key" type="password" [(ngModel)]="apiKey" data-testid="provider-key" /></label>
-        <button type="submit" ui-button variant="primary" data-testid="provider-create">{{ i18n.instant('common.create') }}</button>
+        <label>{{ i18n.instant('ai_providers.api_key') }}<input name="key" type="password" [(ngModel)]="apiKey" data-testid="provider-key" /></label>
+        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="provider-create">{{ i18n.instant('common.create') }}</button>
       </form>
       <ul class="ui-list" data-testid="provider-list">
         @for (p of providers(); track p.id) {
@@ -49,6 +50,9 @@ interface ProviderDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="provider-msg">{{ msg() }}</p>
       }
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="provider-error">{{ error() }}</p>
+      }
     </ui-page>
   `,
 })
@@ -58,6 +62,9 @@ export class AiProvidersPage implements OnInit {
 
   readonly providers = signal<ProviderDto[]>([]);
   readonly msg = signal('');
+  readonly error = signal('');
+  readonly busy = signal(false);
+  private readonly toast = inject(UiToastService);
   name = 'fake-1';
   kind = 'fake';
   apiKey = '';
@@ -68,19 +75,41 @@ export class AiProvidersPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.providers.set((await this.api.get<{ items: ProviderDto[] }>('/api/v1/ai-providers')).items);
+    this.error.set('');
+    try {
+      this.providers.set((await this.api.get<{ items: ProviderDto[] }>('/api/v1/ai-providers')).items);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
   }
 
   async create(): Promise<void> {
-    const body: { name: string; kind: string; api_key?: string } = { name: this.name, kind: this.kind };
-    if (this.apiKey) body.api_key = this.apiKey;
-    await this.api.post('/api/v1/ai-providers', body);
-    this.apiKey = '';
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      const body: { name: string; kind: string; api_key?: string } = { name: this.name, kind: this.kind };
+      if (this.apiKey) body.api_key = this.apiKey;
+      await this.api.post('/api/v1/ai-providers', body);
+      this.apiKey = '';
+      this.toast.ok(this.i18n.instant('common.saved'));
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async test(id: string): Promise<void> {
-    const res = await this.api.post<{ ok: boolean }>(`/api/v1/ai-providers/${id}/test`);
-    this.msg.set(res.ok ? 'ok' : 'failed');
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      const res = await this.api.post<{ ok: boolean }>(`/api/v1/ai-providers/${id}/test`);
+      this.msg.set(res.ok ? 'ok' : 'failed');
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

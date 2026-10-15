@@ -37,8 +37,8 @@ test('§11 full chain: setup → project → items → board → plan → key �
 
   // 2) create a project
   await expect(page.getByTestId('projects')).toBeVisible();
-  await page.getByLabel('Key').fill('EPRJ');
-  await page.getByLabel('Name').fill('E2E Project');
+  await page.getByTestId('project-key').fill('EPRJ');
+  await page.getByTestId('project-name').fill('E2E Project');
   await page.getByTestId('project-create').click();
   await expect(page.getByText('EPRJ · E2E Project')).toBeVisible();
 

@@ -20,7 +20,7 @@ import { UiButton } from '../ui/button';
       <button type="button" ui-button data-testid="setup-submit" (click)="submit()">{{ i18n.instant('common.create') }}</button>
       <p><a data-testid="go-login" routerLink="/login">{{ i18n.instant('login.title') }}</a></p>
       @if (error()) {
-        <p class="ui-error" data-testid="error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="error">{{ error() }}</p>
       }
     </section>
   `,
@@ -35,9 +35,11 @@ export class SetupPage {
   org = '';
   dname = '';
   readonly error = signal('');
+  readonly busy = signal(false);
 
   async submit(): Promise<void> {
     this.error.set('');
+    this.busy.set(true);
     try {
       await this.session.setup({
         organization_name: this.org,
@@ -48,6 +50,8 @@ export class SetupPage {
       await this.router.navigate(['/projects']);
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
     }
   }
 }

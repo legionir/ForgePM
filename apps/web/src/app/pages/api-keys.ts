@@ -36,13 +36,13 @@ interface ApiKeyDto {
         <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
       }
       @if (error()) {
-        <p class="ui-error" data-testid="apikey-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="apikey-error">{{ error() }}</p>
       }
       <ul class="ui-list">
         @for (k of keys(); track k.id) {
           <li>
             <span>{{ k.name }} · {{ k.prefix }} · {{ k.scopes.join(',') }}</span>
-            <button type="button" ui-button variant="destructive" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
+            <button type="button" ui-button variant="destructive" (click)="revoke(k.id)" [disabled]="busy()" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
           </li>
         } @empty {
           <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>
@@ -58,6 +58,7 @@ export class ApiKeysPage implements OnInit {
   readonly keys = signal<ApiKeyDto[]>([]);
   readonly rawKey = signal('');
   readonly error = signal('');
+  readonly busy = signal(false);
   name = '';
   scope = 'read';
 
@@ -87,7 +88,15 @@ export class ApiKeysPage implements OnInit {
   }
 
   async revoke(id: string): Promise<void> {
-    await this.api.send('DELETE', `/api/v1/api-keys/${id}`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.send('DELETE', `/api/v1/api-keys/${id}`);
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiPage } from '../ui/page';
+import { UiLoading } from '../ui/loading';
 
 interface AuditDto {
   id: string;
@@ -26,9 +27,15 @@ interface UserDto {
 @Component({
   selector: 'page-admin',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiPage],
+  imports: [FormsModule, UiPage, UiLoading],
   template: `
     <ui-page data-testid="admin" [title]="i18n.instant('users.title')">
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="admin-error">{{ error() }}</p>
+      }
+      @if (loading()) {
+        <ui-loading kind="table" [label]="i18n.instant('common.loading')" />
+      } @else {
       <table class="ui-table" data-testid="user-list">
         <thead>
           <tr>
@@ -73,6 +80,7 @@ interface UserDto {
           }
         </tbody>
       </table>
+      }
     </ui-page>
   `,
 })
@@ -83,16 +91,25 @@ export class AdminPage implements OnInit {
   readonly users = signal<UserDto[]>([]);
   readonly audit = signal<AuditDto[]>([]);
   readonly memberships = signal<Record<string, string>>({});
+  readonly loading = signal(true);
+  readonly error = signal('');
 
   async ngOnInit(): Promise<void> {
-    const [u, m, a] = await Promise.all([
-      this.api.get<{ items: UserDto[] }>('/api/v1/users'),
-      this.api.get<{ items: { user_id: string; role: string }[] }>('/api/v1/memberships'),
-      this.api.get<{ items: AuditDto[] }>('/api/v1/audit'),
-    ]);
-    this.users.set(u.items);
-    this.audit.set(a.items);
-    this.memberships.set(Object.fromEntries(m.items.map((x) => [x.user_id, x.role])));
+    this.error.set('');
+    try {
+      const [u, m, a] = await Promise.all([
+        this.api.get<{ items: UserDto[] }>('/api/v1/users'),
+        this.api.get<{ items: { user_id: string; role: string }[] }>('/api/v1/memberships'),
+        this.api.get<{ items: AuditDto[] }>('/api/v1/audit'),
+      ]);
+      this.users.set(u.items);
+      this.audit.set(a.items);
+      this.memberships.set(Object.fromEntries(m.items.map((x) => [x.user_id, x.role])));
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   role(userId: string): string {

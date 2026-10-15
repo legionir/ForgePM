@@ -769,3 +769,25 @@ td .ui-empty,
 li .ui-empty {
   padding: var(--space-3) var(--space-2);
 }
+
+/* Board card: title + keyboard move controls (STT-009) */
+.ui-board-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ui-board-card-title {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.ui-board-card-move {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.ui-board-card-move button {
+  padding: 0 var(--space-2);
+  min-inline-size: 1.75rem;
+}
