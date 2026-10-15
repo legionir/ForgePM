@@ -5,6 +5,7 @@ import { I18n } from '../i18n';
 import { Tokens } from './tokens';
 import { UiButton } from './button';
 import { UiToasts } from './toast';
+import { UiAvatar } from './avatar';
 import { UiNavCurrent } from './nav-current';
 
 interface NavItem {
@@ -21,7 +22,7 @@ interface NavItem {
 @Component({
   selector: 'ui-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, UiNavCurrent, UiButton, UiToasts],
+  imports: [RouterLink, RouterLinkActive, UiNavCurrent, UiButton, UiToasts, UiAvatar],
   template: `
     <header class="ui-shell" [class.nav-open]="navOpen()">
       <button
@@ -52,7 +53,10 @@ interface NavItem {
           {{ themeLabel() }}
         </button>
         <button type="button" ui-button variant="ghost" size="sm" (click)="i18n.toggle()" data-testid="lang-toggle">{{ i18n.instant('shell.lang') }}</button>
-        <span data-testid="who">{{ session.me()?.user?.display_name }}</span>
+        <span class="ui-who-user" data-testid="who">
+          <ui-avatar [name]="session.me()?.user?.display_name ?? ''" size="sm" />
+          {{ session.me()?.user?.display_name }}
+        </span>
         <button type="button" ui-button variant="ghost" size="sm" (click)="logout()" data-testid="logout">{{ i18n.instant('shell.signout') }}</button>
       </div>
     </header>

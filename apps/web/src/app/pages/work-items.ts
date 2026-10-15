@@ -4,6 +4,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiBadge } from '../ui/badge';
 import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
@@ -11,6 +12,7 @@ import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
+import { UiBadgeVariant } from '../ui/badge';
 
 interface StateDto {
   id: string;
@@ -28,6 +30,8 @@ interface ItemDto {
   state_name: string;
   state_category: string;
   labels: string[];
+  due_date: string | null;
+  acceptance_criteria: { text: string; done: boolean }[];
 }
 
 /**
@@ -40,7 +44,7 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiField, UiControl, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiField, UiControl, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
       <ui-project-picker />
@@ -69,6 +73,7 @@ interface ItemDto {
           [loading]="loadingList()"
           [error]="error()"
           [emptyMessage]="i18n.instant('common.empty')"
+          [selectable]="true"
         />
       } @else {
         <div class="ui-board" data-testid="wi-board">
@@ -80,11 +85,52 @@ interface ItemDto {
               (drop)="drop(st.id, ev($event))"
               data-testid="board-col"
             >
-              <h2>{{ st.name }}</h2>
+              <h2>
+                {{ st.name }}
+                <span class="ui-col-count" data-testid="board-col-count">{{ byState()(st.id).length }}</span>
+                <button
+                  type="button"
+                  ui-button
+                  variant="ghost"
+                  size="sm"
+                  [attr.aria-label]="i18n.instant('work_items.quick_add') + ' — ' + st.name"
+                  (click)="toggleQuickAdd(st.id)"
+                  data-testid="board-quick-add"
+                >+</button>
+              </h2>
+              @if (quickAddFor() === st.id) {
+                <input
+                  class="ui-quick-add"
+                  [(ngModel)]="quickTitle"
+                  [name]="'qa-' + st.id"
+                  [attr.placeholder]="i18n.instant('work_items.quick_add')"
+                  (keydown.enter)="quickAdd(st.id)"
+                  data-testid="board-quick-add-input"
+                />
+              }
               @for (it of items().filter((x) => x.state_id === st.id); track it.id) {
                 <div class="ui-board-card" draggable="true" (dragstart)="drag(it, ev($event))" data-testid="board-card">
                   <span class="ui-board-card-title">
                     <a [routerLink]="['/work-items', it.key]">{{ it.key }}</a> {{ it.title }}
+                  </span>
+                  @if (it.labels.length) {
+                    <span class="ui-chip-row">
+                      @for (label of it.labels.slice(0, 3); track label) {
+                        <span class="ui-chip">{{ label }}</span>
+                      }
+                      @if (it.labels.length > 3) {
+                        <span class="ui-chip">+{{ it.labels.length - 3 }}</span>
+                      }
+                    </span>
+                  }
+                  <span class="ui-board-card-meta">
+                    <ui-badge size="sm" [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'">{{ it.priority }}</ui-badge>
+                    @if (it.acceptance_criteria.length) {
+                      <span class="ui-ac-progress" data-testid="board-card-ac">{{ acDone(it) }}/{{ it.acceptance_criteria.length }} ☑</span>
+                    }
+                    @if (it.due_date) {
+                      <span class="ui-due">{{ it.due_date }}</span>
+                    }
                   </span>
                   <span class="ui-board-card-move">
                     <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, -1)"
@@ -161,6 +207,41 @@ export class WorkItemsPage implements OnInit {
 
   readonly keyOf = (it: ItemDto): string => it.id;
 
+  /** Quick-add state per column (P6-2): which column's inline input is open. */
+  readonly quickAddFor = signal('');
+  quickTitle = '';
+
+  toggleQuickAdd(stateId: string): void {
+    this.quickAddFor.set(this.quickAddFor() === stateId ? '' : stateId);
+    this.quickTitle = '';
+  }
+
+  async quickAdd(stateId: string): Promise<void> {
+    const t = this.quickTitle.trim();
+    if (!t) return;
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/work-items`, {
+        type: 'task',
+        title: t,
+        state_id: stateId,
+      });
+      this.quickTitle = '';
+      this.quickAddFor.set('');
+      this.toast.ok(this.i18n.instant('work_items.created'));
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  acDone(it: ItemDto): number {
+    return it.acceptance_criteria.filter((c) => c.done).length;
+  }
+
   get listColumns(): UiTableColumn<ItemDto>[] {
     return [
       { key: 'key', label: this.i18n.instant('common.key'), sortable: true, link: (it) => ['/work-items', it.key], linkTestid: 'wi-link' },
@@ -172,7 +253,19 @@ export class WorkItemsPage implements OnInit {
         sortable: true,
         badge: (it) => ({ text: it.priority, variant: it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default' }),
       },
-      { key: 'state_name', label: this.i18n.instant('work_items.state'), sortable: true, value: (it) => it.state_name },
+      {
+        key: 'labels',
+        label: this.i18n.instant('work_items.labels'),
+        chips: (it) => it.labels,
+      },
+      {
+        key: 'state_name',
+        label: this.i18n.instant('work_items.state'),
+        sortable: true,
+        value: (it) => it.state_name,
+        badge: (it) => ({ text: it.state_name, variant: stateVariant(it.state_category) }),
+      },
+      { key: 'due_date', label: this.i18n.instant('work_items.due_date'), sortable: true, value: (it) => it.due_date ?? '—' },
     ];
   }
 
@@ -269,5 +362,21 @@ export class WorkItemsPage implements OnInit {
     } catch (err) {
       this.error.set((err as Error).message); // surfaces BLOCKED_BY_OPEN_ITEMS etc.
     }
+  }
+}
+
+/** Colour mapping for workflow-state badges (GitHub open/closed feel). */
+export function stateVariant(category: string): UiBadgeVariant {
+  switch (category) {
+    case 'completed':
+      return 'success';
+    case 'started':
+      return 'info';
+    case 'canceled':
+      return 'default';
+    case 'in_review':
+      return 'warning';
+    default:
+      return 'default';
   }
 }

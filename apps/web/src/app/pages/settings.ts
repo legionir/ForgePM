@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
-import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
@@ -29,7 +28,7 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, ProjectPickerCmp, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
 

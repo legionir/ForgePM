@@ -26,6 +26,8 @@ export interface UiTableColumn<T> {
   linkTestid?: string;
   /** Render the cell as a badge (return null to fall back to text). */
   badge?: (row: T) => { text: string; variant: UiBadgeVariant } | null;
+  /** Render the cell as a row of label chips (Trello/GitHub label chips). */
+  chips?: (row: T) => string[];
   /** Editable input cell; pairs with editValue/editChange on the table. */
   editable?: boolean;
   editTestid?: string;
@@ -113,6 +115,12 @@ export interface UiTableRowAction<T> {
                         [attr.data-testid]="col.editTestid ?? null"
                         [attr.aria-label]="col.label"
                       />
+                    } @else if (col.chips && col.chips(row).length) {
+                      <span class="ui-chip-row">
+                        @for (chip of col.chips(row); track chip) {
+                          <span class="ui-chip">{{ chip }}</span>
+                        }
+                      </span>
                     } @else if (col.badge && col.badge(row)) {
                       <ui-badge size="sm" [variant]="col.badge(row)!.variant">{{ col.badge(row)!.text }}</ui-badge>
                     } @else if (col.link) {

@@ -39,6 +39,9 @@ export class ApiClient {
   put<T = unknown>(path: string, body?: unknown): Promise<T> {
     return this.send<T>('PUT', path, body);
   }
+  patch<T = unknown>(path: string, body?: unknown): Promise<T> {
+    return this.send<T>('PATCH', path, body);
+  }
 
   private async unwrap<T>(res: Response): Promise<T> {
     if (res.status === 204) return undefined as T;

@@ -7,8 +7,9 @@
 - Phase 2 (ui/shell + drawer, ui/page on all pages, ui/tabs, picker states, breadcrumbs, h1/h2 hierarchy) — done (`6695eae`).
 - Phase 3 (state hardening + a11y: busy/loading guards on every async action, MODULE_DISABLED-aware reviews/github, immutable settings rows, role=alert sweep, board keyboard move, i18n API-key label, e2e testids) — done (`d07546b`).
 - Phase 4 (ui/data-table with sort/pagination/selection/row-action overflow; migrated work-items, mcp, settings, system jobs, admin users+audit) — done (`db50c1a`).
-- Phase 5 (responsive stack at ≤640px, 360px-hardening, RTL audit clean, dark warning/info tokens + `check:contrast` WCAG gate, self-tested fail path) — done.
-- Remaining: Phases 6–8.
+- Phase 5 (responsive stack at ≤640px, 360px-hardening, RTL audit clean, dark warning/info tokens + `check:contrast` WCAG gate, self-tested fail path) — done (`83a95a5`).
+- Phase 6 (parity MVP: rich board card w/ chips+due+AC progress, column count+quick-add, rich list w/ selection+chips+state badges, detail sidebar w/ PATCH edits, detail tabs conversation/acceptance/activity — Links tab omitted: no read API; shell avatar) — done.
+- Remaining: Phases 7–8.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract
