@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 
 interface ModuleDto {
   name: string;
@@ -32,10 +33,9 @@ interface HealthDto {
 @Component({
   selector: 'page-system',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
-    <section data-testid="system">
-      <h1>{{ i18n.instant('system.title') }}</h1>
+    <ui-page data-testid="system" [title]="i18n.instant('system.title')">
       <p data-testid="sys-db">{{ i18n.instant('system.database') }}: {{ health()?.database ?? '…' }}</p>
       <p data-testid="sys-redis">{{ i18n.instant('system.redis') }}: {{ health()?.redis ?? '…' }}</p>
 
@@ -80,7 +80,7 @@ interface HealthDto {
       @if (backupMsg()) {
         <p class="ui-ok" data-testid="backup-msg">{{ backupMsg() }}</p>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class SystemPage implements OnInit {

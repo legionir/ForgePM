@@ -3,6 +3,8 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
+import { UiTabItem, UiTabs } from '../ui/tabs';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -26,19 +28,11 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage, UiTabs],
   template: `
-    <section data-testid="settings">
-      <h1>{{ i18n.instant('settings.title') }}</h1>
+    <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
 
-      <nav class="ui-tabs" aria-label="Scope">
-        <button type="button" [class.active]="scope() === 'system'" (click)="setScope('system')" data-testid="scope-system">
-          {{ i18n.instant('settings.scope_system') }}
-        </button>
-        <button type="button" [class.active]="scope() === 'project'" (click)="setScope('project')" data-testid="scope-project">
-          {{ i18n.instant('settings.scope_project') }}
-        </button>
-      </nav>
+      <ui-tabs [items]="scopeTabs" [active]="scope()" [ariaLabel]="i18n.instant('settings.scope')" (tabChange)="setScope($event)" />
 
       @if (scope() === 'project') {
         <ui-project-picker />
@@ -78,7 +72,7 @@ interface EffDto {
       @if (error()) {
         <p class="ui-error" data-testid="settings-error">{{ error() }}</p>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class SettingsPage implements OnInit {
@@ -87,6 +81,14 @@ export class SettingsPage implements OnInit {
   readonly ctx = inject(ProjectContext);
 
   readonly scope = signal<'system' | 'project'>('system');
+
+  get scopeTabs(): UiTabItem[] {
+    return [
+      { id: 'system', label: this.i18n.instant('settings.scope_system'), testid: 'scope-system' },
+      { id: 'project', label: this.i18n.instant('settings.scope_project'), testid: 'scope-project' },
+    ];
+  }
+
   readonly rows = signal<Row[]>([]);
   readonly error = signal('');
   private defs: DefDto[] = [];
@@ -97,8 +99,8 @@ export class SettingsPage implements OnInit {
     await this.refresh();
   }
 
-  setScope(s: 'system' | 'project'): void {
-    this.scope.set(s);
+  setScope(v: string): void {
+    this.scope.set(v as 'system' | 'project');
     void this.refresh();
   }
 

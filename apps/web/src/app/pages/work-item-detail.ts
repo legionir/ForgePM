@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
+import { UiBreadcrumbs } from '../ui/breadcrumbs';
 import { ProjectContext } from '../project-context';
 
 interface ItemDto {
@@ -34,12 +36,12 @@ interface ActivityDto {
 @Component({
   selector: 'page-work-item-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, UiButton],
+  imports: [FormsModule, RouterLink, UiButton, UiPage, UiBreadcrumbs],
   template: `
     @if (item(); as it) {
-      <section data-testid="wi-detail">
-        <a routerLink="/work-items" data-testid="wi-back">← {{ i18n.instant('common.back') }}</a>
-        <h1>{{ it.key }} — {{ it.title }}</h1>
+      <ui-page data-testid="wi-detail" [title]="it.key + ' — ' + it.title">
+        <ui-breadcrumbs [items]="[{ label: i18n.instant('nav.projects'), link: '/projects' }, { label: i18n.instant('nav.work_items'), link: '/work-items' }, { label: it.key }]" />
+        <a routerLink="/work-items" class="ui-back" data-testid="wi-back">← {{ i18n.instant('common.back') }}</a>
         <p>{{ it.type }} · {{ it.priority }} · {{ it.state_name }}</p>
         @if (it.description) {
           <p>{{ it.description }}</p>
@@ -83,7 +85,7 @@ interface ActivityDto {
             <li>{{ a.action }} ({{ a.actor_type }})</li>
           }
         </ul>
-      </section>
+      </ui-page>
     } @else {
       <p data-testid="wi-detail-loading">…</p>
     }

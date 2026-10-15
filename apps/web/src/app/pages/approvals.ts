@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 
 interface ApprovalDto {
   id: string;
@@ -16,10 +17,9 @@ interface ApprovalDto {
 @Component({
   selector: 'page-approvals',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
-    <section data-testid="approvals">
-      <h1>{{ i18n.instant('approvals.title') }}</h1>
+    <ui-page data-testid="approvals" [title]="i18n.instant('approvals.title')">
       <ul class="ui-list" data-testid="approval-list">
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
@@ -38,7 +38,7 @@ interface ApprovalDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="approval-msg">{{ msg() }}</p>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class ApprovalsPage implements OnInit {

@@ -4,6 +4,7 @@ import { JsonPipe } from '@angular/common';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -30,10 +31,9 @@ interface ApplyReport {
 @Component({
   selector: 'page-planner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, JsonPipe, ProjectPickerCmp, UiButton],
+  imports: [FormsModule, JsonPipe, ProjectPickerCmp, UiButton, UiPage],
   template: `
-    <section data-testid="planner">
-      <h1>{{ i18n.instant('planner.title') }}</h1>
+    <ui-page data-testid="planner" [title]="i18n.instant('planner.title')">
       <ui-project-picker />
 
       <form (ngSubmit)="create()" data-testid="plan-new">
@@ -72,7 +72,7 @@ interface ApplyReport {
           }
         </div>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class PlannerPage implements OnInit {

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -27,10 +28,9 @@ interface StatusDto {
 @Component({
   selector: 'page-github',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
   template: `
-    <section data-testid="github">
-      <h1>{{ i18n.instant('github.title') }}</h1>
+    <ui-page data-testid="github" [title]="i18n.instant('github.title')">
 
       <form (ngSubmit)="save()" data-testid="gh-config">
         <label>{{ i18n.instant('github.app_id') }}<input name="appId" [(ngModel)]="appId" data-testid="gh-app-id" /></label>
@@ -70,7 +70,7 @@ interface StatusDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="gh-msg">{{ msg() }}</p>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class GithubPage implements OnInit {

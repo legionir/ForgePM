@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 
 interface ApiKeyDto {
   id: string;
@@ -19,10 +20,9 @@ interface ApiKeyDto {
 @Component({
   selector: 'page-api-keys',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
-    <section data-testid="api-keys">
-      <h1>{{ i18n.instant('nav.api_keys') }}</h1>
+    <ui-page data-testid="api-keys" [title]="i18n.instant('nav.api_keys')">
       <form class="ui-new" (ngSubmit)="create()">
         <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name" /></label>
         <label>Scope<select name="scope" [(ngModel)]="scope">
@@ -48,7 +48,7 @@ interface ApiKeyDto {
           <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>
         }
       </ul>
-    </section>
+    </ui-page>
   `,
 })
 export class ApiKeysPage implements OnInit {

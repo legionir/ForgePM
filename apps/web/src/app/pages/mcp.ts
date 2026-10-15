@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiPage } from '../ui/page';
 
 interface CallDto {
   id: string;
@@ -20,10 +21,9 @@ interface CallDto {
 @Component({
   selector: 'page-mcp',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiPage],
   template: `
-    <section data-testid="mcp">
-      <h1>{{ i18n.instant('mcp.title') }}</h1>
+    <ui-page data-testid="mcp" [title]="i18n.instant('mcp.title')">
       <h2>{{ i18n.instant('mcp.calls') }}</h2>
       <label>
         {{ i18n.instant('mcp.outcome') }}
@@ -56,7 +56,7 @@ interface CallDto {
           }
         </tbody>
       </table>
-    </section>
+    </ui-page>
   `,
 })
 export class McpPage implements OnInit {

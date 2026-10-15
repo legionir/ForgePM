@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -34,10 +35,9 @@ interface RepoDto {
 @Component({
   selector: 'page-reviews',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
   template: `
-    <section data-testid="reviews">
-      <h1>{{ i18n.instant('reviews.title') }}</h1>
+    <ui-page data-testid="reviews" [title]="i18n.instant('reviews.title')">
       <ui-project-picker />
 
       @if (disabled()) {
@@ -84,7 +84,7 @@ interface RepoDto {
           }
         </ul>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class ReviewsPage implements OnInit {

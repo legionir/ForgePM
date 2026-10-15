@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 
 interface ProviderDto {
   id: string;
@@ -20,10 +21,9 @@ interface ProviderDto {
 @Component({
   selector: 'page-ai-providers',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
-    <section data-testid="ai-providers">
-      <h1>{{ i18n.instant('ai_providers.title') }}</h1>
+    <ui-page data-testid="ai-providers" [title]="i18n.instant('ai_providers.title')">
       <form (ngSubmit)="create()" data-testid="provider-new">
         <label>{{ i18n.instant('common.name') }}<input name="n" [(ngModel)]="name" required data-testid="provider-name" /></label>
         <label>{{ i18n.instant('common.kind') }}
@@ -49,7 +49,7 @@ interface ProviderDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="provider-msg">{{ msg() }}</p>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class AiProvidersPage implements OnInit {

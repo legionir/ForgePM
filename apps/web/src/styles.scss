@@ -609,10 +609,6 @@ table.ui-table td {
   color: var(--color-accent);
 }
 
-.ui-picker {
-  max-width: 20rem;
-}
-
 .ui-board {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
@@ -663,14 +659,94 @@ a {
   color: var(--color-accent);
 }
 
-/* Responsive: tables scroll horizontally on small screens */
+/* ui/page — standard page template (plan §4) */
+.ui-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.ui-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ui-page-head h1 {
+  margin: 0;
+}
+
+.ui-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.ui-back {
+  align-self: flex-start;
+  color: var(--color-muted);
+  text-decoration: none;
+  font-size: var(--font-size-label);
+}
+
+.ui-back:hover {
+  color: var(--color-fg);
+}
+
+/* ui/project-picker with label + states */
+.ui-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 20rem;
+}
+
+.ui-picker-label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--font-size-label);
+  color: var(--color-muted);
+}
+
+/* Responsive: nav collapses to a drawer (RSP-001), tables scroll. */
+.ui-nav-burger {
+  display: none;
+}
+
 @media (max-width: 768px) {
+  .ui-nav-burger {
+    display: inline-flex;
+  }
+
+  header.ui-shell {
+    position: sticky;
+    top: 0;
+  }
+
+  header.ui-shell nav {
+    display: none;
+    position: absolute;
+    inset-inline: 0;
+    top: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    background: var(--color-surface);
+    border-block-end: 1px solid var(--color-line);
+    box-shadow: var(--shadow-md);
+    padding: var(--space-3) var(--space-4);
+    z-index: var(--z-dropdown);
+  }
+
+  header.ui-shell.nav-open nav {
+    display: flex;
+  }
+
   table.ui-table {
     display: block;
     overflow-x: auto;
-  }
-  header.ui-shell nav {
-    width: 100%;
   }
 }
 

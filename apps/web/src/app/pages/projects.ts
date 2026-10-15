@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 import { UiControl, UiField } from '../ui/field';
 import { UiBadge } from '../ui/badge';
 import { UiEmptyState } from '../ui/empty-state';
@@ -25,10 +26,9 @@ interface ProjectDto {
 @Component({
   selector: 'page-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading],
+  imports: [FormsModule, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading, UiPage],
   template: `
-    <section data-testid="projects">
-      <h1>{{ i18n.instant('projects.title') }}</h1>
+    <ui-page data-testid="projects" [title]="i18n.instant('projects.title')">
       <form class="ui-new" (ngSubmit)="create()">
         <ui-field [label]="i18n.instant('common.key')" required>
           <input uiControl name="key" [(ngModel)]="key" required maxlength="8" />
@@ -66,7 +66,7 @@ interface ProjectDto {
           }
         </ul>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class ProjectsPage implements OnInit {

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiPage } from '../ui/page';
 
 interface AuditDto {
   id: string;
@@ -25,10 +26,9 @@ interface UserDto {
 @Component({
   selector: 'page-admin',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiPage],
   template: `
-    <section data-testid="admin">
-      <h1>{{ i18n.instant('users.title') }}</h1>
+    <ui-page data-testid="admin" [title]="i18n.instant('users.title')">
       <table class="ui-table" data-testid="user-list">
         <thead>
           <tr>
@@ -50,7 +50,7 @@ interface UserDto {
         </tbody>
       </table>
 
-      <h1>{{ i18n.instant('audit.title') }}</h1>
+      <h2>{{ i18n.instant('audit.title') }}</h2>
       <table class="ui-table" data-testid="audit-list">
         <thead>
           <tr>
@@ -73,7 +73,7 @@ interface UserDto {
           }
         </tbody>
       </table>
-    </section>
+    </ui-page>
   `,
 })
 export class AdminPage implements OnInit {

@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -27,10 +28,9 @@ interface MilestoneDto {
 @Component({
   selector: 'page-features',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
   template: `
-    <section data-testid="features">
-      <h1>{{ i18n.instant('features.title') }}</h1>
+    <ui-page data-testid="features" [title]="i18n.instant('features.title')">
       <ui-project-picker />
       @if (error()) {
         <p class="ui-error" data-testid="feature-error">{{ error() }}</p>
@@ -56,7 +56,7 @@ interface MilestoneDto {
         <button type="submit" ui-button variant="primary">{{ i18n.instant('features.new') }}</button>
       </form>
 
-      <h1>{{ i18n.instant('milestones.title') }}</h1>
+      <h2>{{ i18n.instant('milestones.title') }}</h2>
       <ul class="ui-list" data-testid="milestone-list">
         @for (m of milestones(); track m.id) {
           <li data-testid="milestone-row">{{ m.name }} — {{ m.status }} ({{ m.progress }}%)</li>
@@ -68,7 +68,7 @@ interface MilestoneDto {
         <label>{{ i18n.instant('common.name') }}<input name="mname" [(ngModel)]="mname" required data-testid="milestone-name" /></label>
         <button type="submit" ui-button variant="primary">{{ i18n.instant('milestones.new') }}</button>
       </form>
-    </section>
+    </ui-page>
   `,
 })
 export class FeaturesPage implements OnInit {

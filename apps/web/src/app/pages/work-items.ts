@@ -4,6 +4,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
+import { UiTabItem, UiTabs } from '../ui/tabs';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
@@ -40,20 +42,12 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading],
+  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading, UiPage, UiTabs],
   template: `
-    <section data-testid="work-items">
-      <h1>{{ i18n.instant('work_items.title') }}</h1>
+    <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
       <ui-project-picker />
 
-      <nav class="ui-tabs" aria-label="View">
-        <button type="button" [class.active]="view() === 'list'" (click)="view.set('list')" data-testid="wi-tab-list">
-          {{ i18n.instant('work_items.list') }}
-        </button>
-        <button type="button" [class.active]="view() === 'board'" (click)="view.set('board')" data-testid="wi-tab-board">
-          {{ i18n.instant('work_items.board') }}
-        </button>
-      </nav>
+      <ui-tabs [items]="viewTabs" [active]="view()" [ariaLabel]="i18n.instant('work_items.view')" (tabChange)="setView($event)" />
 
       <ui-field [label]="i18n.instant('work_items.filter_state')">
         <select uiControl name="cat" [(ngModel)]="category" (ngModelChange)="load()" data-testid="wi-filter">
@@ -141,7 +135,7 @@ interface ItemDto {
         </ui-field>
         <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
       </form>
-    </section>
+    </ui-page>
   `,
 })
 export class WorkItemsPage implements OnInit {
@@ -158,6 +152,18 @@ export class WorkItemsPage implements OnInit {
   private readonly toast = inject(UiToastService);
 
   readonly view = signal<'list' | 'board'>('list');
+
+  setView(v: string): void {
+    this.view.set(v as 'list' | 'board');
+  }
+
+  get viewTabs(): UiTabItem[] {
+    return [
+      { id: 'list', label: this.i18n.instant('work_items.list'), testid: 'wi-tab-list' },
+      { id: 'board', label: this.i18n.instant('work_items.board'), testid: 'wi-tab-board' },
+    ];
+  }
+
   readonly categories = ['backlog', 'unstarted', 'started', 'in_review', 'completed', 'canceled'];
   readonly types = ['task', 'bug', 'feature_task', 'improvement', 'refactor', 'research', 'chore'];
   title = '';
