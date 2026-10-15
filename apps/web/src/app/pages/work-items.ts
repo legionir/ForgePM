@@ -34,6 +34,7 @@ interface ItemDto {
   state_name: string;
   state_category: string;
   labels: string[];
+  comment_count: number;
   due_date: string | null;
   acceptance_criteria: { text: string; done: boolean }[];
   assignee_user_id: string | null;
@@ -278,6 +279,7 @@ export class WorkItemsPage implements OnInit {
       { key: 'title', label: this.i18n.instant('common.title'), sortable: true },
       { key: 'type', label: this.i18n.instant('work_items.type'), sortable: true },
       { key: 'assignee', label: this.i18n.instant('work_items.assignee'), avatar: (it) => it.assignee_user_id ?? it.assignee_agent_id ?? null },
+      { key: 'comments', label: this.i18n.instant('work_items.comments'), sortable: true, value: (it) => it.comment_count },
       {
         key: 'priority',
         label: this.i18n.instant('work_items.priority'),

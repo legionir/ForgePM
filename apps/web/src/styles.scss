@@ -1387,6 +1387,29 @@ summary .ui-icon {
   max-inline-size: none;
 }
 
+/* Detail Development tab: PRs, external links, relations (P6-4/P6-5) */
+.ui-links-head {
+  font-size: var(--font-size-caption);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  margin-block: var(--space-3) var(--space-1);
+}
+.ui-links li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-fg);
+}
+.ui-link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.ui-link:hover {
+  text-decoration: underline;
+}
+
 /* Column overflow menu inside board headers (P6-2) */
 .ui-col-menu summary {
   margin-inline-start: auto;

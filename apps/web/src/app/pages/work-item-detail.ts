@@ -39,6 +39,22 @@ interface CommentDto {
   body: string;
   created_at: string;
 }
+interface LinkDto {
+  kind: string;
+  external_id: string;
+  url: string;
+  metadata?: { number?: number; state?: string } | null;
+}
+
+interface RelationDto {
+  id: string;
+  type: 'blocks' | 'relates_to' | 'duplicates';
+  direction: 'outgoing' | 'incoming';
+  other_key: string;
+  other_title: string;
+  created_at: string;
+}
+
 interface ActivityDto {
   action: string;
   actor_type: string;
@@ -53,8 +69,9 @@ interface MilestoneDto {
 
 /**
  * Work item detail (§6 + parity phase 2, plan §10 P6-4/P6-5): main column
- * with tabs (Conversation / Acceptance / Activity — no read API exists for
- * external links, so that tab is omitted honestly) and a GitHub-style
+ * with tabs (Conversation / Development / Acceptance / Activity — the
+ * Development tab lists linked PRs, external links and relations via
+ * GET /development + GET /relations) and a GitHub-style
  * sidebar (state transition, priority, labels, due date, milestone,
  * assignee display). All edits go through PATCH /work-items/:key; state
  * changes keep using POST /transition (§6 rule).
@@ -110,6 +127,55 @@ interface MilestoneDto {
                 </ui-field>
                 <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-comment-add">{{ i18n.instant('work_items.add_comment') }}</button>
               </form>
+            } @else if (tab() === 'links') {
+              <div data-testid="wi-links">
+                <h3 class="ui-links-head">{{ i18n.instant('work_items.prs') }}</h3>
+                @if (prs().length) {
+                  <ul class="ui-list ui-links" data-testid="wi-prs">
+                    @for (l of prs(); track l.external_id) {
+                      <li>
+                        <ui-icon name="git-pr" [size]="14" />
+                        <a class="ui-link" [href]="l.url" target="_blank" rel="noopener">#{{ prNumber(l) }}</a>
+                        @if (prState(l)) {
+                          <ui-badge size="sm">{{ prState(l) }}</ui-badge>
+                        }
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="ui-dt-empty" data-testid="wi-prs-empty">{{ i18n.instant('work_items.links_empty') }}</p>
+                }
+
+                <h3 class="ui-links-head">{{ i18n.instant('work_items.all_links') }}</h3>
+                @if (otherLinks().length) {
+                  <ul class="ui-list ui-links" data-testid="wi-ext-links">
+                    @for (l of otherLinks(); track l.kind + l.external_id) {
+                      <li>
+                        <ui-badge size="sm">{{ l.kind }}</ui-badge>
+                        <a class="ui-link" [href]="l.url" target="_blank" rel="noopener">{{ l.external_id }}</a>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="ui-dt-empty">{{ i18n.instant('work_items.links_empty') }}</p>
+                }
+
+                <h3 class="ui-links-head">{{ i18n.instant('work_items.relations') }}</h3>
+                @if (relations().length) {
+                  <ul class="ui-list ui-links" data-testid="wi-relations">
+                    @for (r of relations(); track r.id) {
+                      <li>
+                        <ui-badge size="sm" [variant]="r.type === 'blocks' ? 'error' : 'default'">{{ r.type }}</ui-badge>
+                        <span class="ui-dt-empty">{{ r.direction === 'outgoing' ? '→' : '←' }}</span>
+                        <a class="ui-link" [routerLink]="['/work-items', r.other_key]">{{ r.other_key }}</a>
+                        <span class="ui-dt-empty">{{ r.other_title }}</span>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="ui-dt-empty" data-testid="wi-relations-empty">{{ i18n.instant('work_items.relations_empty') }}</p>
+                }
+              </div>
             } @else if (tab() === 'acceptance') {
               <ul data-testid="wi-ac" class="ui-list ui-ac-list">
                 @for (c of item()!.acceptance_criteria; track c.text; let i = $index) {
@@ -219,9 +285,22 @@ export class WorkItemDetailPage implements OnInit {
   get tabs(): UiTabItem[] {
     return [
       { id: 'conversation', label: this.i18n.instant('work_items.tab_conversation') },
+      { id: 'links', label: this.i18n.instant('work_items.tab_links') },
       { id: 'acceptance', label: this.i18n.instant('work_items.tab_acceptance') },
       { id: 'activity', label: this.i18n.instant('work_items.tab_activity') },
     ];
+  }
+
+  readonly links = signal<LinkDto[]>([]);
+  readonly relations = signal<RelationDto[]>([]);
+
+  readonly prs = () => this.links().filter((l) => l.kind === 'pr');
+  readonly otherLinks = () => this.links().filter((l) => l.kind !== 'pr');
+  prNumber(l: LinkDto): string {
+    return String(l.metadata?.number ?? l.external_id);
+  }
+  prState(l: LinkDto): string {
+    return l.metadata?.state ?? '';
   }
 
   async ngOnInit(): Promise<void> {
@@ -249,8 +328,16 @@ export class WorkItemDetailPage implements OnInit {
     this.item.set(it);
     this.labelsText = it.labels.join(', ');
     this.toState = it.state_id;
-    this.comments.set((await this.api.get<{ items: CommentDto[] }>(`/api/v1/work-items/${key}/comments`)).items);
-    this.activity.set((await this.api.get<{ items: ActivityDto[] }>(`/api/v1/work-items/${key}/activity`)).items);
+    const [cm, act, dev, rel] = await Promise.all([
+      this.api.get<{ items: CommentDto[] }>(`/api/v1/work-items/${key}/comments`),
+      this.api.get<{ items: ActivityDto[] }>(`/api/v1/work-items/${key}/activity`),
+      this.api.get<{ items: LinkDto[] }>(`/api/v1/work-items/${key}/development`).catch(() => ({ items: [] as LinkDto[] })),
+      this.api.get<{ items: RelationDto[] }>(`/api/v1/work-items/${key}/relations`).catch(() => ({ items: [] as RelationDto[] })),
+    ]);
+    this.comments.set(cm.items);
+    this.activity.set(act.items);
+    this.links.set(dev.items);
+    this.relations.set(rel.items);
   }
 
   /** Generic sidebar PATCH (priority/labels/due/milestone) — P6-4. */

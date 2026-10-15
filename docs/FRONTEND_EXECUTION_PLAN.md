@@ -13,7 +13,8 @@
 - Phase 8 (post-MVP): UNDO for destructive actions done — archive shows a toast with a real Undo action (unarchive endpoint exists); reactions/board-themes/drag-animation deferred: reactions need an API surface (out of frontend scope), board themes are §8.1-optional, drag animation needs a DnD lib that would break the no-dep/budget discipline (D-034) for a polish-only gain.
 - Follow-up (`4df32ba`): auth pages (login/setup) redesigned after user-reported regression — brand row, icon fields, primary submit, auth theme/lang toggles; primary-intent fixes for approvals/planner buttons.
 - Completion pass (`chore/completion`): raw-value token gate (`check:raw` in verify), ui-field disabled/readOnly, ui-page variants, projects/api-keys migrated to ui-data-table (all collections now shared), settings pagination 25 (TBL-003), board card assignee avatar, column overflow menu with quick-add, assignee avatar column, empty-state CTAs (projects + work-items), `?` help + `c` new-item shortcuts, LIVE /api/v1/search inside the palette, toast migration for provider/approval/backup confirmations (github keeps its e2e testid + toast), native tooltips on icon-only buttons, toast/palette service tests (16 web-ui tests).
-- Remaining: P6-3 comment count, P6-4 linked PRs, P6-5 links tab — all blocked on backend read APIs (out of frontend scope); P7-2 baselines need one chromium run; e2e suite runs in CI.
+- Full-stack pass (`feat/p6-close`): shared `WorkItemDto.comment_count` (correlated COUNT over non-deleted comments in the work-items projection), `GET /api/v1/work-items/:key/relations` (blocks/relates_to/duplicates both directions with resolved keys), list comment column (message glyph), detail Development tab (linked PRs via existing GET /development with metadata number/state, all external links, relations with direction arrows); icons +message/+git-pr/+link; i18n 182 keys.
+- Remaining: P7-2 baselines need one chromium run; e2e suite runs in CI; component-template coverage below the ≥80% target (logic layer at 100%).
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract
@@ -403,7 +404,7 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 [DONE] - P0-4: Add web eslint config + raw-value lint rules; add web to root verify. [ENF-001]
 [DONE] - P0-5: Add global `:focus-visible` ring. [STT-008]
 [DONE] - P0-6: Correct stylesheet header comment (responsive claim). [DRF-001]
-**Acceptance:** lint passes; no raw hex/spacing/font-size outside `:root`; focus ring visible. → [PARTIAL: raw-value rules missing]
+**Acceptance:** lint passes; no raw hex/spacing/font-size outside `:root`; focus ring visible. → [DONE (enforced by scripts/raw-value-check.mjs in apps/web verify)]
 **Dependencies:** none.
 
 ### Phase 1 — Core components (button, input, badge, avatar, empty-state, loading, toast)
@@ -468,9 +469,9 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 **Tasks:**
 [DONE] - P6-1: Rich card in board (labels, avatar, checklist indicator, due date). [PLATFORM_PARITY 8.1]
 [DONE] - P6-2: Column header with count + overflow menu + quick-add. [PLATFORM_PARITY 8.1]
-[PARTIAL: avatar added; comment count needs an API field] - P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
-[PARTIAL: linked PRs need a read API — backend out of scope] - P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
-[PARTIAL: links tab needs a read API — backend out of scope] - P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
+[DONE: avatar column + sortable comment_count (list API now counts non-deleted comments)] - P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
+[DONE: Development tab shows linked PRs from GET /work-items/:key/development with number+state] - P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
+[DONE: Development tab lists PRs + all external links + relations (new GET /work-items/:key/relations, both directions)] - P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
 [DONE] - P6-6: Breadcrumbs. [PLATFORM_PARITY 3.9]
 [DONE] - P6-7: Keyboard shortcuts (`/`, `?`, `c`). [PLATFORM_PARITY 8.2]
 [DONE] - P6-8: Empty states with CTA + illustration. [PLATFORM_PARITY 3.6]

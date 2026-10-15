@@ -46,6 +46,7 @@ export function rowToDto(r: RawRow, labels: string[]): WorkItemDto {
     source: r.source as WorkItemDto['source'],
     plan_id: (r.plan_id as string | null) ?? null,
     labels,
+    comment_count: Number(r.comment_count ?? 0),
     created_at: (r.created_at as Date).toISOString(),
     updated_at: (r.updated_at as Date).toISOString(),
   };
@@ -94,6 +95,8 @@ const PROJECTION = [
   'wi.plan_id as plan_id',
   'wi.created_at as created_at',
   'wi.updated_at as updated_at',
+  // non-deleted comment count for list/detail badges (plan P6-3)
+  sql<number>`(select count(*)::int from comments c where c.work_item_id = wi.id and c.deleted_at is null) as comment_count`,
 ] as const;
 
 function base(db: DbLike, args: ListArgs) {
