@@ -380,7 +380,7 @@ button.ui-btn--sm {
 }
 
 .ui-badge--sm {
-  font-size: 0.78rem;
+  font-size: var(--font-size-caption);
 }
 
 /* ui/avatar — initials fallback (PLATFORM_PARITY 3.1) */
@@ -402,7 +402,7 @@ button.ui-btn--sm {
 .ui-avatar--sm {
   inline-size: 1.5rem;
   block-size: 1.5rem;
-  font-size: 0.75rem;
+  font-size: 0.85em;
 }
 
 .ui-avatar--lg {
@@ -963,7 +963,7 @@ td.ui-dt-actions {
   background: color-mix(in srgb, var(--color-info) 14%, transparent);
   color: var(--color-info);
   border: 1px solid color-mix(in srgb, var(--color-info) 35%, transparent);
-  font-size: 0.78rem;
+  font-size: var(--font-size-caption);
   font-weight: var(--font-weight-semibold);
   white-space: nowrap;
 }
@@ -978,7 +978,7 @@ td.ui-dt-actions {
 .ui-col-count {
   color: var(--color-muted);
   font-weight: var(--font-weight-regular);
-  font-size: 0.8rem;
+  font-size: var(--font-size-caption);
 }
 
 .ui-board-col h2 button {
@@ -1000,12 +1000,12 @@ td.ui-dt-actions {
 
 .ui-ac-progress {
   color: var(--color-muted);
-  font-size: 0.8rem;
+  font-size: var(--font-size-caption);
 }
 
 .ui-due {
   color: var(--color-warning);
-  font-size: 0.8rem;
+  font-size: var(--font-size-caption);
   font-weight: var(--font-weight-semibold);
 }
 
@@ -1375,4 +1375,19 @@ summary .ui-icon {
   display: flex;
   gap: var(--space-1);
   z-index: var(--z-dropdown);
+}
+
+/* ui/page template variants (P2-2) */
+.ui-page--form {
+  max-inline-size: 36rem;
+}
+
+.ui-page--detail,
+.ui-page--dashboard {
+  max-inline-size: none;
+}
+
+/* Column overflow menu inside board headers (P6-2) */
+.ui-col-menu summary {
+  margin-inline-start: auto;
 }

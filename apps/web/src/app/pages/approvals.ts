@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiToastService } from '../ui/toast';
 import { UiPage } from '../ui/page';
 
 interface ApprovalDto {
@@ -35,9 +36,6 @@ interface ApprovalDto {
           <li data-testid="approval-empty">{{ i18n.instant('approvals.empty') }}</li>
         }
       </ul>
-      @if (msg()) {
-        <p class="ui-ok" data-testid="approval-msg">{{ msg() }}</p>
-      }
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="approval-error">{{ error() }}</p>
       }
@@ -48,8 +46,8 @@ export class ApprovalsPage implements OnInit {
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly items = signal<ApprovalDto[]>([]);
-  readonly msg = signal('');
   readonly error = signal('');
+  private readonly toast = inject(UiToastService);
   readonly busy = signal(false);
 
   async ngOnInit(): Promise<void> {
@@ -70,7 +68,7 @@ export class ApprovalsPage implements OnInit {
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/approvals/${id}/decide`, { decision });
-      this.msg.set(`#${id.slice(0, 8)} ${decision}`);
+      this.toast.ok(`#${id.slice(0, 8)} ${decision}`);
       await this.load();
     } catch (err) {
       this.error.set((err as Error).message);

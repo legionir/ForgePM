@@ -55,6 +55,8 @@ export class UiField implements AfterViewInit {
   readonly required = input(false, { transform: booleanAttribute });
   readonly error = input('');
   readonly hint = input('');
+  readonly disabled = input(false, { transform: booleanAttribute });
+  readonly readOnly = input(false, { transform: booleanAttribute });
 
   private readonly control = contentChild(UiControl);
   private readonly errId = `fpm-err-${++seq}`;
@@ -75,6 +77,12 @@ export class UiField implements AfterViewInit {
       const describedBy = err ? this.errId : hint ? this.hintId : null;
       if (describedBy) el.setAttribute('aria-describedby', describedBy);
       else el.removeAttribute('aria-describedby');
+      // disabled/readOnly contract (§3 ui/input): applied to the inner control.
+      if (this.disabled()) el.setAttribute('disabled', '');
+      else el.removeAttribute('disabled');
+      const isText = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+      if (isText && this.readOnly()) el.setAttribute('readonly', '');
+      else el.removeAttribute('readonly');
     });
   }
 

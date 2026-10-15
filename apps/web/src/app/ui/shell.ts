@@ -85,6 +85,7 @@ export class UiShell {
       { id: 'theme:cycle', labelKey: 'command.theme', run: () => this.tokens.cycle() },
       { id: 'lang:toggle', labelKey: 'command.language', run: () => this.i18n.toggle() },
       { id: 'nav:/design-system', labelKey: 'command.design_system', run: () => void this.router.navigate(['/design-system']) },
+      { id: 'new:item', labelKey: 'command.new_item', run: () => void this.router.navigate(['/work-items'], { queryParams: { new: 1 } }) },
     );
     this.palette.register(cmds);
   }

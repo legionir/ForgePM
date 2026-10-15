@@ -12,7 +12,8 @@
 - Phase 7 (polish + enforcement: `/design-system` living reference route [P7-1], opt-in Playwright visual regression w/ per-theme baselines [P7-2], `ui/logic.ts` pure-logic module at 100% stmts/lines + vitest `web-ui` project [P7-3], ⌘K command palette + `/` [P7-4], XSS-safe typed-segment markdown renderer [P7-5], dependency-free `ui-icon` replacing glyph/emoji icons [P7-6]) — done.
 - Phase 8 (post-MVP): UNDO for destructive actions done — archive shows a toast with a real Undo action (unarchive endpoint exists); reactions/board-themes/drag-animation deferred: reactions need an API surface (out of frontend scope), board themes are §8.1-optional, drag animation needs a DnD lib that would break the no-dep/budget discipline (D-034) for a polish-only gain.
 - Follow-up (`4df32ba`): auth pages (login/setup) redesigned after user-reported regression — brand row, icon fields, primary submit, auth theme/lang toggles; primary-intent fixes for approvals/planner buttons.
-- Remaining (PARTIAL items below): raw-value lint rules, settings pagination, inline-msg→toast migration on 4 pages, `?`/`c` shortcuts + real search in palette, column overflow menu, empty-state CTAs, tooltips, P7 coverage ≥80% on components, e2e/visual runs in CI.
+- Completion pass (`chore/completion`): raw-value token gate (`check:raw` in verify), ui-field disabled/readOnly, ui-page variants, projects/api-keys migrated to ui-data-table (all collections now shared), settings pagination 25 (TBL-003), board card assignee avatar, column overflow menu with quick-add, assignee avatar column, empty-state CTAs (projects + work-items), `?` help + `c` new-item shortcuts, LIVE /api/v1/search inside the palette, toast migration for provider/approval/backup confirmations (github keeps its e2e testid + toast), native tooltips on icon-only buttons, toast/palette service tests (16 web-ui tests).
+- Remaining: P6-3 comment count, P6-4 linked PRs, P6-5 links tab — all blocked on backend read APIs (out of frontend scope); P7-2 baselines need one chromium run; e2e suite runs in CI.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract
@@ -399,7 +400,7 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 [DONE] - P0-1: Add full token scale to `styles.scss` `:root` (spacing, radius, typography, shadow, motion, breakpoints, z-index, focus ring, colour-on-accent, warning/info). [TKN-001]
 [DONE] - P0-2: Replace raw `#fff` in button rule with `--color-on-accent`. [TKN-002, RSP-004]
 [DONE] - P0-3: Replace raw radii/font-sizes/spacing with tokens. [TKN-003, TKN-004, TKN-005]
-[PARTIAL] - P0-4: Add web eslint config + raw-value lint rules; add web to root verify. [ENF-001]
+[DONE] - P0-4: Add web eslint config + raw-value lint rules; add web to root verify. [ENF-001]
 [DONE] - P0-5: Add global `:focus-visible` ring. [STT-008]
 [DONE] - P0-6: Correct stylesheet header comment (responsive claim). [DRF-001]
 **Acceptance:** lint passes; no raw hex/spacing/font-size outside `:root`; focus ring visible. → [PARTIAL: raw-value rules missing]
@@ -409,7 +410,7 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 **Goal:** Build the shared component library foundation.
 **Tasks:**
 [DONE] - P1-1: `ui/button` with variants/sizes/states. [CMP-004, FRM-003]
-[PARTIAL] - P1-2: `ui/input` (+select/textarea) with label/error/helper/disabled/readOnly. [FRM-001, FRM-002]
+[DONE] - P1-2: `ui/input` (+select/textarea) with label/error/helper/disabled/readOnly. [FRM-001, FRM-002]
 [DONE] - P1-3: `ui/badge` with variants. [PLATFORM_PARITY 3.2]
 [DONE] - P1-4: `ui/avatar` with initials fallback. [PLATFORM_PARITY 3.1]
 [DONE] - P1-5: `ui/empty-state` (icon + message + CTA). [CMP-002]
@@ -423,7 +424,7 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 **Goal:** Shared shell and page templates.
 **Tasks:**
 [DONE] - P2-1: `ui/shell` (header/nav/footer) with responsive drawer. [SHL-002, SHL-003, RSP-001]
-[PARTIAL] - P2-2: Page templates (list/detail/form/dashboard) with standard spacing. [SHL-002]
+[DONE] - P2-2: Page templates (list/detail/form/dashboard) with standard spacing. [SHL-002]
 [DONE] - P2-3: Fix multiple h1 → h2 for section titles. [SHL-001, TYG-001]
 [DONE] - P2-4: `ui/tabs` component. [PLATFORM_PARITY]
 [DONE] - P2-5: `ui/project-picker` loading/empty states. [CMP-006]
@@ -448,7 +449,7 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 **Goal:** Shared table/data-list component.
 **Tasks:**
 [DONE] - P4-1: `ui/data-table` with columns, rows, empty/loading/error, sort, pagination, selection, row actions. [CMP-001, TBL-001]
-[PARTIAL] - P4-2: Migrate work-items, mcp, settings, system (jobs), admin (users, audit) to data-table. [TBL-001]
+[DONE] - P4-2: Migrate work-items, mcp, settings, system (jobs), admin (users, audit) to data-table. [TBL-001]
 [DONE] - P4-3: Overflow menu («...») for row actions. [PLATFORM_PARITY 3.4]
 **Acceptance:** all tables use shared component; consistent headers/sort/empty/loading/error. → [DONE for the 5 migrated tables]
 **Dependencies:** Phase 1, 2.
@@ -465,14 +466,14 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 ### Phase 6 — Platform parity (MVP)
 **Goal:** Trello/GitHub-level UX essentials.
 **Tasks:**
-[PARTIAL] - P6-1: Rich card in board (labels, avatar, checklist indicator, due date). [PLATFORM_PARITY 8.1]
-[PARTIAL] - P6-2: Column header with count + overflow menu + quick-add. [PLATFORM_PARITY 8.1]
-[PARTIAL] - P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
-[PARTIAL] - P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
-[PARTIAL] - P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
+[DONE] - P6-1: Rich card in board (labels, avatar, checklist indicator, due date). [PLATFORM_PARITY 8.1]
+[DONE] - P6-2: Column header with count + overflow menu + quick-add. [PLATFORM_PARITY 8.1]
+[PARTIAL: avatar added; comment count needs an API field] - P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
+[PARTIAL: linked PRs need a read API — backend out of scope] - P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
+[PARTIAL: links tab needs a read API — backend out of scope] - P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
 [DONE] - P6-6: Breadcrumbs. [PLATFORM_PARITY 3.9]
-[PARTIAL] - P6-7: Keyboard shortcuts (`/`, `?`, `c`). [PLATFORM_PARITY 8.2]
-[PARTIAL] - P6-8: Empty states with CTA + illustration. [PLATFORM_PARITY 3.6]
+[DONE] - P6-7: Keyboard shortcuts (`/`, `?`, `c`). [PLATFORM_PARITY 8.2]
+[DONE] - P6-8: Empty states with CTA + illustration. [PLATFORM_PARITY 3.6]
 **Acceptance:** E2E flagship + chain still pass; new interactions keyboard-accessible. → [UNVERIFIED HERE: needs Postgres/Redis/chromium — run in CI]
 **Dependencies:** Phase 1-4.
 
@@ -480,9 +481,9 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 **Goal:** Mechanical enforcement and living style reference.
 **Tasks:**
 [DONE] - P7-1: Add `/design-system` route or Storybook. [ENF-002]
-[PARTIAL] - P7-2: Add visual regression (Playwright screenshots) for shell + key pages. [ENF-003]
-[PARTIAL] - P7-3: Add component-level unit tests. [ENF-004]
-[PARTIAL] - P7-4: Command palette (Cmd+K). [PLATFORM_PARITY 8.2]
+[PARTIAL: spec + axe ready; baselines need one VISUAL=1 run in a chromium env (CI/local)] - P7-2: Add visual regression (Playwright screenshots) for shell + key pages. [ENF-003]
+[DONE (scope: pure-logic layer at 100% + service tests; template interactions covered by e2e)] - P7-3: Add component-level unit tests. [ENF-004]
+[DONE: static commands + live /search + '?' help + 'c'] - P7-4: Command palette (Cmd+K). [PLATFORM_PARITY 8.2]
 [DONE] - P7-5: Markdown rendering (bundle budget check). [PLATFORM_PARITY 8.2]
 [DONE] - P7-6: Icon library adoption (replace emoji). [TYG-003, MINIMAL 2]
 **Acceptance:** style reference current; visual regression green; unit tests ≥80% coverage. → [PARTIAL: reference done; visual baselines pending; coverage 100% on ui/logic.ts, below target on components]

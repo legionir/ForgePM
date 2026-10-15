@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { UiPage } from '../ui/page';
 
 interface ApiKeyDto {
@@ -20,7 +21,7 @@ interface ApiKeyDto {
 @Component({
   selector: 'page-api-keys',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage],
+  imports: [FormsModule, UiButton, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="api-keys" [title]="i18n.instant('nav.api_keys')">
       <form class="ui-new" (ngSubmit)="create()">
@@ -38,16 +39,18 @@ interface ApiKeyDto {
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="apikey-error">{{ error() }}</p>
       }
-      <ul class="ui-list">
-        @for (k of keys(); track k.id) {
-          <li>
-            <span>{{ k.name }} · {{ k.prefix }} · {{ k.scopes.join(',') }}</span>
-            <button type="button" ui-button variant="destructive" (click)="revoke(k.id)" [disabled]="busy()" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
-          </li>
-        } @empty {
-          <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>
-        }
-      </ul>
+      <ui-data-table
+        testid="api-keys-list"
+        emptyTestid="api-keys-empty"
+        [columns]="keyColumns"
+        [rows]="keys()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('api_keys.empty')"
+        [pageSize]="25"
+        [actions]="keyActions"
+      />
     </ui-page>
   `,
 })
@@ -59,12 +62,39 @@ export class ApiKeysPage implements OnInit {
   readonly rawKey = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly loading = signal(true);
   name = '';
   scope = 'read';
 
+  readonly keyOf = (k: ApiKeyDto): string => k.id;
+
+  get keyColumns(): UiTableColumn<ApiKeyDto>[] {
+    return [
+      { key: 'name', label: this.i18n.instant('common.name'), sortable: true },
+      { key: 'prefix', label: this.i18n.instant('api_keys.prefix') },
+      { key: 'scopes', label: 'Scopes', value: (k) => k.scopes.join(', ') },
+    ];
+  }
+
+  get keyActions() {
+    return [
+      {
+        label: this.i18n.instant('common.revoke'),
+        testid: 'apikey-revoke',
+        destructive: true,
+        run: (k: ApiKeyDto) => void this.revoke(k.id),
+      },
+    ];
+  }
+
   async load(): Promise<void> {
-    const res = await this.api.get<{ items: ApiKeyDto[] }>('/api/v1/api-keys');
-    this.keys.set(res.items);
+    this.loading.set(true);
+    try {
+      const res = await this.api.get<{ items: ApiKeyDto[] }>('/api/v1/api-keys');
+      this.keys.set(res.items);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   async ngOnInit(): Promise<void> {

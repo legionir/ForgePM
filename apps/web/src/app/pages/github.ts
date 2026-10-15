@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
+import { UiToastService } from '../ui/toast';
 import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
@@ -86,6 +87,7 @@ export class GithubPage implements OnInit {
   readonly msg = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+  private readonly toast = inject(UiToastService);
   appId = '';
   privateKey = '';
   webhookSecret = '';
@@ -121,6 +123,7 @@ export class GithubPage implements OnInit {
       if (this.webhookSecret) body.webhook_secret = this.webhookSecret;
       const res = await this.api.post<{ configured: string[] }>('/api/v1/integrations/github/config', body);
       this.msg.set(`stored: ${res.configured.join(', ')}`);
+      this.toast.ok(`stored: ${res.configured.join(', ')}`);
       this.privateKey = '';
       this.webhookSecret = '';
       await this.load();

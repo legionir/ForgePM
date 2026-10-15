@@ -47,6 +47,7 @@ interface EffDto {
         [loading]="loading()"
         [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
+        [pageSize]="25"
         [rowTestid]="rowTestid"
         [actions]="rowActions"
         [editValue]="editValue"

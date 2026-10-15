@@ -5,6 +5,7 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
+import { UiToastService } from '../ui/toast';
 
 interface ModuleDto {
   name: string;
@@ -68,9 +69,6 @@ interface HealthDto {
 
       <h2>{{ i18n.instant('system.backups') }}</h2>
       <button type="button" ui-button (click)="backup()" [disabled]="busy()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
-      @if (backupMsg()) {
-        <p class="ui-ok" data-testid="backup-msg">{{ backupMsg() }}</p>
-      }
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="system-error">{{ error() }}</p>
       }
@@ -83,8 +81,8 @@ export class SystemPage implements OnInit {
 
   readonly health = signal<HealthDto | null>(null);
   readonly jobs = signal<JobDto[]>([]);
-  readonly backupMsg = signal('');
   readonly error = signal('');
+  private readonly toast = inject(UiToastService);
   readonly busy = signal(false);
   readonly loading = signal(true);
 
@@ -159,7 +157,7 @@ export class SystemPage implements OnInit {
     this.busy.set(true);
     try {
       const res = await this.api.post<{ file: string }>('/api/v1/system/backup');
-      this.backupMsg.set(this.i18n.instant('system.backup_done', { file: res.file }));
+      this.toast.ok(this.i18n.instant('system.backup_done', { file: res.file }));
     } catch (err) {
       this.error.set((err as Error).message);
     } finally {

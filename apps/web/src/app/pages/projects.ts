@@ -5,10 +5,9 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiControl, UiField } from '../ui/field';
-import { UiBadge } from '../ui/badge';
-import { UiEmptyState } from '../ui/empty-state';
-import { UiLoading } from '../ui/loading';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { UiToastService } from '../ui/toast';
+import { viewChild, ElementRef } from '@angular/core';
 
 interface ProjectDto {
   id: string;
@@ -26,12 +25,12 @@ interface ProjectDto {
 @Component({
   selector: 'page-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading, UiPage],
+  imports: [FormsModule, UiButton, UiField, UiControl, UiDataTable, UiPage],
   template: `
     <ui-page data-testid="projects" [title]="i18n.instant('projects.title')">
       <form class="ui-new" (ngSubmit)="create()">
         <ui-field [label]="i18n.instant('common.key')" required>
-          <input uiControl name="key" [(ngModel)]="key" required maxlength="8" data-testid="project-key" />
+          <input uiControl #keyInput name="key" [(ngModel)]="key" required maxlength="8" data-testid="project-key" />
         </ui-field>
         <ui-field [label]="i18n.instant('common.name')" required>
           <input uiControl name="name" [(ngModel)]="name" required data-testid="project-name" />
@@ -43,29 +42,19 @@ interface ProjectDto {
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="project-error">{{ error() }}</p>
       }
-      @if (loadingList()) {
-        <ui-loading kind="lines" [label]="i18n.instant('common.loading')" />
-      } @else {
-        <ul class="ui-list">
-          @for (p of projects(); track p.id) {
-            <li>
-              <span>{{ p.key }} · {{ p.name }}</span>
-              @if (p.status === 'archived') {
-                <ui-badge size="sm">{{ i18n.instant('projects.archived') }}</ui-badge>
-              }
-              @if (p.status === 'active') {
-                <button type="button" ui-button (click)="archive(p.id)" data-testid="project-archive">
-                  {{ i18n.instant('projects.archive') }}
-                </button>
-              }
-            </li>
-          } @empty {
-            <li data-testid="projects-empty" class="ui-empty-item">
-              <ui-empty-state [message]="i18n.instant('projects.empty')" />
-            </li>
-          }
-        </ul>
-      }
+      <ui-data-table
+        testid="projects-list"
+        emptyTestid="projects-empty"
+        [columns]="columns"
+        [rows]="projects()"
+        [trackKey]="keyOf"
+        [loading]="loadingList()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('projects.empty')"
+        [emptyActionLabel]="i18n.instant('projects.create_first')"
+        (emptyAction)="focusKeyInput()"
+        [actions]="rowActions"
+      />
     </ui-page>
   `,
 })
@@ -80,6 +69,37 @@ export class ProjectsPage implements OnInit {
   readonly loadingList = signal(true);
   key = '';
   name = '';
+
+  private readonly keyInput = viewChild<ElementRef<HTMLInputElement>>('keyInput');
+
+  readonly keyOf = (p: ProjectDto): string => p.id;
+
+  focusKeyInput(): void {
+    this.keyInput()?.nativeElement.focus();
+  }
+
+  get columns(): UiTableColumn<ProjectDto>[] {
+    return [
+      { key: 'name', label: this.i18n.instant('common.name'), sortable: true, value: (p) => `${p.key} · ${p.name}` },
+      {
+        key: 'status',
+        label: this.i18n.instant('projects.status'),
+        sortable: true,
+        badge: (p) => (p.status === 'archived' ? { text: this.i18n.instant('projects.archived'), variant: 'default' as const } : null),
+      },
+    ];
+  }
+
+  get rowActions() {
+    return [
+      {
+        label: this.i18n.instant('projects.archive'),
+        testid: 'project-archive',
+        when: (p: ProjectDto) => p.status === 'active',
+        run: (p: ProjectDto) => void this.archive(p.id),
+      },
+    ];
+  }
 
   async load(): Promise<void> {
     this.loadingList.set(true);

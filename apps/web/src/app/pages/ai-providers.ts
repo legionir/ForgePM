@@ -47,9 +47,6 @@ interface ProviderDto {
           <li data-testid="provider-empty">{{ i18n.instant('common.empty') }}</li>
         }
       </ul>
-      @if (msg()) {
-        <p class="ui-ok" data-testid="provider-msg">{{ msg() }}</p>
-      }
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="provider-error">{{ error() }}</p>
       }
@@ -61,7 +58,6 @@ export class AiProvidersPage implements OnInit {
   readonly i18n = inject(I18n);
 
   readonly providers = signal<ProviderDto[]>([]);
-  readonly msg = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
   private readonly toast = inject(UiToastService);
@@ -105,7 +101,8 @@ export class AiProvidersPage implements OnInit {
     this.busy.set(true);
     try {
       const res = await this.api.post<{ ok: boolean }>(`/api/v1/ai-providers/${id}/test`);
-      this.msg.set(res.ok ? 'ok' : 'failed');
+      if (res.ok) this.toast.ok('ok');
+      else this.toast.error('failed');
     } catch (err) {
       this.error.set((err as Error).message);
     } finally {

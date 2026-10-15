@@ -10,6 +10,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { I18n } from '../i18n';
 import { UiBadge, UiBadgeVariant } from './badge';
+import { UiAvatar } from './avatar';
 import { UiEmptyState } from './empty-state';
 import { UiLoading } from './loading';
 import { UiIcon } from './icon';
@@ -32,6 +33,8 @@ export interface UiTableColumn<T> {
   badge?: (row: T) => { text: string; variant: UiBadgeVariant } | null;
   /** Render the cell as a row of label chips (Trello/GitHub label chips). */
   chips?: (row: T) => string[];
+  /** Render the cell as an initials avatar (assignee columns). */
+  avatar?: (row: T) => string | null;
   /** Editable input cell; pairs with editValue/editChange on the table. */
   editable?: boolean;
   editTestid?: string;
@@ -58,7 +61,7 @@ export interface UiTableRowAction<T> {
 @Component({
   selector: 'ui-data-table',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, UiBadge, UiEmptyState, UiLoading, UiIcon],
+  imports: [RouterLink, UiBadge, UiAvatar, UiEmptyState, UiLoading, UiIcon],
   template: `
     @if (error()) {
       <p class="ui-error" role="alert" [attr.data-testid]="testid() ? testid() + '-error' : null">{{ error() }}</p>
@@ -125,6 +128,8 @@ export interface UiTableRowAction<T> {
                           <span class="ui-chip">{{ chip }}</span>
                         }
                       </span>
+                    } @else if (col.avatar && col.avatar(row)) {
+                      <ui-avatar [name]="col.avatar(row)!" size="sm" />
                     } @else if (col.badge && col.badge(row)) {
                       <ui-badge size="sm" [variant]="col.badge(row)!.variant">{{ col.badge(row)!.text }}</ui-badge>
                     } @else if (col.link) {
@@ -151,7 +156,7 @@ export interface UiTableRowAction<T> {
                     </span>
                     @if (overflowActions(row).length) {
                       <details class="ui-dt-menu">
-                        <summary [attr.aria-label]="i18n.instant('table.more')"><ui-icon name="dots-h" [size]="14" /></summary>
+                        <summary [attr.aria-label]="i18n.instant('table.more')" [title]="i18n.instant('table.more')"><ui-icon name="dots-h" [size]="14" /></summary>
                         <div class="ui-dt-menu-list" role="menu">
                           @for (a of overflowActions(row); track a.label) {
                             <button type="button" role="menuitem" (click)="a.run(row); closeMenu($event)" [attr.data-testid]="a.testid ?? null">
@@ -167,7 +172,7 @@ export interface UiTableRowAction<T> {
             } @empty {
               <tr>
                 <td [attr.colspan]="colspan()" [attr.data-testid]="emptyTestid() || null">
-                  <ui-empty-state [message]="emptyMessage()" />
+                  <ui-empty-state [message]="emptyMessage()" [actionText]="emptyActionLabel()" (action)="emptyAction.emit()" />
                 </td>
               </tr>
             }
@@ -203,6 +208,8 @@ export class UiDataTable<T> {
   readonly error = input('');
   readonly emptyMessage = input('');
   readonly emptyTestid = input('');
+  readonly emptyActionLabel = input('');
+  readonly emptyAction = output<void>();
   readonly testid = input('');
   readonly rowTestid = input<((row: T) => string) | null>(null);
   readonly selectable = input(false);

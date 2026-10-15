@@ -137,3 +137,48 @@ describe('stateVariant (workflow colours)', () => {
     expect(stateVariant('backlog')).toBe('default');
   });
 });
+
+import { UiToastService } from '../../src/app/ui/toast';
+import { CommandPalette } from '../../src/app/ui/command-palette';
+import { vi } from 'vitest';
+
+describe('UiToastService (STT-002)', () => {
+  it('adds and dismisses toasts; ok/error helpers set the kind', () => {
+    const svc = new UiToastService();
+    expect(svc.toasts()).toHaveLength(0);
+    const okId = svc.ok('saved');
+    const errId = svc.error('boom');
+    expect(svc.toasts().map((t) => t.kind)).toEqual(['ok', 'error']);
+    svc.dismiss(okId);
+    expect(svc.toasts().map((t) => t.id)).toEqual([errId]);
+  });
+
+  it('supports inline actions (undo) and auto-dismisses after the window', () => {
+    vi.useFakeTimers();
+    const svc = new UiToastService();
+    let undone = false;
+    svc.show('archived', 'ok', 5000, { label: 'Undo', run: () => (undone = true) });
+    const [toast] = svc.toasts();
+    expect(toast.actionLabel).toBe('Undo');
+    toast.action?.();
+    expect(undone).toBe(true);
+    vi.advanceTimersByTime(5001);
+    expect(svc.toasts()).toHaveLength(0);
+    vi.useRealTimers();
+  });
+});
+
+describe('CommandPalette service', () => {
+  it('registers commands and toggles open state', () => {
+    const svc = new CommandPalette();
+    expect(svc.open()).toBe(false);
+    svc.register([{ id: 'a', labelKey: 'nav.projects', run: () => {} }]);
+    expect(svc.commands()).toHaveLength(1);
+    svc.show();
+    expect(svc.open()).toBe(true);
+    svc.toggle();
+    expect(svc.open()).toBe(false);
+    svc.hide();
+    expect(svc.open()).toBe(false);
+  });
+});
