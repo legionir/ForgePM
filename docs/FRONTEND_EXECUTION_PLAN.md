@@ -13,6 +13,18 @@
 - Phase 8 (post-MVP): UNDO for destructive actions done — archive shows a toast with a real Undo action (unarchive endpoint exists); reactions/board-themes/drag-animation deferred: reactions need an API surface (out of frontend scope), board themes are §8.1-optional, drag animation needs a DnD lib that would break the no-dep/budget discipline (D-034) for a polish-only gain.
 - Follow-up (`4df32ba`): auth pages (login/setup) redesigned after user-reported regression — brand row, icon fields, primary submit, auth theme/lang toggles; primary-intent fixes for approvals/planner buttons.
 - Completion pass (`chore/completion`): raw-value token gate (`check:raw` in verify), ui-field disabled/readOnly, ui-page variants, projects/api-keys migrated to ui-data-table (all collections now shared), settings pagination 25 (TBL-003), board card assignee avatar, column overflow menu with quick-add, assignee avatar column, empty-state CTAs (projects + work-items), `?` help + `c` new-item shortcuts, LIVE /api/v1/search inside the palette, toast migration for provider/approval/backup confirmations (github keeps its e2e testid + toast), native tooltips on icon-only buttons, toast/palette service tests (16 web-ui tests).
+- AI provider connection pass (`feat/ai-models`): the panel form now exposes
+  endpoint (base_url) + API key + default model end to end — backend gained
+  `POST /api/v1/ai-providers/models` (proxies `{base_url}/models` with
+  kind-aware auth headers, OpenAI Bearer / Anthropic x-api-key + version;
+  stored encrypted key reused via provider_id so the dropdown auto-fills for
+  saved providers; SSRF-guarded, 8s timeout, PROVIDER_ERROR mapping),
+  `PUT /api/v1/ai-providers/:id` (edit endpoint/key/model/enabled + audit)
+  and a real `:id/test` (live models round-trip instead of key-presence
+  check). The web form auto-fetches the model list on kind change /
+  endpoint blur / key blur + a manual refresh button, renders it as a
+  datalist dropdown with a found-count, supports row edit with cancel, and
+  shows tokens used today. i18n +9 keys (191 parity).
 - Full-stack pass (`feat/p6-close`): shared `WorkItemDto.comment_count` (correlated COUNT over non-deleted comments in the work-items projection), `GET /api/v1/work-items/:key/relations` (blocks/relates_to/duplicates both directions with resolved keys), list comment column (message glyph), detail Development tab (linked PRs via existing GET /development with metadata number/state, all external links, relations with direction arrows); icons +message/+git-pr/+link; i18n 182 keys.
 - Remaining: P7-2 baselines need one chromium run; e2e suite runs in CI; component-template coverage below the ≥80% target (logic layer at 100%).
 **Source documents (now superseded by this plan):**
