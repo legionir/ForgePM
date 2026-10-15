@@ -5,6 +5,7 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
+import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -28,7 +29,7 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage, UiTabs],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
 
@@ -38,40 +39,20 @@ interface EffDto {
         <ui-project-picker />
       }
 
-      <table class="ui-table" data-testid="settings-table">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('common.key') }}</th>
-            <th>{{ i18n.instant('settings.source') }}</th>
-            <th>{{ i18n.instant('settings.value') }}</th>
-            <th>{{ i18n.instant('settings.scope') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of rows(); track row.key) {
-            <tr data-testid="setting-row">
-              <td>{{ row.key }}</td>
-              <td data-testid="setting-source">{{ row.source }}</td>
-              <td>
-                <input [name]="row.key" [ngModel]="row.input" (ngModelChange)="setInput(row.key, $event)" data-testid="setting-input" />
-              </td>
-              <td>
-                <button type="button" ui-button (click)="override(row)" [disabled]="busy()" data-testid="setting-override">
-                  {{ i18n.instant('settings.override') }}
-                </button>
-                @if (row.source === scope()) {
-                  <button type="button" ui-button (click)="inherit(row.key)" [disabled]="busy()" data-testid="setting-inherit">
-                    {{ i18n.instant('settings.inherit') }}
-                  </button>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="settings-error">{{ error() }}</p>
-      }
+      <ui-data-table
+        testid="settings-table"
+        emptyTestid="settings-empty"
+        [columns]="columns"
+        [rows]="rows()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="rowTestid"
+        [actions]="rowActions"
+        [editValue]="editValue"
+        [editChange]="editChange"
+      />
     </ui-page>
   `,
 })
@@ -92,7 +73,37 @@ export class SettingsPage implements OnInit {
 
   readonly rows = signal<Row[]>([]);
   readonly error = signal('');
+  readonly loading = signal(true);
   private defs: DefDto[] = [];
+
+  readonly keyOf = (r: Row): string => r.key;
+  readonly rowTestid = (): string => 'setting-row';
+  readonly editValue = (r: Row, _key: string): string => r.input;
+  readonly editChange = (r: Row, _key: string, value: string): void => this.setInput(r.key, value);
+
+  get columns(): UiTableColumn<Row>[] {
+    return [
+      { key: 'key', label: this.i18n.instant('common.key'), sortable: true },
+      { key: 'source', label: this.i18n.instant('settings.source'), sortable: true, testid: 'setting-source' },
+      { key: 'input', label: this.i18n.instant('settings.value'), editable: true, editTestid: 'setting-input' },
+    ];
+  }
+
+  get rowActions(): UiTableRowAction<Row>[] {
+    return [
+      {
+        label: this.i18n.instant('settings.override'),
+        testid: 'setting-override',
+        run: (r) => void this.override(r),
+      },
+      {
+        label: this.i18n.instant('settings.inherit'),
+        testid: 'setting-inherit',
+        when: (r) => r.source === this.scope(),
+        run: (r) => void this.inherit(r.key),
+      },
+    ];
+  }
 
   async ngOnInit(): Promise<void> {
     this.error.set('');
@@ -123,6 +134,7 @@ export class SettingsPage implements OnInit {
     const sid = this.scopeId();
     if (this.scope() === 'project' && !sid) return;
     this.error.set('');
+    this.loading.set(true);
     try {
       const rows: Row[] = [];
       for (const d of this.defs) {
@@ -134,6 +146,8 @@ export class SettingsPage implements OnInit {
       this.rows.set(rows);
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.loading.set(false);
     }
   }
 

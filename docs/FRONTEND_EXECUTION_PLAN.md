@@ -5,8 +5,9 @@
 - Phase 0 (tokens + lint gate) + shell theming/a11y — done (commit `701794d`).
 - Phase 1 (core component library: button, field, badge, avatar, empty-state, loading, toast, breadcrumbs) + reference adoption on projects/work-items — done (`6e5dcf3`).
 - Phase 2 (ui/shell + drawer, ui/page on all pages, ui/tabs, picker states, breadcrumbs, h1/h2 hierarchy) — done (`6695eae`).
-- Phase 3 (state hardening + a11y: busy/loading guards on every async action, MODULE_DISABLED-aware reviews/github, immutable settings rows, role=alert sweep, board keyboard move, i18n API-key label, e2e testids) — done.
-- Remaining: Phases 4–8.
+- Phase 3 (state hardening + a11y: busy/loading guards on every async action, MODULE_DISABLED-aware reviews/github, immutable settings rows, role=alert sweep, board keyboard move, i18n API-key label, e2e testids) — done (`d07546b`).
+- Phase 4 (ui/data-table with sort/pagination/selection/row-action overflow; migrated work-items, mcp, settings, system jobs, admin users+audit) — done.
+- Remaining: Phases 5–8.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract

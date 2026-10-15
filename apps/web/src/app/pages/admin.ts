@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiPage } from '../ui/page';
-import { UiLoading } from '../ui/loading';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
 
 interface AuditDto {
   id: string;
@@ -27,60 +27,38 @@ interface UserDto {
 @Component({
   selector: 'page-admin',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiPage, UiLoading],
+  imports: [FormsModule, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="admin" [title]="i18n.instant('users.title')">
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="admin-error">{{ error() }}</p>
       }
-      @if (loading()) {
-        <ui-loading kind="table" [label]="i18n.instant('common.loading')" />
-      } @else {
-      <table class="ui-table" data-testid="user-list">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('common.email') }}</th>
-            <th>{{ i18n.instant('users.role') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (u of users(); track u.id) {
-            <tr data-testid="user-row">
-              <td>{{ u.email }}</td>
-              <td>{{ role(u.id) }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="2" data-testid="user-empty">{{ i18n.instant('common.empty') }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <ui-data-table
+        testid="user-list"
+        emptyTestid="user-empty"
+        [columns]="userColumns"
+        [rows]="users()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="userRowTestid"
+        [pageSize]="25"
+      />
 
       <h2>{{ i18n.instant('audit.title') }}</h2>
-      <table class="ui-table" data-testid="audit-list">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('audit.action') }}</th>
-            <th>{{ i18n.instant('audit.actor') }}</th>
-            <th>{{ i18n.instant('audit.resource') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (e of audit(); track e.id) {
-            <tr data-testid="audit-row">
-              <td>{{ e.action }}</td>
-              <td>{{ e.actor_type }}</td>
-              <td>{{ e.resource_type }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="3" data-testid="audit-empty">{{ i18n.instant('common.empty') }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      }
+      <ui-data-table
+        testid="audit-list"
+        emptyTestid="audit-empty"
+        [columns]="auditColumns"
+        [rows]="audit()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="auditRowTestid"
+        [pageSize]="25"
+      />
     </ui-page>
   `,
 })
@@ -114,5 +92,24 @@ export class AdminPage implements OnInit {
 
   role(userId: string): string {
     return this.memberships()[userId] ?? '—';
+  }
+
+  readonly keyOf = (r: { id: string }): string => r.id;
+  readonly userRowTestid = (): string => 'user-row';
+  readonly auditRowTestid = (): string => 'audit-row';
+
+  get userColumns(): UiTableColumn<UserDto>[] {
+    return [
+      { key: 'email', label: this.i18n.instant('common.email'), sortable: true },
+      { key: 'role', label: this.i18n.instant('users.role'), value: (u) => this.role(u.id) },
+    ];
+  }
+
+  get auditColumns(): UiTableColumn<AuditDto>[] {
+    return [
+      { key: 'action', label: this.i18n.instant('audit.action'), sortable: true },
+      { key: 'actor_type', label: this.i18n.instant('audit.actor') },
+      { key: 'resource_type', label: this.i18n.instant('audit.resource') },
+    ];
   }
 }

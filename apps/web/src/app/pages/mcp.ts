@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiPage } from '../ui/page';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
 
 interface CallDto {
   id: string;
@@ -21,7 +22,7 @@ interface CallDto {
 @Component({
   selector: 'page-mcp',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiPage],
+  imports: [FormsModule, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="mcp" [title]="i18n.instant('mcp.title')">
       <h2>{{ i18n.instant('mcp.calls') }}</h2>
@@ -34,31 +35,18 @@ interface CallDto {
           <option value="pending_approval">pending_approval</option>
         </select>
       </label>
-      <table class="ui-table" data-testid="mcp-calls">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('mcp.tool') }}</th>
-            <th>{{ i18n.instant('mcp.outcome') }}</th>
-            <th>{{ i18n.instant('mcp.duration') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (c of calls(); track c.id) {
-            <tr data-testid="mcp-call-row">
-              <td>{{ c.tool }}</td>
-              <td>{{ c.outcome }}{{ c.error_code ? ' · ' + c.error_code : '' }}</td>
-              <td>{{ c.duration_ms ?? '—' }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="3" data-testid="mcp-empty">{{ i18n.instant('common.empty') }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="mcp-error">{{ error() }}</p>
-      }
+      <ui-data-table
+        testid="mcp-calls"
+        emptyTestid="mcp-empty"
+        [columns]="callColumns"
+        [rows]="calls()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="mcpRowTestid"
+        [pageSize]="25"
+      />
     </ui-page>
   `,
 })
@@ -68,7 +56,19 @@ export class McpPage implements OnInit {
 
   readonly calls = signal<CallDto[]>([]);
   readonly error = signal('');
+  readonly loading = signal(true);
   outcome = '';
+
+  readonly keyOf = (c: CallDto): string => c.id;
+  readonly mcpRowTestid = (): string => 'mcp-call-row';
+
+  get callColumns(): UiTableColumn<CallDto>[] {
+    return [
+      { key: 'tool', label: this.i18n.instant('mcp.tool'), sortable: true },
+      { key: 'outcome', label: this.i18n.instant('mcp.outcome'), sortable: true, value: (c) => (c.error_code ? c.outcome + ' · ' + c.error_code : c.outcome) },
+      { key: 'duration_ms', label: this.i18n.instant('mcp.duration'), sortable: true, value: (c) => c.duration_ms ?? '—', align: 'end' },
+    ];
+  }
 
   async ngOnInit(): Promise<void> {
     await this.load();
@@ -76,10 +76,13 @@ export class McpPage implements OnInit {
 
   async load(): Promise<void> {
     this.error.set('');
+    this.loading.set(true);
     try {
       await this.loadInner();
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.loading.set(false);
     }
   }
 

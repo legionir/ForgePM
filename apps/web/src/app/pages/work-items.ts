@@ -6,12 +6,10 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
-import { UiBadge } from '../ui/badge';
-import { UiEmptyState } from '../ui/empty-state';
-import { UiLoading } from '../ui/loading';
 import { UiToastService } from '../ui/toast';
 
 interface StateDto {
@@ -42,7 +40,7 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading, UiPage, UiTabs],
+  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiField, UiControl, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
       <ui-project-picker />
@@ -61,39 +59,17 @@ interface ItemDto {
         <p class="ui-error" role="alert" data-testid="wi-error">{{ error() }}</p>
       }
 
-      @if (loadingList()) {
-        <ui-loading kind="table" [label]="i18n.instant('common.loading')" />
-      } @else if (view() === 'list') {
-        <table class="ui-table" data-testid="wi-list">
-          <thead>
-            <tr>
-              <th>{{ i18n.instant('common.key') }}</th>
-              <th>{{ i18n.instant('common.title') }}</th>
-              <th>{{ i18n.instant('work_items.type') }}</th>
-              <th>{{ i18n.instant('work_items.priority') }}</th>
-              <th>{{ i18n.instant('work_items.state') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (it of items(); track it.id) {
-              <tr>
-                <td>
-                  <a [routerLink]="['/work-items', it.key]" data-testid="wi-link">{{ it.key }}</a>
-                </td>
-                <td>{{ it.title }}</td>
-                <td>{{ it.type }}</td>
-                <td><ui-badge size="sm" [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'">{{ it.priority }}</ui-badge></td>
-                <td>{{ it.state_name }}</td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="5" data-testid="wi-empty">
-                  <ui-empty-state [message]="i18n.instant('common.empty')" />
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+      @if (view() === 'list') {
+        <ui-data-table
+          testid="wi-list"
+          emptyTestid="wi-empty"
+          [columns]="listColumns"
+          [rows]="items()"
+          [trackKey]="keyOf"
+          [loading]="loadingList()"
+          [error]="error()"
+          [emptyMessage]="i18n.instant('common.empty')"
+        />
       } @else {
         <div class="ui-board" data-testid="wi-board">
           @for (st of states(); track st.id) {
@@ -182,6 +158,23 @@ export class WorkItemsPage implements OnInit {
   category = '';
 
   byState = computed(() => (stateId: string) => this.items().filter((i) => i.state_id === stateId));
+
+  readonly keyOf = (it: ItemDto): string => it.id;
+
+  get listColumns(): UiTableColumn<ItemDto>[] {
+    return [
+      { key: 'key', label: this.i18n.instant('common.key'), sortable: true, link: (it) => ['/work-items', it.key], linkTestid: 'wi-link' },
+      { key: 'title', label: this.i18n.instant('common.title'), sortable: true },
+      { key: 'type', label: this.i18n.instant('work_items.type'), sortable: true },
+      {
+        key: 'priority',
+        label: this.i18n.instant('work_items.priority'),
+        sortable: true,
+        badge: (it) => ({ text: it.priority, variant: it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default' }),
+      },
+      { key: 'state_name', label: this.i18n.instant('work_items.state'), sortable: true, value: (it) => it.state_name },
+    ];
+  }
 
   constructor() {
     effect(() => {

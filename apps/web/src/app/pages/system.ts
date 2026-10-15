@@ -4,6 +4,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
+import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 
 interface ModuleDto {
   name: string;
@@ -33,7 +34,7 @@ interface HealthDto {
 @Component({
   selector: 'page-system',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage],
+  imports: [FormsModule, UiButton, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="system" [title]="i18n.instant('system.title')">
       <p data-testid="sys-db">{{ i18n.instant('system.database') }}: {{ health()?.database ?? '…' }}</p>
@@ -52,28 +53,18 @@ interface HealthDto {
       </ul>
 
       <h2>{{ i18n.instant('system.jobs') }}</h2>
-      <table class="ui-table" data-testid="job-list">
-        <tbody>
-          @for (j of jobs(); track j.id) {
-            <tr data-testid="job-row">
-              <td>{{ j.type }}</td>
-              <td data-testid="job-status">{{ j.status }}</td>
-              <td>{{ j.error ?? '' }}</td>
-              <td>
-                @if (j.status === 'failed' || j.status === 'dead') {
-                  <button type="button" ui-button (click)="retry(j.id)" [disabled]="busy()" data-testid="job-retry">
-                    {{ i18n.instant('system.retry') }}
-                  </button>
-                }
-              </td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="4" data-testid="job-empty">{{ i18n.instant('common.empty') }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+      <ui-data-table
+        testid="job-list"
+        emptyTestid="job-empty"
+        [columns]="jobColumns"
+        [rows]="jobs()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="jobRowTestid"
+        [actions]="jobActions"
+      />
 
       <h2>{{ i18n.instant('system.backups') }}</h2>
       <button type="button" ui-button (click)="backup()" [disabled]="busy()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
@@ -95,6 +86,30 @@ export class SystemPage implements OnInit {
   readonly backupMsg = signal('');
   readonly error = signal('');
   readonly busy = signal(false);
+  readonly loading = signal(true);
+
+  readonly keyOf = (j: JobDto): string => j.id;
+  readonly jobRowTestid = (): string => 'job-row';
+
+  get jobColumns(): UiTableColumn<JobDto>[] {
+    return [
+      { key: 'type', label: this.i18n.instant('jobs.type'), sortable: true },
+      { key: 'status', label: this.i18n.instant('jobs.status'), sortable: true, testid: 'job-status' },
+      { key: 'error', label: this.i18n.instant('jobs.error'), value: (j) => j.error ?? '' },
+      { key: 'created_at', label: this.i18n.instant('jobs.created'), sortable: true },
+    ];
+  }
+
+  get jobActions(): UiTableRowAction<JobDto>[] {
+    return [
+      {
+        label: this.i18n.instant('system.retry'),
+        testid: 'job-retry',
+        when: (j) => j.status === 'failed' || j.status === 'dead',
+        run: (j) => void this.retry(j.id),
+      },
+    ];
+  }
 
   async ngOnInit(): Promise<void> {
     await this.load();
@@ -102,11 +117,14 @@ export class SystemPage implements OnInit {
 
   async load(): Promise<void> {
     this.error.set('');
+    this.loading.set(true);
     try {
       this.health.set(await this.api.get<HealthDto>('/api/v1/system/health'));
       this.jobs.set((await this.api.get<{ items: JobDto[] }>('/api/v1/jobs')).items);
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.loading.set(false);
     }
   }
 
