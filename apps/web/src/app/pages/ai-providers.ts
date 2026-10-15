@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 
 interface ProviderDto {
   id: string;
@@ -19,7 +20,7 @@ interface ProviderDto {
 @Component({
   selector: 'page-ai-providers',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton],
   template: `
     <section data-testid="ai-providers">
       <h1>{{ i18n.instant('ai_providers.title') }}</h1>
@@ -33,13 +34,13 @@ interface ProviderDto {
           </select>
         </label>
         <label>API key<input name="key" type="password" [(ngModel)]="apiKey" data-testid="provider-key" /></label>
-        <button type="submit" data-testid="provider-create">{{ i18n.instant('common.create') }}</button>
+        <button type="submit" ui-button variant="primary" data-testid="provider-create">{{ i18n.instant('common.create') }}</button>
       </form>
       <ul class="ui-list" data-testid="provider-list">
         @for (p of providers(); track p.id) {
           <li data-testid="provider-row">
             {{ p.name }} · {{ p.kind }} · {{ p.enabled ? 'on' : 'off' }} · last4 {{ p.key_last4 ?? '—' }}
-            <button type="button" (click)="test(p.id)" data-testid="provider-test">{{ i18n.instant('ai_providers.test') }}</button>
+            <button type="button" ui-button (click)="test(p.id)" data-testid="provider-test">{{ i18n.instant('ai_providers.test') }}</button>
           </li>
         } @empty {
           <li data-testid="provider-empty">{{ i18n.instant('common.empty') }}</li>

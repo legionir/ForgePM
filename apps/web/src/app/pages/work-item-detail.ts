@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 
 interface ItemDto {
@@ -33,7 +34,7 @@ interface ActivityDto {
 @Component({
   selector: 'page-work-item-detail',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink, UiButton],
   template: `
     @if (item(); as it) {
       <section data-testid="wi-detail">
@@ -59,7 +60,7 @@ interface ActivityDto {
               }
             </select>
           </label>
-          <button type="submit">{{ i18n.instant('common.save') }}</button>
+          <button type="submit" ui-button variant="primary">{{ i18n.instant('common.save') }}</button>
         </form>
         @if (error()) {
           <p class="ui-error" data-testid="wi-detail-error">{{ error() }}</p>
@@ -73,7 +74,7 @@ interface ActivityDto {
         </ul>
         <form class="ui-new" (ngSubmit)="addComment()">
           <label>{{ i18n.instant('work_items.comment') }}<input name="cm" [(ngModel)]="comment" required data-testid="wi-comment-input" /></label>
-          <button type="submit" data-testid="wi-comment-add">{{ i18n.instant('work_items.add_comment') }}</button>
+          <button type="submit" ui-button variant="primary" data-testid="wi-comment-add">{{ i18n.instant('work_items.add_comment') }}</button>
         </form>
 
         <h2>{{ i18n.instant('work_items.activity') }}</h2>

@@ -3,8 +3,14 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
+import { UiControl, UiField } from '../ui/field';
+import { UiBadge } from '../ui/badge';
+import { UiEmptyState } from '../ui/empty-state';
+import { UiLoading } from '../ui/loading';
+import { UiToastService } from '../ui/toast';
 
 interface StateDto {
   id: string;
@@ -34,7 +40,7 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp],
+  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiField, UiControl, UiBadge, UiEmptyState, UiLoading],
   template: `
     <section data-testid="work-items">
       <h1>{{ i18n.instant('work_items.title') }}</h1>
@@ -49,20 +55,21 @@ interface ItemDto {
         </button>
       </nav>
 
-      <label>
-        {{ i18n.instant('work_items.filter_state') }}
-        <select name="cat" [(ngModel)]="category" (ngModelChange)="load()" data-testid="wi-filter">
+      <ui-field [label]="i18n.instant('work_items.filter_state')">
+        <select uiControl name="cat" [(ngModel)]="category" (ngModelChange)="load()" data-testid="wi-filter">
           <option value="">*</option>
           @for (c of categories; track c) {
             <option [value]="c">{{ c }}</option>
           }
         </select>
-      </label>
+      </ui-field>
       @if (error()) {
         <p class="ui-error" data-testid="wi-error">{{ error() }}</p>
       }
 
-      @if (view() === 'list') {
+      @if (loadingList()) {
+        <ui-loading kind="table" [label]="i18n.instant('common.loading')" />
+      } @else if (view() === 'list') {
         <table class="ui-table" data-testid="wi-list">
           <thead>
             <tr>
@@ -81,12 +88,14 @@ interface ItemDto {
                 </td>
                 <td>{{ it.title }}</td>
                 <td>{{ it.type }}</td>
-                <td>{{ it.priority }}</td>
+                <td><ui-badge size="sm" [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'">{{ it.priority }}</ui-badge></td>
                 <td>{{ it.state_name }}</td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" data-testid="wi-empty">{{ i18n.instant('common.empty') }}</td>
+                <td colspan="5" data-testid="wi-empty">
+                  <ui-empty-state [message]="i18n.instant('common.empty')" />
+                </td>
               </tr>
             }
           </tbody>
@@ -113,22 +122,24 @@ interface ItemDto {
       }
 
       <form class="ui-new" (ngSubmit)="create()" data-testid="wi-new">
-        <label>{{ i18n.instant('common.title')}}<input name="tkey" [(ngModel)]="title" required data-testid="wi-title" /></label>
-        <label>{{ i18n.instant('work_items.type') }}
-          <select name="ttype" [(ngModel)]="type">
+        <ui-field [label]="i18n.instant('common.title')" required>
+          <input uiControl name="tkey" [(ngModel)]="title" required data-testid="wi-title" />
+        </ui-field>
+        <ui-field [label]="i18n.instant('work_items.type')">
+          <select uiControl name="ttype" [(ngModel)]="type">
             @for (ty of types; track ty) {
               <option [value]="ty">{{ ty }}</option>
             }
           </select>
-        </label>
-        <label>{{ i18n.instant('work_items.state') }}
-          <select name="tstate" [(ngModel)]="stateId" data-testid="wi-state">
+        </ui-field>
+        <ui-field [label]="i18n.instant('work_items.state')">
+          <select uiControl name="tstate" [(ngModel)]="stateId" data-testid="wi-state">
             @for (st of states(); track st.id) {
               <option [value]="st.id">{{ st.name }}</option>
             }
           </select>
-        </label>
-        <button type="submit" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
+        </ui-field>
+        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
       </form>
     </section>
   `,
@@ -142,6 +153,10 @@ export class WorkItemsPage implements OnInit {
   readonly items = signal<ItemDto[]>([]);
   readonly states = signal<StateDto[]>([]);
   readonly error = signal('');
+  readonly busy = signal(false);
+  readonly loadingList = signal(true);
+  private readonly toast = inject(UiToastService);
+
   readonly view = signal<'list' | 'board'>('list');
   readonly categories = ['backlog', 'unstarted', 'started', 'in_review', 'completed', 'canceled'];
   readonly types = ['task', 'bug', 'feature_task', 'improvement', 'refactor', 'research', 'chore'];
@@ -168,27 +183,38 @@ export class WorkItemsPage implements OnInit {
   async load(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid) return;
-    const st = await this.api.get<{ items: StateDto[] }>(`/api/v1/projects/${pid}/states`);
-    this.states.set(st.items);
-    const q = this.category ? `?state_category=${this.category}` : '';
-    const res = await this.api.get<{ items: ItemDto[] }>(`/api/v1/projects/${pid}/work-items${q}`);
-    this.items.set(res.items);
-    if (!this.stateId && st.items[0]) this.stateId = st.items[0].id;
+    this.loadingList.set(true);
+    try {
+      const st = await this.api.get<{ items: StateDto[] }>(`/api/v1/projects/${pid}/states`);
+      this.states.set(st.items);
+      const q = this.category ? `?state_category=${this.category}` : '';
+      const res = await this.api.get<{ items: ItemDto[] }>(`/api/v1/projects/${pid}/work-items${q}`);
+      this.items.set(res.items);
+      if (!this.stateId && st.items[0]) this.stateId = st.items[0].id;
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.loadingList.set(false);
+    }
   }
 
   async create(): Promise<void> {
     this.error.set('');
-    if (!this.stateId) await this.load(); // form can be used before the first fetch resolved
+    this.busy.set(true);
     try {
+      if (!this.stateId) await this.load(); // form can be used before the first fetch resolved
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/work-items`, {
         type: this.type,
         title: this.title,
         state_id: this.stateId,
       });
       this.title = '';
+      this.toast.ok(this.i18n.instant('work_items.created'));
       await this.load();
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
     }
   }
 

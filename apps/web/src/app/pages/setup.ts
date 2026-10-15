@@ -3,12 +3,13 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { Session } from '../session';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 
 /** First-run setup: create the organization + admin user (plan §5.2). */
 @Component({
   selector: 'page-setup',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton],
   template: `
     <section class="ui-auth" data-testid="auth">
       <h1>{{ i18n.instant('setup.title') }}</h1>
@@ -16,7 +17,7 @@ import { I18n } from '../i18n';
       <label>{{ i18n.instant('setup.display_name') }}<input data-testid="field-dname" name="dname" [(ngModel)]="dname" /></label>
       <label>{{ i18n.instant('common.email') }}<input data-testid="field-email" name="email" type="email" [(ngModel)]="email" /></label>
       <label>{{ i18n.instant('common.password') }}<input data-testid="field-password" name="password" type="password" [(ngModel)]="password" /></label>
-      <button type="button" data-testid="setup-submit" (click)="submit()">{{ i18n.instant('common.create') }}</button>
+      <button type="button" ui-button data-testid="setup-submit" (click)="submit()">{{ i18n.instant('common.create') }}</button>
       <p><a data-testid="go-login" routerLink="/login">{{ i18n.instant('login.title') }}</a></p>
       @if (error()) {
         <p class="ui-error" data-testid="error">{{ error() }}</p>

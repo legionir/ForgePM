@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 
 interface ModuleDto {
   name: string;
@@ -31,7 +32,7 @@ interface HealthDto {
 @Component({
   selector: 'page-system',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton],
   template: `
     <section data-testid="system">
       <h1>{{ i18n.instant('system.title') }}</h1>
@@ -43,7 +44,7 @@ interface HealthDto {
         @for (m of health()?.modules ?? []; track m.name) {
           <li data-testid="module-row">
             {{ m.name }}
-            <button type="button" (click)="toggle(m)" data-testid="module-toggle">
+            <button type="button" ui-button (click)="toggle(m)" data-testid="module-toggle">
               {{ m.enabled ? i18n.instant('system.enabled') : i18n.instant('system.disabled') }}
             </button>
           </li>
@@ -60,7 +61,7 @@ interface HealthDto {
               <td>{{ j.error ?? '' }}</td>
               <td>
                 @if (j.status === 'failed' || j.status === 'dead') {
-                  <button type="button" (click)="retry(j.id)" data-testid="job-retry">
+                  <button type="button" ui-button (click)="retry(j.id)" data-testid="job-retry">
                     {{ i18n.instant('system.retry') }}
                   </button>
                 }
@@ -75,7 +76,7 @@ interface HealthDto {
       </table>
 
       <h2>{{ i18n.instant('system.backups') }}</h2>
-      <button type="button" (click)="backup()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
+      <button type="button" ui-button (click)="backup()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
       @if (backupMsg()) {
         <p class="ui-ok" data-testid="backup-msg">{{ backupMsg() }}</p>
       }

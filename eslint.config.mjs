@@ -117,6 +117,7 @@ export default [
       'tests/schema-snapshots/**',
       'tests/lint-fixtures/**', // deliberately-violating samples, linted by a dedicated test
       '**/*.d.ts',
+      '**/.angular/**', // Angular dev-server cache
       // apps/web is intentionally NOT ignored (ENF-002): the Angular panel is
       // linted by the root gate via the browser-globals block above. It keeps
       // its own TS major, build and E2E gates (apps/web/e2e.sh).

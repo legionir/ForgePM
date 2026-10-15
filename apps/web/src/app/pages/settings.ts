@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -25,7 +26,7 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiButton],
   template: `
     <section data-testid="settings">
       <h1>{{ i18n.instant('settings.title') }}</h1>
@@ -61,11 +62,11 @@ interface EffDto {
                 <input [name]="row.key" [(ngModel)]="row.input" data-testid="setting-input" />
               </td>
               <td>
-                <button type="button" (click)="override(row)" data-testid="setting-override">
+                <button type="button" ui-button (click)="override(row)" data-testid="setting-override">
                   {{ i18n.instant('settings.override') }}
                 </button>
                 @if (row.source === scope()) {
-                  <button type="button" (click)="inherit(row.key)" data-testid="setting-inherit">
+                  <button type="button" ui-button (click)="inherit(row.key)" data-testid="setting-inherit">
                     {{ i18n.instant('settings.inherit') }}
                   </button>
                 }

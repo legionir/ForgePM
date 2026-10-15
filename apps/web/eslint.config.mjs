@@ -25,5 +25,5 @@ export default [
       eqeqeq: ['error', 'always'],
     },
   },
-  { ignores: ['dist/**', 'node_modules/**', '*.d.ts'] },
+  { ignores: ['.angular/**', 'dist/**', 'node_modules/**', '*.d.ts'] },
 ];

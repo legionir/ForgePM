@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -26,7 +27,7 @@ interface MilestoneDto {
 @Component({
   selector: 'page-features',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiButton],
   template: `
     <section data-testid="features">
       <h1>{{ i18n.instant('features.title') }}</h1>
@@ -52,7 +53,7 @@ interface MilestoneDto {
           {{ i18n.instant('features.ac') }}
           <input name="fac" [(ngModel)]="facText" data-testid="feature-ac" />
         </label>
-        <button type="submit">{{ i18n.instant('features.new') }}</button>
+        <button type="submit" ui-button variant="primary">{{ i18n.instant('features.new') }}</button>
       </form>
 
       <h1>{{ i18n.instant('milestones.title') }}</h1>
@@ -65,7 +66,7 @@ interface MilestoneDto {
       </ul>
       <form (ngSubmit)="createMilestone()" data-testid="milestone-new">
         <label>{{ i18n.instant('common.name') }}<input name="mname" [(ngModel)]="mname" required data-testid="milestone-name" /></label>
-        <button type="submit">{{ i18n.instant('milestones.new') }}</button>
+        <button type="submit" ui-button variant="primary">{{ i18n.instant('milestones.new') }}</button>
       </form>
     </section>
   `,

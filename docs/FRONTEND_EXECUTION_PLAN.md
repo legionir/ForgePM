@@ -1,6 +1,10 @@
 # ForgePM Frontend — Unified Execution Plan
 
-**Status:** DRAFT (unified from 6 source documents, 2026-10-15)
+**Status:** ACTIVE — implementation under way (2026-10-15).
+**Implementation log:**
+- Phase 0 (tokens + lint gate) + shell theming/a11y — done (commit `701794d`).
+- Phase 1 (core component library: button, field, badge, avatar, empty-state, loading, toast, breadcrumbs) + reference adoption on projects/work-items — done.
+- Remaining: Phases 2–8.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract

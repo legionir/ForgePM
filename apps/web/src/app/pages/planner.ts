@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { JsonPipe } from '@angular/common';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -29,7 +30,7 @@ interface ApplyReport {
 @Component({
   selector: 'page-planner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, JsonPipe, ProjectPickerCmp],
+  imports: [FormsModule, JsonPipe, ProjectPickerCmp, UiButton],
   template: `
     <section data-testid="planner">
       <h1>{{ i18n.instant('planner.title') }}</h1>
@@ -42,7 +43,7 @@ interface ApplyReport {
         <label>{{ i18n.instant('planner.constraints') }}
           <input name="cons" [(ngModel)]="constraints" />
         </label>
-        <button type="submit" data-testid="plan-create">{{ i18n.instant('planner.create') }}</button>
+        <button type="submit" ui-button variant="primary" data-testid="plan-create">{{ i18n.instant('planner.create') }}</button>
       </form>
       @if (error()) {
         <p class="ui-error" data-testid="plan-error">{{ error() }}</p>
@@ -56,15 +57,15 @@ interface ApplyReport {
             <strong data-testid="plan-status">{{ p.status }}</strong>
           </p>
           @if (p.status === 'generating' || p.status === 'generation_failed') {
-            <button type="button" (click)="generate()" data-testid="plan-generate">
+            <button type="button" ui-button (click)="generate()" data-testid="plan-generate">
               {{ i18n.instant('planner.generate') }}
             </button>
           }
           @if (p.status === 'ready') {
-            <button type="button" (click)="approve()" data-testid="plan-approve">{{ i18n.instant('planner.approve') }}</button>
+            <button type="button" ui-button (click)="approve()" data-testid="plan-approve">{{ i18n.instant('planner.approve') }}</button>
           }
           @if (p.status === 'approved') {
-            <button type="button" (click)="apply()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
+            <button type="button" ui-button (click)="apply()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
           }
           @if (report()) {
             <pre class="ui-report" data-testid="plan-report">{{ report() | json }}</pre>

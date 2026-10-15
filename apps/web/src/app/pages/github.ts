@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -26,7 +27,7 @@ interface StatusDto {
 @Component({
   selector: 'page-github',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiButton],
   template: `
     <section data-testid="github">
       <h1>{{ i18n.instant('github.title') }}</h1>
@@ -37,7 +38,7 @@ interface StatusDto {
           <textarea name="pk" [(ngModel)]="privateKey" rows="3" data-testid="gh-private-key"></textarea>
         </label>
         <label>{{ i18n.instant('github.webhook_secret') }}<input name="ws" [(ngModel)]="webhookSecret" data-testid="gh-webhook-secret" /></label>
-        <button type="submit" data-testid="gh-save">{{ i18n.instant('github.save') }}</button>
+        <button type="submit" ui-button variant="primary" data-testid="gh-save">{{ i18n.instant('github.save') }}</button>
       </form>
       @if (status(); as s) {
         <p data-testid="gh-status">
@@ -53,7 +54,7 @@ interface StatusDto {
           @for (r of repos(); track r.id) {
             <li data-testid="gh-repo-row">
               {{ r.full_name }}
-              <button type="button" (click)="link(r.id)" data-testid="gh-link">
+              <button type="button" ui-button (click)="link(r.id)" data-testid="gh-link">
                 {{ i18n.instant('github.link') }}
               </button>
             </li>

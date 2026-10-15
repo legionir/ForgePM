@@ -18,6 +18,8 @@ import { Subscription } from 'rxjs';
 import { Session } from './session';
 import { I18n } from './i18n';
 import { Tokens } from './ui/tokens';
+import { UiButton } from './ui/button';
+import { UiToasts } from './ui/toast';
 
 /**
  * aria-current companion for `routerLink` anchors (STT-006): mirrors
@@ -71,7 +73,7 @@ export class UiNavCurrent implements OnInit, OnDestroy {
 @Component({
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, UiNavCurrent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, UiNavCurrent, UiButton, UiToasts],
   template: `
     @if (session.me(); as me) {
       <header class="ui-shell">
@@ -91,17 +93,19 @@ export class UiNavCurrent implements OnInit, OnDestroy {
           <a routerLink="/admin" routerLinkActive="active" data-testid="nav-admin">{{ i18n.instant('nav.audit') }}</a>
         </nav>
         <div class="ui-who">
-          <button type="button" (click)="tokens.cycle()" data-testid="theme-toggle" aria-label="{{ i18n.instant('theme.label') }}">
+          <button type="button" ui-button variant="ghost" size="sm" (click)="tokens.cycle()" data-testid="theme-toggle" aria-label="{{ i18n.instant('theme.label') }}">
             {{ themeLabel() }}
           </button>
-          <button type="button" (click)="i18n.toggle()" data-testid="lang-toggle">{{ i18n.instant('shell.lang') }}</button>
+          <button type="button" ui-button variant="ghost" size="sm" (click)="i18n.toggle()" data-testid="lang-toggle">{{ i18n.instant('shell.lang') }}</button>
           <span data-testid="who">{{ me.user?.display_name }}</span>
-          <button type="button" (click)="logout()" data-testid="logout">{{ i18n.instant('shell.signout') }}</button>
+          <button type="button" ui-button variant="ghost" size="sm" (click)="logout()" data-testid="logout">{{ i18n.instant('shell.signout') }}</button>
         </div>
       </header>
       <main><router-outlet /></main>
+      <ui-toasts />
     } @else if (session.ready()) {
       <main class="ui-center"><router-outlet /></main>
+      <ui-toasts />
     }
   `,
 })

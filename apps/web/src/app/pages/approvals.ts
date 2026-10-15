@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 
 interface ApprovalDto {
   id: string;
@@ -15,7 +16,7 @@ interface ApprovalDto {
 @Component({
   selector: 'page-approvals',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton],
   template: `
     <section data-testid="approvals">
       <h1>{{ i18n.instant('approvals.title') }}</h1>
@@ -23,10 +24,10 @@ interface ApprovalDto {
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
             <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
-            <button type="button" (click)="decide(a.id, 'approved')" data-testid="approval-approve">
+            <button type="button" ui-button (click)="decide(a.id, 'approved')" data-testid="approval-approve">
               {{ i18n.instant('approvals.approve') }}
             </button>
-            <button type="button" (click)="decide(a.id, 'rejected')" data-testid="approval-reject">
+            <button type="button" ui-button variant="destructive" (click)="decide(a.id, 'rejected')" data-testid="approval-reject">
               {{ i18n.instant('approvals.reject') }}
             </button>
           </li>

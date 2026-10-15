@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -33,7 +34,7 @@ interface RepoDto {
 @Component({
   selector: 'page-reviews',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiButton],
   template: `
     <section data-testid="reviews">
       <h1>{{ i18n.instant('reviews.title') }}</h1>
@@ -51,7 +52,7 @@ interface RepoDto {
             </select>
           </label>
           <label>{{ i18n.instant('reviews.pr') }}<input name="pr" type="number" [(ngModel)]="prNumber" required data-testid="review-pr" /></label>
-          <button type="submit" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
+          <button type="submit" ui-button variant="primary" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
         </form>
 
         <h2>{{ i18n.instant('reviews.runs') }}</h2>
@@ -68,13 +69,13 @@ interface RepoDto {
           @for (f of findings(); track f.id) {
             <li data-testid="finding-row">
               {{ f.title }} ({{ f.severity }} · {{ f.confidence }}) — {{ f.status }}
-              <button type="button" (click)="decide(f.id, 'dismissed')" data-testid="finding-dismiss">
+              <button type="button" ui-button (click)="decide(f.id, 'dismissed')" data-testid="finding-dismiss">
                 {{ i18n.instant('reviews.dismiss') }}
               </button>
-              <button type="button" (click)="decide(f.id, 'accepted')" data-testid="finding-accept">
+              <button type="button" ui-button (click)="decide(f.id, 'accepted')" data-testid="finding-accept">
                 {{ i18n.instant('reviews.accept') }}
               </button>
-              <button type="button" (click)="createIssue(f.id)" data-testid="finding-issue">
+              <button type="button" ui-button (click)="createIssue(f.id)" data-testid="finding-issue">
                 {{ i18n.instant('reviews.create_issue') }}
               </button>
             </li>

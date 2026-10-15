@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
 
 interface ApiKeyDto {
   id: string;
@@ -18,7 +19,7 @@ interface ApiKeyDto {
 @Component({
   selector: 'page-api-keys',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton],
   template: `
     <section data-testid="api-keys">
       <h1>{{ i18n.instant('nav.api_keys') }}</h1>
@@ -29,7 +30,7 @@ interface ApiKeyDto {
           <option value="write">write</option>
           <option value="admin">admin</option>
         </select></label>
-        <button type="submit" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
+        <button type="submit" ui-button variant="primary" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
       </form>
       @if (rawKey()) {
         <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
@@ -41,7 +42,7 @@ interface ApiKeyDto {
         @for (k of keys(); track k.id) {
           <li>
             <span>{{ k.name }} · {{ k.prefix }} · {{ k.scopes.join(',') }}</span>
-            <button type="button" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
+            <button type="button" ui-button variant="destructive" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
           </li>
         } @empty {
           <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>
