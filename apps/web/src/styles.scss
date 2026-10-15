@@ -1279,3 +1279,100 @@ summary .ui-icon {
   margin-inline-start: auto;
   flex-shrink: 0;
 }
+
+/* ===== Auth template polish (login/setup) ===== */
+.ui-auth {
+  inline-size: min(24rem, calc(100vw - 2 * var(--space-4)));
+  box-shadow: var(--shadow-modal);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8) var(--space-6) var(--space-6);
+  gap: var(--space-4);
+}
+
+.ui-auth h1 {
+  margin: 0;
+  text-align: center;
+}
+
+.ui-auth form {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-3);
+}
+
+.ui-auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-2);
+}
+
+.ui-auth-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.ui-auth-wordmark {
+  font-size: var(--font-size-h2);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+
+.ui-auth-submit {
+  inline-size: 100%;
+  justify-content: center;
+  margin-block-start: var(--space-2);
+}
+
+.ui-auth-footer {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-label);
+  color: var(--color-muted);
+}
+
+.ui-auth-footer a {
+  color: var(--color-accent);
+  text-decoration: none;
+  font-weight: var(--font-weight-semibold);
+}
+
+.ui-auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Inputs with a leading icon (auth + future forms) */
+.ui-input-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.ui-input-icon > ui-icon {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+.ui-input-icon input {
+  inline-size: 100%;
+  padding-inline-start: calc(var(--space-3) * 2 + 16px);
+}
+
+/* Theme/lang floating tools on auth screens */
+.ui-auth-tools {
+  position: fixed;
+  inset-block-start: var(--space-3);
+  inset-inline-end: var(--space-3);
+  display: flex;
+  gap: var(--space-1);
+  z-index: var(--z-dropdown);
+}

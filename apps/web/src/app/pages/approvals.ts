@@ -24,7 +24,7 @@ interface ApprovalDto {
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
             <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
-            <button type="button" ui-button (click)="decide(a.id, 'approved')" [disabled]="busy()" data-testid="approval-approve">
+            <button type="button" ui-button variant="primary" (click)="decide(a.id, 'approved')" [disabled]="busy()" data-testid="approval-approve">
               {{ i18n.instant('approvals.approve') }}
             </button>
             <button type="button" ui-button variant="destructive" (click)="decide(a.id, 'rejected')" [disabled]="busy()" data-testid="approval-reject">
