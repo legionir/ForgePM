@@ -3,8 +3,9 @@
 **Status:** ACTIVE — implementation under way (2026-10-15).
 **Implementation log:**
 - Phase 0 (tokens + lint gate) + shell theming/a11y — done (commit `701794d`).
-- Phase 1 (core component library: button, field, badge, avatar, empty-state, loading, toast, breadcrumbs) + reference adoption on projects/work-items — done.
-- Remaining: Phases 2–8.
+- Phase 1 (core component library: button, field, badge, avatar, empty-state, loading, toast, breadcrumbs) + reference adoption on projects/work-items — done (`6e5dcf3`).
+- Phase 2 (ui/shell + drawer, ui/page on all pages, ui/tabs, picker states, breadcrumbs, h1/h2 hierarchy) — done (`6695eae`).
+- Remaining: Phases 3–8.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract
