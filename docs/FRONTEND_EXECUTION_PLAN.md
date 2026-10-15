@@ -11,7 +11,8 @@
 - Phase 6 (parity MVP: rich board card w/ chips+due+AC progress, column count+quick-add, rich list w/ selection+chips+state badges, detail sidebar w/ PATCH edits, detail tabs conversation/acceptance/activity — Links tab omitted: no read API; shell avatar) — done (`87855f9`).
 - Phase 7 (polish + enforcement: `/design-system` living reference route [P7-1], opt-in Playwright visual regression w/ per-theme baselines [P7-2], `ui/logic.ts` pure-logic module at 100% stmts/lines + vitest `web-ui` project [P7-3], ⌘K command palette + `/` [P7-4], XSS-safe typed-segment markdown renderer [P7-5], dependency-free `ui-icon` replacing glyph/emoji icons [P7-6]) — done.
 - Phase 8 (post-MVP): UNDO for destructive actions done — archive shows a toast with a real Undo action (unarchive endpoint exists); reactions/board-themes/drag-animation deferred: reactions need an API surface (out of frontend scope), board themes are §8.1-optional, drag animation needs a DnD lib that would break the no-dep/budget discipline (D-034) for a polish-only gain.
-- Remaining: none — all plan phases executed or explicitly deferred with rationale.
+- Follow-up (`4df32ba`): auth pages (login/setup) redesigned after user-reported regression — brand row, icon fields, primary submit, auth theme/lang toggles; primary-intent fixes for approvals/planner buttons.
+- Remaining (PARTIAL items below): raw-value lint rules, settings pagination, inline-msg→toast migration on 4 pages, `?`/`c` shortcuts + real search in palette, column overflow menu, empty-state CTAs, tooltips, P7 coverage ≥80% on components, e2e/visual runs in CI.
 **Source documents (now superseded by this plan):**
 1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
 2. `docs/DESIGN_SYSTEM.md` — token & component contract
@@ -395,103 +396,103 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 ### Phase 0 — Foundation (tokens + lint gate)
 **Goal:** Establish token source of truth and mechanical enforcement.
 **Tasks:**
-- P0-1: Add full token scale to `styles.scss` `:root` (spacing, radius, typography, shadow, motion, breakpoints, z-index, focus ring, colour-on-accent, warning/info). [TKN-001]
-- P0-2: Replace raw `#fff` in button rule with `--color-on-accent`. [TKN-002, RSP-004]
-- P0-3: Replace raw radii/font-sizes/spacing with tokens. [TKN-003, TKN-004, TKN-005]
-- P0-4: Add web eslint config + raw-value lint rules; add web to root verify. [ENF-001]
-- P0-5: Add global `:focus-visible` ring. [STT-008]
-- P0-6: Correct stylesheet header comment (responsive claim). [DRF-001]
-**Acceptance:** lint passes; no raw hex/spacing/font-size outside `:root`; focus ring visible.
+[DONE] - P0-1: Add full token scale to `styles.scss` `:root` (spacing, radius, typography, shadow, motion, breakpoints, z-index, focus ring, colour-on-accent, warning/info). [TKN-001]
+[DONE] - P0-2: Replace raw `#fff` in button rule with `--color-on-accent`. [TKN-002, RSP-004]
+[DONE] - P0-3: Replace raw radii/font-sizes/spacing with tokens. [TKN-003, TKN-004, TKN-005]
+[PARTIAL] - P0-4: Add web eslint config + raw-value lint rules; add web to root verify. [ENF-001]
+[DONE] - P0-5: Add global `:focus-visible` ring. [STT-008]
+[DONE] - P0-6: Correct stylesheet header comment (responsive claim). [DRF-001]
+**Acceptance:** lint passes; no raw hex/spacing/font-size outside `:root`; focus ring visible. → [PARTIAL: raw-value rules missing]
 **Dependencies:** none.
 
 ### Phase 1 — Core components (button, input, badge, avatar, empty-state, loading, toast)
 **Goal:** Build the shared component library foundation.
 **Tasks:**
-- P1-1: `ui/button` with variants/sizes/states. [CMP-004, FRM-003]
-- P1-2: `ui/input` (+select/textarea) with label/error/helper/disabled/readOnly. [FRM-001, FRM-002]
-- P1-3: `ui/badge` with variants. [PLATFORM_PARITY 3.2]
-- P1-4: `ui/avatar` with initials fallback. [PLATFORM_PARITY 3.1]
-- P1-5: `ui/empty-state` (icon + message + CTA). [CMP-002]
-- P1-6: `ui/loading` (skeleton/spinner per type). [CMP-003]
-- P1-7: `ui/toast` (service + component). [STT-002]
-- P1-8: `ui/breadcrumbs`. [PLATFORM_PARITY 3.9]
-**Acceptance:** components render in all states; unit tests pass.
+[DONE] - P1-1: `ui/button` with variants/sizes/states. [CMP-004, FRM-003]
+[PARTIAL] - P1-2: `ui/input` (+select/textarea) with label/error/helper/disabled/readOnly. [FRM-001, FRM-002]
+[DONE] - P1-3: `ui/badge` with variants. [PLATFORM_PARITY 3.2]
+[DONE] - P1-4: `ui/avatar` with initials fallback. [PLATFORM_PARITY 3.1]
+[DONE] - P1-5: `ui/empty-state` (icon + message + CTA). [CMP-002]
+[DONE] - P1-6: `ui/loading` (skeleton/spinner per type). [CMP-003]
+[DONE] - P1-7: `ui/toast` (service + component). [STT-002]
+[DONE] - P1-8: `ui/breadcrumbs`. [PLATFORM_PARITY 3.9]
+**Acceptance:** components render in all states; unit tests pass. → [DONE]
 **Dependencies:** Phase 0.
 
 ### Phase 2 — Shell & templates
 **Goal:** Shared shell and page templates.
 **Tasks:**
-- P2-1: `ui/shell` (header/nav/footer) with responsive drawer. [SHL-002, SHL-003, RSP-001]
-- P2-2: Page templates (list/detail/form/dashboard) with standard spacing. [SHL-002]
-- P2-3: Fix multiple h1 → h2 for section titles. [SHL-001, TYG-001]
-- P2-4: `ui/tabs` component. [PLATFORM_PARITY]
-- P2-5: `ui/project-picker` loading/empty states. [CMP-006]
-**Acceptance:** all pages use shell + template; heading hierarchy consistent.
+[DONE] - P2-1: `ui/shell` (header/nav/footer) with responsive drawer. [SHL-002, SHL-003, RSP-001]
+[PARTIAL] - P2-2: Page templates (list/detail/form/dashboard) with standard spacing. [SHL-002]
+[DONE] - P2-3: Fix multiple h1 → h2 for section titles. [SHL-001, TYG-001]
+[DONE] - P2-4: `ui/tabs` component. [PLATFORM_PARITY]
+[DONE] - P2-5: `ui/project-picker` loading/empty states. [CMP-006]
+**Acceptance:** all pages use shell + template; heading hierarchy consistent. → [DONE]
 **Dependencies:** Phase 1.
 
 ### Phase 3 — State hardening & accessibility
 **Goal:** Fix unguarded async, focus, keyboard, ARIA.
 **Tasks:**
-- P3-1: Add disabled state binding to buttons during async actions. [STT-001]
-- P3-2: Guard unguarded async (ai-providers, approvals, system, admin, features, github, reviews). [STT-004, STT-005, STT-007, FRM-004]
-- P3-3: Fix reviews catch-all (check MODULE_DISABLED specifically). [STT-006]
-- P3-4: Fix settings mutable signal (use update). [FRM-006]
-- P3-5: Add `role="alert"`/`aria-live` to error containers. [RSP-003]
-- P3-6: Keyboard alternative for drag-and-drop. [STT-009]
-- P3-7: Fix hardcoded "API key" label → i18n. [FRM-005]
-- P3-8: Fix E2E coupling to label text (add testids). [DRF-003]
-**Acceptance:** no unhandled rejections; all errors announced; keyboard-only task completion.
+[DONE] - P3-1: Add disabled state binding to buttons during async actions. [STT-001]
+[DONE] - P3-2: Guard unguarded async (ai-providers, approvals, system, admin, features, github, reviews). [STT-004, STT-005, STT-007, FRM-004]
+[DONE] - P3-3: Fix reviews catch-all (check MODULE_DISABLED specifically). [STT-006]
+[DONE] - P3-4: Fix settings mutable signal (use update). [FRM-006]
+[DONE] - P3-5: Add `role="alert"`/`aria-live` to error containers. [RSP-003]
+[DONE] - P3-6: Keyboard alternative for drag-and-drop. [STT-009]
+[DONE] - P3-7: Fix hardcoded "API key" label → i18n. [FRM-005]
+[DONE] - P3-8: Fix E2E coupling to label text (add testids). [DRF-003]
+**Acceptance:** no unhandled rejections; all errors announced; keyboard-only task completion. → [DONE]
 **Dependencies:** Phase 1.
 
 ### Phase 4 — Collection consistency (data-table)
 **Goal:** Shared table/data-list component.
 **Tasks:**
-- P4-1: `ui/data-table` with columns, rows, empty/loading/error, sort, pagination, selection, row actions. [CMP-001, TBL-001]
-- P4-2: Migrate work-items, mcp, settings, system (jobs), admin (users, audit) to data-table. [TBL-001]
-- P4-3: Overflow menu («...») for row actions. [PLATFORM_PARITY 3.4]
-**Acceptance:** all tables use shared component; consistent headers/sort/empty/loading/error.
+[DONE] - P4-1: `ui/data-table` with columns, rows, empty/loading/error, sort, pagination, selection, row actions. [CMP-001, TBL-001]
+[PARTIAL] - P4-2: Migrate work-items, mcp, settings, system (jobs), admin (users, audit) to data-table. [TBL-001]
+[DONE] - P4-3: Overflow menu («...») for row actions. [PLATFORM_PARITY 3.4]
+**Acceptance:** all tables use shared component; consistent headers/sort/empty/loading/error. → [DONE for the 5 migrated tables]
 **Dependencies:** Phase 1, 2.
 
 ### Phase 5 — Responsive & theming
 **Goal:** Shared breakpoints and responsive collapse.
 **Tasks:**
-- P5-1: Add media queries for nav (drawer), tables (horizontal scroll), forms (stack). [RSP-001, RSP-002]
-- P5-2: Ensure RTL holds (verify no physical left/right). [RSP-005]
-- P5-3: Verify dark-mode contrast (axe run). [RSP-004]
-**Acceptance:** usable on 360px width; no horizontal overflow except tables.
+[DONE] - P5-1: Add media queries for nav (drawer), tables (horizontal scroll), forms (stack). [RSP-001, RSP-002]
+[DONE] - P5-2: Ensure RTL holds (verify no physical left/right). [RSP-005]
+[DONE] - P5-3: Verify dark-mode contrast (axe run). [RSP-004]
+**Acceptance:** usable on 360px width; no horizontal overflow except tables. → [DONE]
 **Dependencies:** Phase 2.
 
 ### Phase 6 — Platform parity (MVP)
 **Goal:** Trello/GitHub-level UX essentials.
 **Tasks:**
-- P6-1: Rich card in board (labels, avatar, checklist indicator, due date). [PLATFORM_PARITY 8.1]
-- P6-2: Column header with count + overflow menu + quick-add. [PLATFORM_PARITY 8.1]
-- P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
-- P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
-- P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
-- P6-6: Breadcrumbs. [PLATFORM_PARITY 3.9]
-- P6-7: Keyboard shortcuts (`/`, `?`, `c`). [PLATFORM_PARITY 8.2]
-- P6-8: Empty states with CTA + illustration. [PLATFORM_PARITY 3.6]
-**Acceptance:** E2E flagship + chain still pass; new interactions keyboard-accessible.
+[PARTIAL] - P6-1: Rich card in board (labels, avatar, checklist indicator, due date). [PLATFORM_PARITY 8.1]
+[PARTIAL] - P6-2: Column header with count + overflow menu + quick-add. [PLATFORM_PARITY 8.1]
+[PARTIAL] - P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
+[PARTIAL] - P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
+[PARTIAL] - P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
+[DONE] - P6-6: Breadcrumbs. [PLATFORM_PARITY 3.9]
+[PARTIAL] - P6-7: Keyboard shortcuts (`/`, `?`, `c`). [PLATFORM_PARITY 8.2]
+[PARTIAL] - P6-8: Empty states with CTA + illustration. [PLATFORM_PARITY 3.6]
+**Acceptance:** E2E flagship + chain still pass; new interactions keyboard-accessible. → [UNVERIFIED HERE: needs Postgres/Redis/chromium — run in CI]
 **Dependencies:** Phase 1-4.
 
 ### Phase 7 — Polish & enforcement
 **Goal:** Mechanical enforcement and living style reference.
 **Tasks:**
-- P7-1: Add `/design-system` route or Storybook. [ENF-002]
-- P7-2: Add visual regression (Playwright screenshots) for shell + key pages. [ENF-003]
-- P7-3: Add component-level unit tests. [ENF-004]
-- P7-4: Command palette (Cmd+K). [PLATFORM_PARITY 8.2]
-- P7-5: Markdown rendering (bundle budget check). [PLATFORM_PARITY 8.2]
-- P7-6: Icon library adoption (replace emoji). [TYG-003, MINIMAL 2]
-**Acceptance:** style reference current; visual regression green; unit tests ≥80% coverage.
+[DONE] - P7-1: Add `/design-system` route or Storybook. [ENF-002]
+[PARTIAL] - P7-2: Add visual regression (Playwright screenshots) for shell + key pages. [ENF-003]
+[PARTIAL] - P7-3: Add component-level unit tests. [ENF-004]
+[PARTIAL] - P7-4: Command palette (Cmd+K). [PLATFORM_PARITY 8.2]
+[DONE] - P7-5: Markdown rendering (bundle budget check). [PLATFORM_PARITY 8.2]
+[DONE] - P7-6: Icon library adoption (replace emoji). [TYG-003, MINIMAL 2]
+**Acceptance:** style reference current; visual regression green; unit tests ≥80% coverage. → [PARTIAL: reference done; visual baselines pending; coverage 100% on ui/logic.ts, below target on components]
 **Dependencies:** Phase 6.
 
 ### Phase 8 — Nice-to-have (post-MVP)
-- Reactions on comments.
-- Board themes (Trello-style).
-- Drag animation.
-- Undo for destructive actions (API support check).
+- [DONE] Undo for destructive actions (API support check) — archive toast with real Undo via POST /projects/:id/unarchive (7s window).
+- [DEFERRED] Reactions on comments — needs an API surface; out of frontend scope.
+- [DEFERRED] Board themes (Trello-style) — optional per §8.1.
+- [DEFERRED] Drag animation — needs a DnD lib; conflicts with D-034 no-dep/budget discipline.
 
 ---
 
