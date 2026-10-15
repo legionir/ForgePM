@@ -53,6 +53,52 @@ guide into a single phased, prioritized, traceable execution plan.
 
 ---
 
+## 0.5 Execution Status (live — updated 2026-10-16, through commit `31a65ce`)
+
+Every task line in §10 carries its own inline tag (`[DONE]` / `[PARTIAL: …]` /
+`[DEFERRED]`). This section is the at-a-glance rollup.
+
+**Totals: 53 tagged DONE (48 tasks + 5 phase-acceptance gates) · 2 PARTIAL · 3 DEFERRED (deliberately not done) · 0 not started · 0 untagged.**
+
+### ✅ Done (54)
+
+Phases 0–6 complete: token register + mechanical raw-value gate (`check:raw`
+in the web verify chain); ui/* component library (button, field, badge, avatar,
+empty-state, loading, toast with undo actions, breadcrumbs, tabs, nav-current,
+project-picker, shell, icon, data-table with sort/paginate/overflow/avatar/
+row-actions, command palette with live search + `?`/`c` shortcuts, markdown);
+page variants (list/detail/form/dashboard); state hardening + accessibility;
+board & list UX; work-item detail with Development tab (linked PRs, external
+links, relations); projects/api-keys/settings/system on the shared data-table;
+auth pages redesign (brand row, field icons, theme/lang toggles); i18n fa/en
+191 keys in parity; design-system playground page; backend read APIs added for
+comment_count + relations; AI provider endpoint/key/model form with
+auto-fetched model list (`POST /ai-providers/models`, `PUT /ai-providers/:id`,
+real connection test). Unit 116/116, web-ui 16/16, build/lint/contrast/
+i18n/contrast gates green.
+
+### 🟡 Partially done (2)
+
+| Item | Done | Missing | Blocker |
+| --- | --- | --- | --- |
+| P7-2 Visual regression (Playwright screenshots) | Spec + axe checks written (`e2e/visual.spec.ts`, opt-in `VISUAL=1`); login helper exported | Baseline screenshots never captured | Sandbox has no Chromium; needs one `VISUAL=1 npx playwright test` run in CI/local, then commit baselines |
+| Phase 7 acceptance: unit coverage ≥ 80% | `ui/logic.ts` at 100% stmts/branches-by-line; toast + palette services tested (16 web-ui tests) | Template-heavy components below target | Angular component tests need browser-ish DOM harness; remaining gap is interactive templates covered by e2e instead |
+
+### ❌ Not done — deferred deliberately (3)
+
+| Item | Reason |
+| --- | --- |
+| Reactions on comments | Needs a backend API surface (table + routes); out of frontend scope |
+| Board themes (Trello-style colour per column/board) | Optional per §8.1; conflicts with minimal-first directive |
+| Drag-and-drop animation for board cards | Needs a DnD dependency; conflicts with D-034 (no-dep / budget discipline). Keyboard alternative for moving cards shipped (P3-6) |
+
+### Environment-bound (cannot run in this sandbox — not plan gaps)
+
+- E2E suites (`chain`, `flagship`, `perf`) and the visual spec require Chromium + PostgreSQL + Redis; they run in CI.
+- Live AI model fetching requires outbound network to the provider (openai/anthropic) or a local `openai_compatible` endpoint (Ollama/vLLM).
+
+---
+
 ## 1. Goals
 
 1. Establish a single source of visual truth (tokens) for colour, spacing, typography,
@@ -406,6 +452,9 @@ CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
 ---
 
 ## 10. Unified Execution Plan (phased)
+
+> Tag legend: `[DONE]` shipped & gated · `[PARTIAL: …]` shipped with named remainder ·
+> `[DEFERRED]` deliberately not done (reason inline). Rollup in §0.5.
 
 ### Phase 0 — Foundation (tokens + lint gate)
 **Goal:** Establish token source of truth and mechanical enforcement.
