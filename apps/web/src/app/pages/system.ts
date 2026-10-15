@@ -39,7 +39,7 @@ interface HealthDto {
       <p data-testid="sys-redis">{{ i18n.instant('system.redis') }}: {{ health()?.redis ?? '…' }}</p>
 
       <h2>{{ i18n.instant('system.modules') }}</h2>
-      <ul class="list" data-testid="module-list">
+      <ul class="ui-list" data-testid="module-list">
         @for (m of health()?.modules ?? []; track m.name) {
           <li data-testid="module-row">
             {{ m.name }}
@@ -51,7 +51,7 @@ interface HealthDto {
       </ul>
 
       <h2>{{ i18n.instant('system.jobs') }}</h2>
-      <table class="grid" data-testid="job-list">
+      <table class="ui-table" data-testid="job-list">
         <tbody>
           @for (j of jobs(); track j.id) {
             <tr data-testid="job-row">
@@ -77,7 +77,7 @@ interface HealthDto {
       <h2>{{ i18n.instant('system.backups') }}</h2>
       <button type="button" (click)="backup()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
       @if (backupMsg()) {
-        <p class="ok" data-testid="backup-msg">{{ backupMsg() }}</p>
+        <p class="ui-ok" data-testid="backup-msg">{{ backupMsg() }}</p>
       }
     </section>
   `,

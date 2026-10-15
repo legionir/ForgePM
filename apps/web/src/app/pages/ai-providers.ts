@@ -35,7 +35,7 @@ interface ProviderDto {
         <label>API key<input name="key" type="password" [(ngModel)]="apiKey" data-testid="provider-key" /></label>
         <button type="submit" data-testid="provider-create">{{ i18n.instant('common.create') }}</button>
       </form>
-      <ul class="list" data-testid="provider-list">
+      <ul class="ui-list" data-testid="provider-list">
         @for (p of providers(); track p.id) {
           <li data-testid="provider-row">
             {{ p.name }} · {{ p.kind }} · {{ p.enabled ? 'on' : 'off' }} · last4 {{ p.key_last4 ?? '—' }}
@@ -46,7 +46,7 @@ interface ProviderDto {
         }
       </ul>
       @if (msg()) {
-        <p class="ok" data-testid="provider-msg">{{ msg() }}</p>
+        <p class="ui-ok" data-testid="provider-msg">{{ msg() }}</p>
       }
     </section>
   `,

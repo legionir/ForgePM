@@ -2,10 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Panel</title>
+  <title>ForgePM</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Theme bootstrap (FRONTEND_EXECUTION_PLAN §3, TKN-001): resolve the
+    // stored cookie / system preference BEFORE first paint so the panel never
+    // flashes the wrong scheme. ui/tokens.ts re-applies the same classes
+    // once Angular boots and on later toggles.
+    (function () {
+      try {
+        var m = document.cookie.match(/(?:^|; )forgepm_theme=([^;]*)/);
+        var t = m ? decodeURIComponent(m[1]) : 'system';
+        var dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.classList.add(dark ? 'theme-dark' : 'theme-light');
+        document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+      } catch (e) { /* keep defaults */ }
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

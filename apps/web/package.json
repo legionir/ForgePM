@@ -7,7 +7,8 @@
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
-    "lint": "ng lint",
+    "lint": "eslint .",
+    "verify": "npm run lint && npm run build",
     "e2e": "playwright test",
     "e2e:report": "playwright show-report"
   },

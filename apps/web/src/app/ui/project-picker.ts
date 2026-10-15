@@ -7,7 +7,7 @@ import { ProjectContext } from '../project-context';
   selector: 'ui-project-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <label class="picker" data-testid="project-picker">
+    <label class="ui-picker" data-testid="project-picker">
       <span>{{ i18n.instant('nav.projects') }}</span>
       <select
         [value]="ctx.selectedId() ?? ''"

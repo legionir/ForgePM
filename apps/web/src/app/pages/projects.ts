@@ -18,20 +18,20 @@ interface ProjectDto {
   template: `
     <section data-testid="projects">
       <h1>{{ i18n.instant('projects.title') }}</h1>
-      <form class="new" (ngSubmit)="create()">
+      <form class="ui-new" (ngSubmit)="create()">
         <label>{{ i18n.instant('common.key') }}<input name="key" [(ngModel)]="key" required maxlength="8" /></label>
         <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required /></label>
         <button type="submit" data-testid="project-create">{{ i18n.instant('common.create') }}</button>
       </form>
       @if (error()) {
-        <p class="error" data-testid="project-error">{{ error() }}</p>
+        <p class="ui-error" data-testid="project-error">{{ error() }}</p>
       }
-      <ul class="list">
+      <ul class="ui-list">
         @for (p of projects(); track p.id) {
           <li>
             <span>{{ p.key }} · {{ p.name }}</span>
             @if (p.status === 'active') {
-              <button type="button" class="archive" (click)="archive(p.id)" data-testid="project-archive">
+              <button type="button" (click)="archive(p.id)" data-testid="project-archive">
                 {{ i18n.instant('projects.archive') }}
               </button>
             }

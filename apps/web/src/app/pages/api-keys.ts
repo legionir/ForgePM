@@ -22,7 +22,7 @@ interface ApiKeyDto {
   template: `
     <section data-testid="api-keys">
       <h1>{{ i18n.instant('nav.api_keys') }}</h1>
-      <form class="new" (ngSubmit)="create()">
+      <form class="ui-new" (ngSubmit)="create()">
         <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name" /></label>
         <label>Scope<select name="scope" [(ngModel)]="scope">
           <option value="read">read</option>
@@ -32,16 +32,16 @@ interface ApiKeyDto {
         <button type="submit" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
       </form>
       @if (rawKey()) {
-        <p class="raw" data-testid="apikey-raw">{{ rawKey() }}</p>
+        <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
       }
       @if (error()) {
-        <p class="error" data-testid="apikey-error">{{ error() }}</p>
+        <p class="ui-error" data-testid="apikey-error">{{ error() }}</p>
       }
-      <ul class="list">
+      <ul class="ui-list">
         @for (k of keys(); track k.id) {
           <li>
             <span>{{ k.name }} · {{ k.prefix }} · {{ k.scopes.join(',') }}</span>
-            <button type="button" class="revoke" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
+            <button type="button" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
           </li>
         } @empty {
           <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>

@@ -45,11 +45,11 @@ interface ApplyReport {
         <button type="submit" data-testid="plan-create">{{ i18n.instant('planner.create') }}</button>
       </form>
       @if (error()) {
-        <p class="error" data-testid="plan-error">{{ error() }}</p>
+        <p class="ui-error" data-testid="plan-error">{{ error() }}</p>
       }
 
       @if (plan(); as p) {
-        <div class="plan" data-testid="plan-view">
+        <div data-testid="plan-view">
           <h2>{{ p.goal }}</h2>
           <p>
             {{ i18n.instant('planner.status') }}:
@@ -67,7 +67,7 @@ interface ApplyReport {
             <button type="button" (click)="apply()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
           }
           @if (report()) {
-            <pre class="report" data-testid="plan-report">{{ report() | json }}</pre>
+            <pre class="ui-report" data-testid="plan-report">{{ report() | json }}</pre>
           }
         </div>
       }

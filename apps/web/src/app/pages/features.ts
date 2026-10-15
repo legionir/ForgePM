@@ -32,9 +32,9 @@ interface MilestoneDto {
       <h1>{{ i18n.instant('features.title') }}</h1>
       <ui-project-picker />
       @if (error()) {
-        <p class="error" data-testid="feature-error">{{ error() }}</p>
+        <p class="ui-error" data-testid="feature-error">{{ error() }}</p>
       }
-      <ul class="list" data-testid="feature-list">
+      <ul class="ui-list" data-testid="feature-list">
         @for (f of features(); track f.id) {
           <li data-testid="feature-row">
             {{ f.key }} · {{ f.title }} — {{ f.lifecycle_status }}
@@ -56,7 +56,7 @@ interface MilestoneDto {
       </form>
 
       <h1>{{ i18n.instant('milestones.title') }}</h1>
-      <ul class="list" data-testid="milestone-list">
+      <ul class="ui-list" data-testid="milestone-list">
         @for (m of milestones(); track m.id) {
           <li data-testid="milestone-row">{{ m.name }} — {{ m.status }} ({{ m.progress }}%)</li>
         } @empty {

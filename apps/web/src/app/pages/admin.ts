@@ -29,7 +29,7 @@ interface UserDto {
   template: `
     <section data-testid="admin">
       <h1>{{ i18n.instant('users.title') }}</h1>
-      <table class="grid" data-testid="user-list">
+      <table class="ui-table" data-testid="user-list">
         <thead>
           <tr>
             <th>{{ i18n.instant('common.email') }}</th>
@@ -51,7 +51,7 @@ interface UserDto {
       </table>
 
       <h1>{{ i18n.instant('audit.title') }}</h1>
-      <table class="grid" data-testid="audit-list">
+      <table class="ui-table" data-testid="audit-list">
         <thead>
           <tr>
             <th>{{ i18n.instant('audit.action') }}</th>

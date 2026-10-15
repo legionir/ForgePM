@@ -40,7 +40,7 @@ interface ItemDto {
       <h1>{{ i18n.instant('work_items.title') }}</h1>
       <ui-project-picker />
 
-      <nav class="tabs" aria-label="View">
+      <nav class="ui-tabs" aria-label="View">
         <button type="button" [class.active]="view() === 'list'" (click)="view.set('list')" data-testid="wi-tab-list">
           {{ i18n.instant('work_items.list') }}
         </button>
@@ -49,7 +49,7 @@ interface ItemDto {
         </button>
       </nav>
 
-      <label class="filter">
+      <label>
         {{ i18n.instant('work_items.filter_state') }}
         <select name="cat" [(ngModel)]="category" (ngModelChange)="load()" data-testid="wi-filter">
           <option value="">*</option>
@@ -59,11 +59,11 @@ interface ItemDto {
         </select>
       </label>
       @if (error()) {
-        <p class="error" data-testid="wi-error">{{ error() }}</p>
+        <p class="ui-error" data-testid="wi-error">{{ error() }}</p>
       }
 
       @if (view() === 'list') {
-        <table class="grid" data-testid="wi-list">
+        <table class="ui-table" data-testid="wi-list">
           <thead>
             <tr>
               <th>{{ i18n.instant('common.key') }}</th>
@@ -92,10 +92,10 @@ interface ItemDto {
           </tbody>
         </table>
       } @else {
-        <div class="board" data-testid="wi-board">
+        <div class="ui-board" data-testid="wi-board">
           @for (st of states(); track st.id) {
             <div
-              class="col"
+              class="ui-board-col"
               [attr.data-state]="st.category"
               (dragover)="prevent(ev($event))"
               (drop)="drop(st.id, ev($event))"
@@ -103,7 +103,7 @@ interface ItemDto {
             >
               <h2>{{ st.name }}</h2>
               @for (it of items().filter((x) => x.state_id === st.id); track it.id) {
-                <div class="card" draggable="true" (dragstart)="drag(it, ev($event))" data-testid="board-card">
+                <div class="ui-board-card" draggable="true" (dragstart)="drag(it, ev($event))" data-testid="board-card">
                   <a [routerLink]="['/work-items', it.key]">{{ it.key }}</a> {{ it.title }}
                 </div>
               }
@@ -112,7 +112,7 @@ interface ItemDto {
         </div>
       }
 
-      <form class="new" (ngSubmit)="create()" data-testid="wi-new">
+      <form class="ui-new" (ngSubmit)="create()" data-testid="wi-new">
         <label>{{ i18n.instant('common.title')}}<input name="tkey" [(ngModel)]="title" required data-testid="wi-title" /></label>
         <label>{{ i18n.instant('work_items.type') }}
           <select name="ttype" [(ngModel)]="type">

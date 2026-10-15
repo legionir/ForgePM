@@ -39,9 +39,9 @@ interface ActivityDto {
       <section data-testid="wi-detail">
         <a routerLink="/work-items" data-testid="wi-back">← {{ i18n.instant('common.back') }}</a>
         <h1>{{ it.key }} — {{ it.title }}</h1>
-        <p class="meta">{{ it.type }} · {{ it.priority }} · {{ it.state_name }}</p>
+        <p>{{ it.type }} · {{ it.priority }} · {{ it.state_name }}</p>
         @if (it.description) {
-          <p class="desc">{{ it.description }}</p>
+          <p>{{ it.description }}</p>
         }
 
         <h2>Acceptance</h2>
@@ -51,7 +51,7 @@ interface ActivityDto {
           }
         </ul>
 
-        <form class="transition" (ngSubmit)="move()" data-testid="wi-move">
+        <form (ngSubmit)="move()" data-testid="wi-move">
           <label>{{ i18n.instant('work_items.transition') }}
             <select name="to" [(ngModel)]="toState" data-testid="wi-move-select">
               @for (st of states(); track st.id) {
@@ -62,22 +62,22 @@ interface ActivityDto {
           <button type="submit">{{ i18n.instant('common.save') }}</button>
         </form>
         @if (error()) {
-          <p class="error" data-testid="wi-detail-error">{{ error() }}</p>
+          <p class="ui-error" data-testid="wi-detail-error">{{ error() }}</p>
         }
 
         <h2>{{ i18n.instant('work_items.comment') }}</h2>
-        <ul class="comments" data-testid="wi-comments">
+        <ul data-testid="wi-comments">
           @for (c of comments(); track c.id) {
             <li>{{ c.author_type }}: {{ c.body }}</li>
           }
         </ul>
-        <form class="new" (ngSubmit)="addComment()">
+        <form class="ui-new" (ngSubmit)="addComment()">
           <label>{{ i18n.instant('work_items.comment') }}<input name="cm" [(ngModel)]="comment" required data-testid="wi-comment-input" /></label>
           <button type="submit" data-testid="wi-comment-add">{{ i18n.instant('work_items.add_comment') }}</button>
         </form>
 
         <h2>{{ i18n.instant('work_items.activity') }}</h2>
-        <ul class="activity" data-testid="wi-activity">
+        <ul data-testid="wi-activity">
           @for (a of activity(); track $index) {
             <li>{{ a.action }} ({{ a.actor_type }})</li>
           }

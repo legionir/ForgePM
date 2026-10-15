@@ -40,7 +40,7 @@ interface RepoDto {
       <ui-project-picker />
 
       @if (disabled()) {
-        <p class="hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
+        <p class="ui-hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
       } @else {
         <form (ngSubmit)="runCode()" data-testid="review-run-form">
           <label>Repo
@@ -55,7 +55,7 @@ interface RepoDto {
         </form>
 
         <h2>{{ i18n.instant('reviews.runs') }}</h2>
-        <ul class="list" data-testid="run-list">
+        <ul class="ui-list" data-testid="run-list">
           @for (r of runs(); track r.id) {
             <li data-testid="run-row">{{ r.kind }} · {{ r.target }} · {{ r.status }}</li>
           } @empty {
@@ -64,7 +64,7 @@ interface RepoDto {
         </ul>
 
         <h2>{{ i18n.instant('reviews.findings') }}</h2>
-        <ul class="list" data-testid="finding-list">
+        <ul class="ui-list" data-testid="finding-list">
           @for (f of findings(); track f.id) {
             <li data-testid="finding-row">
               {{ f.title }} ({{ f.severity }} · {{ f.confidence }}) — {{ f.status }}

@@ -34,7 +34,7 @@ interface CallDto {
           <option value="pending_approval">pending_approval</option>
         </select>
       </label>
-      <table class="grid" data-testid="mcp-calls">
+      <table class="ui-table" data-testid="mcp-calls">
         <thead>
           <tr>
             <th>{{ i18n.instant('mcp.tool') }}</th>

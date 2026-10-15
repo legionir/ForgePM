@@ -19,7 +19,7 @@ interface ApprovalDto {
   template: `
     <section data-testid="approvals">
       <h1>{{ i18n.instant('approvals.title') }}</h1>
-      <ul class="list" data-testid="approval-list">
+      <ul class="ui-list" data-testid="approval-list">
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
             <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
@@ -35,7 +35,7 @@ interface ApprovalDto {
         }
       </ul>
       @if (msg()) {
-        <p class="ok" data-testid="approval-msg">{{ msg() }}</p>
+        <p class="ui-ok" data-testid="approval-msg">{{ msg() }}</p>
       }
     </section>
   `,

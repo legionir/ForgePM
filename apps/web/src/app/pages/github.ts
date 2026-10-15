@@ -49,7 +49,7 @@ interface StatusDto {
       @if (status()?.enabled) {
         <ui-project-picker />
         <h2>{{ i18n.instant('github.repos') }}</h2>
-        <ul class="list" data-testid="gh-repos">
+        <ul class="ui-list" data-testid="gh-repos">
           @for (r of repos(); track r.id) {
             <li data-testid="gh-repo-row">
               {{ r.full_name }}
@@ -62,12 +62,12 @@ interface StatusDto {
           }
         </ul>
       } @else {
-        <p class="hint" data-testid="gh-disabled">
+        <p class="ui-hint" data-testid="gh-disabled">
           {{ i18n.instant('github.disabled') }} — {{ i18n.instant('common.disabled_hint') }}
         </p>
       }
       @if (msg()) {
-        <p class="ok" data-testid="gh-msg">{{ msg() }}</p>
+        <p class="ui-ok" data-testid="gh-msg">{{ msg() }}</p>
       }
     </section>
   `,

@@ -30,7 +30,7 @@ interface EffDto {
     <section data-testid="settings">
       <h1>{{ i18n.instant('settings.title') }}</h1>
 
-      <nav class="tabs" aria-label="Scope">
+      <nav class="ui-tabs" aria-label="Scope">
         <button type="button" [class.active]="scope() === 'system'" (click)="setScope('system')" data-testid="scope-system">
           {{ i18n.instant('settings.scope_system') }}
         </button>
@@ -43,7 +43,7 @@ interface EffDto {
         <ui-project-picker />
       }
 
-      <table class="grid" data-testid="settings-table">
+      <table class="ui-table" data-testid="settings-table">
         <thead>
           <tr>
             <th>{{ i18n.instant('common.key') }}</th>
@@ -75,7 +75,7 @@ interface EffDto {
         </tbody>
       </table>
       @if (error()) {
-        <p class="error" data-testid="settings-error">{{ error() }}</p>
+        <p class="ui-error" data-testid="settings-error">{{ error() }}</p>
       }
     </section>
   `,
