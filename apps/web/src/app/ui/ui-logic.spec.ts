@@ -9,9 +9,9 @@ import {
   sortRows,
   stateVariant,
   type SortCol,
-} from '../../src/app/ui/logic';
-import type { UiCommand } from '../../src/app/ui/command-palette';
-import type { UiTableColumn } from '../../src/app/ui/data-table';
+} from './logic';
+import type { UiCommand } from './command-palette';
+import type { UiTableColumn } from './data-table';
 
 describe('initialsOf', () => {
   it('takes the first letters of the first two words', () => {
@@ -138,8 +138,8 @@ describe('stateVariant (workflow colours)', () => {
   });
 });
 
-import { UiToastService } from '../../src/app/ui/toast';
-import { CommandPalette } from '../../src/app/ui/command-palette';
+import { UiToastService } from './toast';
+import { CommandPalette } from './command-palette';
 import { vi } from 'vitest';
 
 describe('UiToastService (STT-002)', () => {

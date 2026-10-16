@@ -36,6 +36,8 @@ for (const k of faSet) if (!enSet.has(k)) problems.push(`fa has unknown key: ${k
 const usedRe = /i18n\.instant\('([^']+)'/g;
 for (const file of walk(SRC)) {
   if (file.includes(join('i18n')) || file.endsWith('i18n.ts')) continue;
+  // spec files legitimately exercise the fallback path with fake keys
+  if (file.endsWith('.spec.ts')) continue;
   const src = readFileSync(file, 'utf8');
   for (const m of src.matchAll(usedRe)) {
     if (!enSet.has(m[1])) problems.push(`${file}: key '${m[1]}' not in en`);
