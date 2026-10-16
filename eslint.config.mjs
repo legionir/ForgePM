@@ -41,7 +41,7 @@ export default [
     files: ['scripts/**/*.mjs', 'apps/web/scripts/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
-      globals: { process: 'readonly', console: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', setInterval: 'readonly', setTimeout: 'readonly', clearInterval: 'readonly', clearTimeout: 'readonly' },
     },
   },
 

@@ -2,7 +2,7 @@
   "name": "@forgepm/web",
   "version": "1.0.0-rc.1",
   "private": true,
-  "description": "ForgePM panel — Angular (standalone + signals) client of the OpenAPI surface",
+  "description": "ForgePM panel \u2014 Angular (standalone + signals) client of the OpenAPI surface",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -30,8 +30,9 @@
     "@angular/compiler-cli": "22.2.2",
     "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
-    "@vitest/coverage-istanbul": "^5.0.5",
+    "@sparticuz/chromium": "^153.0.0",
     "@vitest/coverage-v8": "^5.0.5",
+    "embedded-postgres": "^18.4.0-beta.17",
     "jsdom": "^30.1.3",
     "typescript": "6.0.3",
     "vitest": "^5.0.5"

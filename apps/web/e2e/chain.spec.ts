@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { login } from './helpers';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
@@ -16,13 +17,7 @@ import AxeBuilder from '@axe-core/playwright';
 const EMAIL = 'admin@e2e.test';
 const PASSWORD = 'e2e-password-1';
 
-export async function login(page: Page): Promise<void> {
-  await page.goto('/login');
-  await page.getByTestId('field-email').fill(EMAIL);
-  await page.getByTestId('field-password').fill(PASSWORD);
-  await page.getByTestId('login-submit').click();
-  await expect(page.getByTestId('projects')).toBeVisible();
-}
+
 
 test('§11 full chain: setup → project → items → board → plan → key → mcp → github → review', async ({ page }) => {
   test.setTimeout(180_000);

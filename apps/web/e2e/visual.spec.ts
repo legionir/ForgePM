@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { login } from './chain.spec';
+import { login } from './helpers';
 
 /**
  * Visual regression (plan §10 P7-2, ENF-003): screenshot baselines for the
@@ -12,6 +12,17 @@ import { login } from './chain.spec';
  */
 
 test.use({ viewport: { width: 1280, height: 800 } });
+
+/**
+ * First-run setup via the API (idempotent: CONFLICT on an already-set-up
+ * install is ignored) so `login()` below works on a brand-new database —
+ * the same setup-first policy the chain spec follows interactively.
+ */
+test.beforeAll(async ({ request }) => {
+  await request.post('/api/v1/auth/setup', {
+    data: { organization_name: 'E2E Org', admin_display_name: 'E2E Admin', admin_email: 'admin@e2e.test', admin_password: 'e2e-password-1' },
+  }).catch(() => undefined);
+});
 
 const PAGES: [string, string][] = [
   ['/projects', 'projects'],

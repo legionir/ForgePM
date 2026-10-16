@@ -17,6 +17,15 @@ export default defineConfig({
   // so a retry would run against dirty (already-set-up) state — disabled.
   retries: 0,
   reporter: [['list']],
-  use: { baseURL: process.env.PANEL_URL ?? 'http://localhost:4200', trace: 'off' },
+  use: {
+    baseURL: process.env.PANEL_URL ?? 'http://localhost:4200',
+    trace: 'off',
+    // sandbox/local runs can inject a stock chromium binary (@sparticuz/
+    // chromium extraction) instead of the playwright-managed download.
+    launchOptions: {
+      executablePath: process.env.CHROMIUM_PATH || undefined,
+      args: process.env.CHROMIUM_ARGS ? process.env.CHROMIUM_ARGS.split(' ') : undefined,
+    },
+  },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });
