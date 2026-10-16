@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiPage } from '../ui/page';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
 
 interface AuditDto {
   id: string;
@@ -25,55 +27,39 @@ interface UserDto {
 @Component({
   selector: 'page-admin',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiPage, UiDataTable],
   template: `
-    <section data-testid="admin">
-      <h1>{{ i18n.instant('users.title') }}</h1>
-      <table class="grid" data-testid="user-list">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('common.email') }}</th>
-            <th>{{ i18n.instant('users.role') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (u of users(); track u.id) {
-            <tr data-testid="user-row">
-              <td>{{ u.email }}</td>
-              <td>{{ role(u.id) }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="2" data-testid="user-empty">{{ i18n.instant('common.empty') }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
+    <ui-page data-testid="admin" [title]="i18n.instant('users.title')">
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="admin-error">{{ error() }}</p>
+      }
+      <ui-data-table
+        testid="user-list"
+        emptyTestid="user-empty"
+        [columns]="userColumns"
+        [rows]="users()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="userRowTestid"
+        [pageSize]="25"
+      />
 
-      <h1>{{ i18n.instant('audit.title') }}</h1>
-      <table class="grid" data-testid="audit-list">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('audit.action') }}</th>
-            <th>{{ i18n.instant('audit.actor') }}</th>
-            <th>{{ i18n.instant('audit.resource') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (e of audit(); track e.id) {
-            <tr data-testid="audit-row">
-              <td>{{ e.action }}</td>
-              <td>{{ e.actor_type }}</td>
-              <td>{{ e.resource_type }}</td>
-            </tr>
-          } @empty {
-            <tr>
-              <td colspan="3" data-testid="audit-empty">{{ i18n.instant('common.empty') }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
+      <h2>{{ i18n.instant('audit.title') }}</h2>
+      <ui-data-table
+        testid="audit-list"
+        emptyTestid="audit-empty"
+        [columns]="auditColumns"
+        [rows]="audit()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [rowTestid]="auditRowTestid"
+        [pageSize]="25"
+      />
+    </ui-page>
   `,
 })
 export class AdminPage implements OnInit {
@@ -83,19 +69,47 @@ export class AdminPage implements OnInit {
   readonly users = signal<UserDto[]>([]);
   readonly audit = signal<AuditDto[]>([]);
   readonly memberships = signal<Record<string, string>>({});
+  readonly loading = signal(true);
+  readonly error = signal('');
 
   async ngOnInit(): Promise<void> {
-    const [u, m, a] = await Promise.all([
-      this.api.get<{ items: UserDto[] }>('/api/v1/users'),
-      this.api.get<{ items: { user_id: string; role: string }[] }>('/api/v1/memberships'),
-      this.api.get<{ items: AuditDto[] }>('/api/v1/audit'),
-    ]);
-    this.users.set(u.items);
-    this.audit.set(a.items);
-    this.memberships.set(Object.fromEntries(m.items.map((x) => [x.user_id, x.role])));
+    this.error.set('');
+    try {
+      const [u, m, a] = await Promise.all([
+        this.api.get<{ items: UserDto[] }>('/api/v1/users'),
+        this.api.get<{ items: { user_id: string; role: string }[] }>('/api/v1/memberships'),
+        this.api.get<{ items: AuditDto[] }>('/api/v1/audit'),
+      ]);
+      this.users.set(u.items);
+      this.audit.set(a.items);
+      this.memberships.set(Object.fromEntries(m.items.map((x) => [x.user_id, x.role])));
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   role(userId: string): string {
     return this.memberships()[userId] ?? '—';
+  }
+
+  readonly keyOf = (r: { id: string }): string => r.id;
+  readonly userRowTestid = (): string => 'user-row';
+  readonly auditRowTestid = (): string => 'audit-row';
+
+  get userColumns(): UiTableColumn<UserDto>[] {
+    return [
+      { key: 'email', label: this.i18n.instant('common.email'), sortable: true },
+      { key: 'role', label: this.i18n.instant('users.role'), value: (u) => this.role(u.id) },
+    ];
+  }
+
+  get auditColumns(): UiTableColumn<AuditDto>[] {
+    return [
+      { key: 'action', label: this.i18n.instant('audit.action'), sortable: true },
+      { key: 'actor_type', label: this.i18n.instant('audit.actor') },
+      { key: 'resource_type', label: this.i18n.instant('audit.resource') },
+    ];
   }
 }

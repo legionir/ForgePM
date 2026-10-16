@@ -21,7 +21,7 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
-      globals: { process: 'readonly', Buffer: 'readonly', globalThis: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', URL: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', NodeJS: 'readonly', fetch: 'readonly', AbortController: 'readonly' },
+      globals: { process: 'readonly', Buffer: 'readonly', globalThis: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly', console: 'readonly', URL: 'readonly', TextEncoder: 'readonly', TextDecoder: 'readonly', NodeJS: 'readonly', fetch: 'readonly', Response: 'readonly', AbortController: 'readonly', AbortSignal: 'readonly' },
     },
     plugins: {
       '@typescript-eslint': tseslint,
@@ -38,10 +38,49 @@ export default [
 
   // Node ESM scripts (.mjs) need Node globals.
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'apps/web/scripts/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
-      globals: { process: 'readonly', console: 'readonly' },
+      globals: { process: 'readonly', console: 'readonly', setInterval: 'readonly', setTimeout: 'readonly', clearInterval: 'readonly', clearTimeout: 'readonly' },
+    },
+  },
+
+  // Playwright specs run in Node but assert inside the browser context
+  // (page.evaluate), so DOM globals are legitimate here.
+  {
+    files: ['apps/web/e2e/**/*.ts'],
+    languageOptions: {
+      globals: {
+        document: 'readonly', window: 'readonly', localStorage: 'readonly',
+      },
+    },
+    rules: { 'no-undef': 'off' },
+  },
+
+  // Angular panel (apps/web): browser globals + DOM types; the TS compiler
+  // owns undefined-identifier checks, so no-undef is off here (ENF-002 —
+  // the panel is NO LONGER excluded from the root lint gate).
+  {
+    files: ['apps/web/src/**/*.ts'],
+    languageOptions: {
+      parserOptions: { ecmaVersion: 2022, sourceType: 'module' },
+      globals: {
+        document: 'readonly', window: 'readonly', localStorage: 'readonly',
+        matchMedia: 'readonly', location: 'readonly', navigator: 'readonly',
+        Event: 'readonly', DragEvent: 'readonly', KeyboardEvent: 'readonly',
+        ClipboardEvent: 'readonly', CustomEvent: 'readonly', DataTransfer: 'readonly',
+        HTMLElement: 'readonly', HTMLInputElement: 'readonly',
+        HTMLSelectElement: 'readonly', HTMLTextAreaElement: 'readonly',
+        MediaQueryList: 'readonly', MediaQueryListEvent: 'readonly',
+        getComputedStyle: 'readonly', requestAnimationFrame: 'readonly',
+        fetch: 'readonly', URL: 'readonly', URLSearchParams: 'readonly',
+        Headers: 'readonly', Request: 'readonly', Response: 'readonly',
+        FormData: 'readonly', AbortController: 'readonly', setTimeout: 'readonly',
+        clearTimeout: 'readonly', setInterval: 'readonly', clearInterval: 'readonly',
+      },
+    },
+    rules: {
+      'no-undef': 'off',
     },
   },
 
@@ -78,10 +117,10 @@ export default [
       'tests/schema-snapshots/**',
       'tests/lint-fixtures/**', // deliberately-violating samples, linted by a dedicated test
       '**/*.d.ts',
-      // The Angular panel is a separate TypeScript project (own TS major)
-      // with its own lint/build/E2E gates (npm --filter web). Excluded from
-      // the backend `verify` until it joins the workspace member list.
-      'apps/web/**',
+      '**/.angular/**', // Angular dev-server cache
+      // apps/web is intentionally NOT ignored (ENF-002): the Angular panel is
+      // linted by the root gate via the browser-globals block above. It keeps
+      // its own TS major, build and E2E gates (apps/web/e2e.sh).
     ],
   },
 ];

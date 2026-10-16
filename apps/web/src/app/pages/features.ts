@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -26,15 +28,14 @@ interface MilestoneDto {
 @Component({
   selector: 'page-features',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
   template: `
-    <section data-testid="features">
-      <h1>{{ i18n.instant('features.title') }}</h1>
+    <ui-page data-testid="features" [title]="i18n.instant('features.title')">
       <ui-project-picker />
       @if (error()) {
-        <p class="error" data-testid="feature-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="feature-error">{{ error() }}</p>
       }
-      <ul class="list" data-testid="feature-list">
+      <ul class="ui-list" data-testid="feature-list">
         @for (f of features(); track f.id) {
           <li data-testid="feature-row">
             {{ f.key }} · {{ f.title }} — {{ f.lifecycle_status }}
@@ -52,11 +53,15 @@ interface MilestoneDto {
           {{ i18n.instant('features.ac') }}
           <input name="fac" [(ngModel)]="facText" data-testid="feature-ac" />
         </label>
-        <button type="submit">{{ i18n.instant('features.new') }}</button>
+        <button type="submit" ui-button variant="primary">{{ i18n.instant('features.new') }}</button>
       </form>
 
-      <h1>{{ i18n.instant('milestones.title') }}</h1>
-      <ul class="list" data-testid="milestone-list">
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="features-error">{{ error() }}</p>
+      }
+
+      <h2>{{ i18n.instant('milestones.title') }}</h2>
+      <ul class="ui-list" data-testid="milestone-list">
         @for (m of milestones(); track m.id) {
           <li data-testid="milestone-row">{{ m.name }} — {{ m.status }} ({{ m.progress }}%)</li>
         } @empty {
@@ -65,9 +70,9 @@ interface MilestoneDto {
       </ul>
       <form (ngSubmit)="createMilestone()" data-testid="milestone-new">
         <label>{{ i18n.instant('common.name') }}<input name="mname" [(ngModel)]="mname" required data-testid="milestone-name" /></label>
-        <button type="submit">{{ i18n.instant('milestones.new') }}</button>
+        <button type="submit" ui-button variant="primary">{{ i18n.instant('milestones.new') }}</button>
       </form>
-    </section>
+    </ui-page>
   `,
 })
 export class FeaturesPage implements OnInit {
@@ -78,6 +83,7 @@ export class FeaturesPage implements OnInit {
   readonly features = signal<FeatureDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly error = signal('');
+  readonly busy = signal(false);
   fkey = 'FEAT';
   ftitle = 'First feature';
   facText = 'it works';
@@ -91,8 +97,13 @@ export class FeaturesPage implements OnInit {
   async load(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid) return;
-    this.features.set((await this.api.get<{ items: FeatureDto[] }>(`/api/v1/projects/${pid}/features`)).items);
-    this.milestones.set((await this.api.get<{ items: MilestoneDto[] }>(`/api/v1/projects/${pid}/milestones`)).items);
+    this.error.set('');
+    try {
+      this.features.set((await this.api.get<{ items: FeatureDto[] }>(`/api/v1/projects/${pid}/features`)).items);
+      this.milestones.set((await this.api.get<{ items: MilestoneDto[] }>(`/api/v1/projects/${pid}/milestones`)).items);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
   }
 
   async createFeature(): Promise<void> {
@@ -110,7 +121,15 @@ export class FeaturesPage implements OnInit {
   }
 
   async createMilestone(): Promise<void> {
-    await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/milestones`, { name: this.mname });
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/milestones`, { name: this.mname });
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

@@ -64,6 +64,7 @@ export const workItemDtoSchema = z.object({
   source: z.enum(WORK_ITEM_SOURCES),
   plan_id: z.string().nullable(),
   labels: z.array(z.string()),
+  comment_count: z.number(),
   created_at: z.string(),
   updated_at: z.string(),
 });

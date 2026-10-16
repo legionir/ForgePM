@@ -2,6 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
+import { UiDataTable, UiTableColumn } from '../ui/data-table';
+import { UiPage } from '../ui/page';
 
 interface ApiKeyDto {
   id: string;
@@ -18,36 +21,37 @@ interface ApiKeyDto {
 @Component({
   selector: 'page-api-keys',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton, UiPage, UiDataTable],
   template: `
-    <section data-testid="api-keys">
-      <h1>{{ i18n.instant('nav.api_keys') }}</h1>
-      <form class="new" (ngSubmit)="create()">
+    <ui-page data-testid="api-keys" [title]="i18n.instant('nav.api_keys')">
+      <form class="ui-new" (ngSubmit)="create()">
         <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name" /></label>
         <label>Scope<select name="scope" [(ngModel)]="scope">
           <option value="read">read</option>
           <option value="write">write</option>
           <option value="admin">admin</option>
         </select></label>
-        <button type="submit" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
+        <button type="submit" ui-button variant="primary" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
       </form>
       @if (rawKey()) {
-        <p class="raw" data-testid="apikey-raw">{{ rawKey() }}</p>
+        <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
       }
       @if (error()) {
-        <p class="error" data-testid="apikey-error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="apikey-error">{{ error() }}</p>
       }
-      <ul class="list">
-        @for (k of keys(); track k.id) {
-          <li>
-            <span>{{ k.name }} · {{ k.prefix }} · {{ k.scopes.join(',') }}</span>
-            <button type="button" class="revoke" (click)="revoke(k.id)" data-testid="apikey-revoke">{{ i18n.instant('common.revoke') }}</button>
-          </li>
-        } @empty {
-          <li data-testid="api-keys-empty">{{ i18n.instant('api_keys.empty') }}</li>
-        }
-      </ul>
-    </section>
+      <ui-data-table
+        testid="api-keys-list"
+        emptyTestid="api-keys-empty"
+        [columns]="keyColumns"
+        [rows]="keys()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('api_keys.empty')"
+        [pageSize]="25"
+        [actions]="keyActions"
+      />
+    </ui-page>
   `,
 })
 export class ApiKeysPage implements OnInit {
@@ -57,12 +61,40 @@ export class ApiKeysPage implements OnInit {
   readonly keys = signal<ApiKeyDto[]>([]);
   readonly rawKey = signal('');
   readonly error = signal('');
+  readonly busy = signal(false);
+  readonly loading = signal(true);
   name = '';
   scope = 'read';
 
+  readonly keyOf = (k: ApiKeyDto): string => k.id;
+
+  get keyColumns(): UiTableColumn<ApiKeyDto>[] {
+    return [
+      { key: 'name', label: this.i18n.instant('common.name'), sortable: true },
+      { key: 'prefix', label: this.i18n.instant('api_keys.prefix') },
+      { key: 'scopes', label: 'Scopes', value: (k) => k.scopes.join(', ') },
+    ];
+  }
+
+  get keyActions() {
+    return [
+      {
+        label: this.i18n.instant('common.revoke'),
+        testid: 'apikey-revoke',
+        destructive: true,
+        run: (k: ApiKeyDto) => void this.revoke(k.id),
+      },
+    ];
+  }
+
   async load(): Promise<void> {
-    const res = await this.api.get<{ items: ApiKeyDto[] }>('/api/v1/api-keys');
-    this.keys.set(res.items);
+    this.loading.set(true);
+    try {
+      const res = await this.api.get<{ items: ApiKeyDto[] }>('/api/v1/api-keys');
+      this.keys.set(res.items);
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   async ngOnInit(): Promise<void> {
@@ -86,7 +118,15 @@ export class ApiKeysPage implements OnInit {
   }
 
   async revoke(id: string): Promise<void> {
-    await this.api.send('DELETE', `/api/v1/api-keys/${id}`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.send('DELETE', `/api/v1/api-keys/${id}`);
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

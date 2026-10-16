@@ -1,26 +1,59 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Session } from '../session';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
+import { UiControl, UiField } from '../ui/field';
+import { UiIcon } from '../ui/icon';
 
 /** First-run setup: create the organization + admin user (plan §5.2). */
 @Component({
   selector: 'page-setup',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, UiButton, UiField, UiControl, UiIcon],
   template: `
-    <section class="auth" data-testid="auth">
+    <section class="ui-auth" data-testid="auth">
+      <div class="ui-auth-brand" aria-hidden="true">
+        <span class="ui-auth-logo"><ui-icon name="command" [size]="20" [inline]="false" /></span>
+        <span class="ui-auth-wordmark">ForgePM</span>
+      </div>
       <h1>{{ i18n.instant('setup.title') }}</h1>
-      <label>{{ i18n.instant('setup.org') }}<input data-testid="field-org" name="org" [(ngModel)]="org" /></label>
-      <label>{{ i18n.instant('setup.display_name') }}<input data-testid="field-dname" name="dname" [(ngModel)]="dname" /></label>
-      <label>{{ i18n.instant('common.email') }}<input data-testid="field-email" name="email" type="email" [(ngModel)]="email" /></label>
-      <label>{{ i18n.instant('common.password') }}<input data-testid="field-password" name="password" type="password" [(ngModel)]="password" /></label>
-      <button type="button" data-testid="setup-submit" (click)="submit()">{{ i18n.instant('common.create') }}</button>
-      <p class="link"><a data-testid="go-login" routerLink="/login">{{ i18n.instant('login.title') }}</a></p>
+      <form (ngSubmit)="submit()">
+        <ui-field [label]="i18n.instant('setup.org')">
+          <span class="ui-input-icon">
+            <ui-icon name="building" [size]="16" />
+            <input uiControl data-testid="field-org" name="org" [(ngModel)]="org" required />
+          </span>
+        </ui-field>
+        <ui-field [label]="i18n.instant('setup.display_name')">
+          <span class="ui-input-icon">
+            <ui-icon name="mail" [size]="16" />
+            <input uiControl data-testid="field-dname" name="dname" [(ngModel)]="dname" required />
+          </span>
+        </ui-field>
+        <ui-field [label]="i18n.instant('common.email')">
+          <span class="ui-input-icon">
+            <ui-icon name="mail" [size]="16" />
+            <input uiControl data-testid="field-email" name="email" type="email" autocomplete="email" [(ngModel)]="email" required />
+          </span>
+        </ui-field>
+        <ui-field [label]="i18n.instant('common.password')">
+          <span class="ui-input-icon">
+            <ui-icon name="lock" [size]="16" />
+            <input uiControl data-testid="field-password" name="password" type="password" autocomplete="new-password" [(ngModel)]="password" required />
+          </span>
+        </ui-field>
+        <button type="submit" ui-button variant="primary" class="ui-auth-submit" [loading]="busy()" data-testid="setup-submit">
+          {{ i18n.instant('common.create') }}
+        </button>
+      </form>
       @if (error()) {
-        <p class="error" data-testid="error">{{ error() }}</p>
+        <p class="ui-error" role="alert" data-testid="error">{{ error() }}</p>
       }
+      <p class="ui-auth-footer">
+        <a routerLink="/login" data-testid="go-login">{{ i18n.instant('login.title') }}</a>
+      </p>
     </section>
   `,
 })
@@ -34,9 +67,11 @@ export class SetupPage {
   org = '';
   dname = '';
   readonly error = signal('');
+  readonly busy = signal(false);
 
   async submit(): Promise<void> {
     this.error.set('');
+    this.busy.set(true);
     try {
       await this.session.setup({
         organization_name: this.org,
@@ -47,6 +82,8 @@ export class SetupPage {
       await this.router.navigate(['/projects']);
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
     }
   }
 }

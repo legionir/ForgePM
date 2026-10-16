@@ -29,7 +29,6 @@ test('P-05 first paint of the 200k-project item list < 2000ms', async ({ page })
   await page.goto(`/work-items?project=${PROJECT_ID}`);
   await expect(page.getByTestId('wi-list').getByTestId('wi-link').first()).toBeVisible();
   const paint = Date.now() - t0;
-  // eslint-disable-next-line no-console
   console.log(`P-05 first paint: ${paint}ms (threshold 2000, fail 2400)`);
   expect(paint).toBeLessThan(2000);
 });

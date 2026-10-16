@@ -9,8 +9,13 @@
     "web": {
       "projectType": "application",
       "schematics": {
-        "@schematics/angular:component": { "style": "scss", "skipTests": true },
-        "@schematics/angular:service": { "skipTests": true }
+        "@schematics/angular:component": {
+          "style": "scss",
+          "skipTests": true
+        },
+        "@schematics/angular:service": {
+          "skipTests": true
+        }
       },
       "root": "",
       "sourceRoot": "src",
@@ -22,14 +27,29 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
-            "assets": [{ "glob": "**/*", "input": "public" }],
-            "styles": ["src/styles.scss"]
+            "assets": [
+              {
+                "glob": "**/*",
+                "input": "public"
+              }
+            ],
+            "styles": [
+              "src/styles.scss"
+            ]
           },
           "configurations": {
             "production": {
               "budgets": [
-                { "type": "initial", "maximumWarning": "500kB", "maximumError": "1MB" },
-                { "type": "anyComponentStyle", "maximumWarning": "4kB", "maximumError": "8kB" }
+                {
+                  "type": "initial",
+                  "maximumWarning": "500kB",
+                  "maximumError": "1MB"
+                },
+                {
+                  "type": "anyComponentStyle",
+                  "maximumWarning": "4kB",
+                  "maximumError": "8kB"
+                }
               ],
               "outputHashing": "all"
             },
@@ -43,12 +63,51 @@
         },
         "serve": {
           "builder": "@angular/build:dev-server",
-          "options": { "port": 4200, "proxyConfig": "proxy.conf.json" },
+          "options": {
+            "port": 4200,
+            "proxyConfig": "proxy.conf.json",
+            "allowedHosts": [
+              ".e2b.app",
+              "localhost",
+              "127.0.0.1"
+            ]
+          },
           "configurations": {
-            "production": { "buildTarget": "web:build:production" },
-            "development": { "buildTarget": "web:build:development" }
+            "production": {
+              "buildTarget": "web:build:production"
+            },
+            "development": {
+              "buildTarget": "web:build:development"
+            }
           },
           "defaultConfiguration": "development"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "tsconfig.spec.json",
+            "runnerConfig": "vitest.config.mts",
+            "coverageInclude": [
+              "src/app/ui/**",
+              "src/app/i18n.ts",
+              "src/app/api.ts"
+            ],
+            "coverageReporters": [
+              "text",
+              "json-summary"
+            ],
+            "coverageThresholds": {
+              "statements": 80,
+              "branches": 65,
+              "functions": 80,
+              "lines": 80
+            }
+          },
+          "configurations": {
+            "coverage": {
+              "coverage": true
+            }
+          }
         }
       }
     }

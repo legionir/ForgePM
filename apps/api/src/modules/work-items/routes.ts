@@ -15,6 +15,7 @@ import {
   workItemFilterSchema,
   AppError,
 } from '@forgepm/shared';
+import { sql } from 'kysely';
 import { newId, toJsonb, unitOfWork, recordAudit, type Db } from '@forgepm/core';
 import type { AppDeps } from '../../app/app';
 import { guard, requireActor } from '../../app/guards';
@@ -175,6 +176,68 @@ export function registerWorkItemsRoutes(app: FastifyInstance, deps: AppDeps): vo
       const res = await bulkCreate(db, actor, req.body.project_id ?? (await firstProjectId(db, actor)), req.body.items, req.body.idempotency_key);
       const status = (res.status ?? 201) as 200 | 201;
       return reply.status(status).send(res.response);
+    },
+  );
+
+  // relations read (plan P6-5: links tab lists relations both directions)
+  t.get(
+    '/api/v1/work-items/:key/relations',
+    {
+      schema: {
+        params: keyParams,
+        response: {
+          200: z.object({
+            items: z.array(
+              z.object({
+                id: z.string().uuid(),
+                type: relationSchema.shape.type,
+                direction: z.enum(['outgoing', 'incoming']),
+                other_key: z.string(),
+                other_title: z.string(),
+                created_at: z.string(),
+              }),
+            ),
+          }),
+        },
+      },
+      preHandler: guard(db, {}),
+    },
+    async (req) => {
+      const actor = requireActor(req);
+      const item = await getWorkItemByKey(db, actor.organizationId, req.params.key);
+      if (!item) throw new AppError('NOT_FOUND', 'work item not found');
+      const rels = await db
+        .selectFrom('work_item_relations')
+        .select(['id', 'type', 'from_id', 'to_id', 'created_at'])
+        .where((eb) => eb.or([eb('from_id', '=', item.id as string), eb('to_id', '=', item.id as string)]))
+        .orderBy('created_at', 'asc')
+        .execute();
+      const otherIds = rels.map((r) => (r.from_id === item.id ? r.to_id : r.from_id));
+      const others = otherIds.length
+        ? await db
+            .selectFrom('work_items as wi')
+            .innerJoin('projects as p', 'p.id', 'wi.project_id')
+            .select(['wi.id as id', 'wi.title as title', sql<string>`p.key || '-' || wi.number::text`.as('other_key')])
+            .where('wi.id', 'in', otherIds)
+            .execute()
+        : [];
+      const byId = new Map(others.map((o) => [o.id, o]));
+      return {
+        items: rels.flatMap((r) => {
+          const other = byId.get(r.from_id === item.id ? r.to_id : r.from_id);
+          if (!other) return [];
+          return [
+            {
+              id: r.id,
+              type: r.type as 'blocks' | 'relates_to' | 'duplicates',
+              direction: r.from_id === item.id ? ('outgoing' as const) : ('incoming' as const),
+              other_key: other.other_key,
+              other_title: other.title,
+              created_at: r.created_at.toISOString(),
+            },
+          ];
+        }),
+      };
     },
   );
 

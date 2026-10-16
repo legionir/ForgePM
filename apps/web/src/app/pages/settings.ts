@@ -2,6 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiPage } from '../ui/page';
+import { UiTabItem, UiTabs } from '../ui/tabs';
+import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -25,59 +28,32 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiPage, UiTabs, UiDataTable],
   template: `
-    <section data-testid="settings">
-      <h1>{{ i18n.instant('settings.title') }}</h1>
+    <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
 
-      <nav class="tabs" aria-label="Scope">
-        <button type="button" [class.active]="scope() === 'system'" (click)="setScope('system')" data-testid="scope-system">
-          {{ i18n.instant('settings.scope_system') }}
-        </button>
-        <button type="button" [class.active]="scope() === 'project'" (click)="setScope('project')" data-testid="scope-project">
-          {{ i18n.instant('settings.scope_project') }}
-        </button>
-      </nav>
+      <ui-tabs [items]="scopeTabs" [active]="scope()" [ariaLabel]="i18n.instant('settings.scope')" (tabChange)="setScope($event)" />
 
       @if (scope() === 'project') {
         <ui-project-picker />
       }
 
-      <table class="grid" data-testid="settings-table">
-        <thead>
-          <tr>
-            <th>{{ i18n.instant('common.key') }}</th>
-            <th>{{ i18n.instant('settings.source') }}</th>
-            <th>{{ i18n.instant('settings.value') }}</th>
-            <th>{{ i18n.instant('settings.scope') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of rows(); track row.key) {
-            <tr data-testid="setting-row">
-              <td>{{ row.key }}</td>
-              <td data-testid="setting-source">{{ row.source }}</td>
-              <td>
-                <input [name]="row.key" [(ngModel)]="row.input" data-testid="setting-input" />
-              </td>
-              <td>
-                <button type="button" (click)="override(row)" data-testid="setting-override">
-                  {{ i18n.instant('settings.override') }}
-                </button>
-                @if (row.source === scope()) {
-                  <button type="button" (click)="inherit(row.key)" data-testid="setting-inherit">
-                    {{ i18n.instant('settings.inherit') }}
-                  </button>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      @if (error()) {
-        <p class="error" data-testid="settings-error">{{ error() }}</p>
-      }
-    </section>
+      <ui-data-table
+        testid="settings-table"
+        emptyTestid="settings-empty"
+        [columns]="columns"
+        [rows]="rows()"
+        [trackKey]="keyOf"
+        [loading]="loading()"
+        [error]="error()"
+        [emptyMessage]="i18n.instant('common.empty')"
+        [pageSize]="25"
+        [rowTestid]="rowTestid"
+        [actions]="rowActions"
+        [editValue]="editValue"
+        [editChange]="editChange"
+      />
+    </ui-page>
   `,
 })
 export class SettingsPage implements OnInit {
@@ -86,18 +62,67 @@ export class SettingsPage implements OnInit {
   readonly ctx = inject(ProjectContext);
 
   readonly scope = signal<'system' | 'project'>('system');
-  readonly rows = signal<Row[]>([]);
-  readonly error = signal('');
-  private defs: DefDto[] = [];
+  readonly busy = signal(false);
 
-  async ngOnInit(): Promise<void> {
-    await this.ctx.load();
-    this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
-    await this.refresh();
+  get scopeTabs(): UiTabItem[] {
+    return [
+      { id: 'system', label: this.i18n.instant('settings.scope_system'), testid: 'scope-system' },
+      { id: 'project', label: this.i18n.instant('settings.scope_project'), testid: 'scope-project' },
+    ];
   }
 
-  setScope(s: 'system' | 'project'): void {
-    this.scope.set(s);
+  readonly rows = signal<Row[]>([]);
+  readonly error = signal('');
+  readonly loading = signal(true);
+  private defs: DefDto[] = [];
+
+  readonly keyOf = (r: Row): string => r.key;
+  readonly rowTestid = (): string => 'setting-row';
+  readonly editValue = (r: Row, _key: string): string => r.input;
+  readonly editChange = (r: Row, _key: string, value: string): void => this.setInput(r.key, value);
+
+  get columns(): UiTableColumn<Row>[] {
+    return [
+      { key: 'key', label: this.i18n.instant('common.key'), sortable: true },
+      { key: 'source', label: this.i18n.instant('settings.source'), sortable: true, testid: 'setting-source' },
+      { key: 'input', label: this.i18n.instant('settings.value'), editable: true, editTestid: 'setting-input' },
+    ];
+  }
+
+  get rowActions(): UiTableRowAction<Row>[] {
+    return [
+      {
+        label: this.i18n.instant('settings.override'),
+        testid: 'setting-override',
+        run: (r) => void this.override(r),
+      },
+      {
+        label: this.i18n.instant('settings.inherit'),
+        testid: 'setting-inherit',
+        when: (r) => r.source === this.scope(),
+        run: (r) => void this.inherit(r.key),
+      },
+    ];
+  }
+
+  async ngOnInit(): Promise<void> {
+    this.error.set('');
+    try {
+      await this.ctx.load();
+      this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
+      await this.refresh();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
+  }
+
+  /** Immutable row edit (FRM-006): never mutate objects held by a signal. */
+  setInput(key: string, value: string): void {
+    this.rows.update((list) => list.map((r) => (r.key === key ? { ...r, input: value } : r)));
+  }
+
+  setScope(v: string): void {
+    this.scope.set(v as 'system' | 'project');
     void this.refresh();
   }
 
@@ -108,29 +133,48 @@ export class SettingsPage implements OnInit {
   async refresh(): Promise<void> {
     const sid = this.scopeId();
     if (this.scope() === 'project' && !sid) return;
-    const rows: Row[] = [];
-    for (const d of this.defs) {
-      const eff = await this.api.get<EffDto>(
-        `/api/v1/settings/effective?key=${encodeURIComponent(d.key)}&scope=${this.scope()}&scope_id=${sid}`,
-      );
-      rows.push({ key: d.key, value: eff.value, source: eff.source, input: display(d.default, eff.value) });
+    this.error.set('');
+    this.loading.set(true);
+    try {
+      const rows: Row[] = [];
+      for (const d of this.defs) {
+        const eff = await this.api.get<EffDto>(
+          `/api/v1/settings/effective?key=${encodeURIComponent(d.key)}&scope=${this.scope()}&scope_id=${sid}`,
+        );
+        rows.push({ key: d.key, value: eff.value, source: eff.source, input: display(d.default, eff.value) });
+      }
+      this.rows.set(rows);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.loading.set(false);
     }
-    this.rows.set(rows);
   }
 
   async override(row: Row): Promise<void> {
     this.error.set('');
+    this.busy.set(true);
     try {
       await this.api.put(`/api/v1/settings/${this.scope()}/${this.scopeId()}/${row.key}`, { value: parse(row.input) });
       await this.refresh();
     } catch (err) {
       this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
     }
   }
 
   async inherit(key: string): Promise<void> {
-    await this.api.send('DELETE', `/api/v1/settings/${this.scope()}/${this.scopeId()}/${key}`);
-    await this.refresh();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.send('DELETE', `/api/v1/settings/${this.scope()}/${this.scopeId()}/${key}`);
+      await this.refresh();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }
 

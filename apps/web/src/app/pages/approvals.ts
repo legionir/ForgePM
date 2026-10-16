@@ -2,6 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
+import { UiToastService } from '../ui/toast';
+import { UiPage } from '../ui/page';
 
 interface ApprovalDto {
   id: string;
@@ -15,18 +18,17 @@ interface ApprovalDto {
 @Component({
   selector: 'page-approvals',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
-    <section data-testid="approvals">
-      <h1>{{ i18n.instant('approvals.title') }}</h1>
-      <ul class="list" data-testid="approval-list">
+    <ui-page data-testid="approvals" [title]="i18n.instant('approvals.title')">
+      <ul class="ui-list" data-testid="approval-list">
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
             <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
-            <button type="button" (click)="decide(a.id, 'approved')" data-testid="approval-approve">
+            <button type="button" ui-button variant="primary" (click)="decide(a.id, 'approved')" [disabled]="busy()" data-testid="approval-approve">
               {{ i18n.instant('approvals.approve') }}
             </button>
-            <button type="button" (click)="decide(a.id, 'rejected')" data-testid="approval-reject">
+            <button type="button" ui-button variant="destructive" (click)="decide(a.id, 'rejected')" [disabled]="busy()" data-testid="approval-reject">
               {{ i18n.instant('approvals.reject') }}
             </button>
           </li>
@@ -34,29 +36,44 @@ interface ApprovalDto {
           <li data-testid="approval-empty">{{ i18n.instant('approvals.empty') }}</li>
         }
       </ul>
-      @if (msg()) {
-        <p class="ok" data-testid="approval-msg">{{ msg() }}</p>
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="approval-error">{{ error() }}</p>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class ApprovalsPage implements OnInit {
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly items = signal<ApprovalDto[]>([]);
-  readonly msg = signal('');
+  readonly error = signal('');
+  private readonly toast = inject(UiToastService);
+  readonly busy = signal(false);
 
   async ngOnInit(): Promise<void> {
     await this.load();
   }
 
   async load(): Promise<void> {
-    this.items.set((await this.api.get<{ items: ApprovalDto[] }>('/api/v1/approvals')).items);
+    this.error.set('');
+    try {
+      this.items.set((await this.api.get<{ items: ApprovalDto[] }>('/api/v1/approvals')).items);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    }
   }
 
   async decide(id: string, decision: 'approved' | 'rejected'): Promise<void> {
-    await this.api.post(`/api/v1/approvals/${id}/decide`, { decision });
-    this.msg.set(`#${id.slice(0, 8)} ${decision}`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/approvals/${id}/decide`, { decision });
+      this.toast.ok(`#${id.slice(0, 8)} ${decision}`);
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

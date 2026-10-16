@@ -1,3 +1,4 @@
+import { AppError } from '@forgepm/shared';
 import { activeCipher, defaultRegistry, type Db, type DbLike, newId, recordAudit, unitOfWork } from '@forgepm/core';
 
 export interface ProviderRow {
@@ -63,6 +64,73 @@ export async function createProvider(
     });
   });
   return id;
+}
+
+/** Default endpoints per provider kind (same convention as core buildProvider: base includes /v1). */
+export const DEFAULT_BASE_URLS: Record<ProviderRow['kind'], string> = {
+  fake: '',
+  openai: 'https://api.openai.com/v1',
+  openai_compatible: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+};
+
+/**
+ * Live model list from the provider's {base_url}/models endpoint
+ * (OpenAI-compatible `data[].id` / Anthropic `data[].id`). `fake` returns the
+ * deterministic offline models. Throws PROVIDER_ERROR on any failure.
+ */
+export async function listProviderModels(kind: ProviderRow['kind'], baseUrl: string | null, apiKey: string | null): Promise<string[]> {
+  if (kind === 'fake') return ['fake-1', 'fake-mini'];
+  const base = (baseUrl || DEFAULT_BASE_URLS[kind]).replace(/\/+$/, '');
+  const headers: Record<string, string> =
+    kind === 'anthropic'
+      ? { 'x-api-key': apiKey ?? '', 'anthropic-version': '2023-06-01' }
+      : { authorization: `Bearer ${apiKey ?? ''}` };
+  let res: Response;
+  try {
+    res = await fetch(`${base}/models`, { headers, signal: AbortSignal.timeout(8000) });
+  } catch (err) {
+    throw new AppError('PROVIDER_ERROR', `models endpoint unreachable: ${(err as Error).message}`);
+  }
+  if (!res.ok) throw new AppError('PROVIDER_ERROR', `models list HTTP ${res.status}`);
+  const json = (await res.json().catch(() => ({}))) as { data?: { id?: string }[] };
+  return (json.data ?? []).map((m) => m.id).filter((id): id is string => !!id);
+}
+
+/** Partial update (name / endpoint / key / model / enabled) with audit. */
+export async function updateProvider(
+  db: Db,
+  orgId: string,
+  actorId: string,
+  requestId: string,
+  id: string,
+  input: { name?: string; base_url?: string | null; api_key?: string; default_model?: string | null; enabled?: boolean },
+): Promise<void> {
+  const cipher = input.api_key ? activeCipher() : null;
+  await unitOfWork(db, async ({ tx }) => {
+    const values: Record<string, unknown> = {};
+    if (input.name !== undefined) values.name = input.name;
+    if (input.base_url !== undefined) values.base_url = input.base_url;
+    if (input.default_model !== undefined) values.default_model = input.default_model;
+    if (input.enabled !== undefined) values.enabled = input.enabled;
+    if (input.api_key) {
+      values.encrypted_key = cipher!.encrypt(input.api_key);
+      values.key_last4 = last4(input.api_key);
+    }
+    if (Object.keys(values).length) {
+      await tx.updateTable('ai_providers').set(values as never).where('id', '=', id).where('organization_id', '=', orgId).execute();
+    }
+    await recordAudit(tx, {
+      organization_id: orgId,
+      actor_type: 'user',
+      actor_id: actorId,
+      action: 'ai_provider.update',
+      resource_type: 'ai_provider',
+      resource_id: id,
+      summary: { fields: Object.keys(values) },
+      request_id: requestId,
+    });
+  });
 }
 
 export async function decryptKey(db: DbLike, id: string, orgId: string): Promise<string | null> {

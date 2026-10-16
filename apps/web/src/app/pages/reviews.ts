@@ -2,6 +2,9 @@ import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@ang
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
+import { UiButton } from '../ui/button';
+import { UiPage } from '../ui/page';
+import { UiToastService } from '../ui/toast';
 import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 
@@ -33,14 +36,17 @@ interface RepoDto {
 @Component({
   selector: 'page-reviews',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp],
+  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
   template: `
-    <section data-testid="reviews">
-      <h1>{{ i18n.instant('reviews.title') }}</h1>
+    <ui-page data-testid="reviews" [title]="i18n.instant('reviews.title')">
       <ui-project-picker />
 
+      @if (error()) {
+        <p class="ui-error" role="alert" data-testid="reviews-error">{{ error() }}</p>
+      }
+
       @if (disabled()) {
-        <p class="hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
+        <p class="ui-hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
       } @else {
         <form (ngSubmit)="runCode()" data-testid="review-run-form">
           <label>Repo
@@ -51,11 +57,11 @@ interface RepoDto {
             </select>
           </label>
           <label>{{ i18n.instant('reviews.pr') }}<input name="pr" type="number" [(ngModel)]="prNumber" required data-testid="review-pr" /></label>
-          <button type="submit" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
+          <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
         </form>
 
         <h2>{{ i18n.instant('reviews.runs') }}</h2>
-        <ul class="list" data-testid="run-list">
+        <ul class="ui-list" data-testid="run-list">
           @for (r of runs(); track r.id) {
             <li data-testid="run-row">{{ r.kind }} · {{ r.target }} · {{ r.status }}</li>
           } @empty {
@@ -64,17 +70,17 @@ interface RepoDto {
         </ul>
 
         <h2>{{ i18n.instant('reviews.findings') }}</h2>
-        <ul class="list" data-testid="finding-list">
+        <ul class="ui-list" data-testid="finding-list">
           @for (f of findings(); track f.id) {
             <li data-testid="finding-row">
               {{ f.title }} ({{ f.severity }} · {{ f.confidence }}) — {{ f.status }}
-              <button type="button" (click)="decide(f.id, 'dismissed')" data-testid="finding-dismiss">
+              <button type="button" ui-button (click)="decide(f.id, 'dismissed')" data-testid="finding-dismiss">
                 {{ i18n.instant('reviews.dismiss') }}
               </button>
-              <button type="button" (click)="decide(f.id, 'accepted')" data-testid="finding-accept">
+              <button type="button" ui-button (click)="decide(f.id, 'accepted')" data-testid="finding-accept">
                 {{ i18n.instant('reviews.accept') }}
               </button>
-              <button type="button" (click)="createIssue(f.id)" data-testid="finding-issue">
+              <button type="button" ui-button (click)="createIssue(f.id)" data-testid="finding-issue">
                 {{ i18n.instant('reviews.create_issue') }}
               </button>
             </li>
@@ -83,7 +89,7 @@ interface RepoDto {
           }
         </ul>
       }
-    </section>
+    </ui-page>
   `,
 })
 export class ReviewsPage implements OnInit {
@@ -95,6 +101,9 @@ export class ReviewsPage implements OnInit {
   readonly findings = signal<FindingDto[]>([]);
   readonly repos = signal<RepoDto[]>([]);
   readonly disabled = signal(false);
+  readonly error = signal('');
+  readonly busy = signal(false);
+  private readonly toast = inject(UiToastService);
   repoId = '';
   prNumber = 1;
 
@@ -116,9 +125,16 @@ export class ReviewsPage implements OnInit {
       this.repos.set((await this.api.get<{ items: RepoDto[] }>('/api/v1/repositories')).items);
       if (!this.repoId && this.repos()[0]) this.repoId = this.repos()[0].id;
       this.disabled.set(false);
-    } catch {
-      // 503 / MODULE_DISABLED => guidance mode (§11 "فقط راهنمای فعال‌سازی")
-      this.disabled.set(true);
+    } catch (err) {
+      // 503 / MODULE_DISABLED => guidance mode (§11 "فقط راهنمای فعال‌سازی").
+      // Any OTHER failure is a real error and must not hide the page (STT-006).
+      const e = err as { status?: number; message?: string };
+      if (e.status === 503 || /MODULE_DISABLED/i.test(e.message ?? '')) {
+        this.disabled.set(true);
+      } else {
+        this.disabled.set(false);
+        this.error.set(e.message ?? 'error');
+      }
     }
   }
 
@@ -126,6 +142,18 @@ export class ReviewsPage implements OnInit {
   async runCode(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid || !this.repoId) return;
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.runCodeInner(pid);
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  private async runCodeInner(pid: string): Promise<void> {
     await this.api.post('/api/v1/review/code-runs', {
       project_id: pid,
       repository_id: this.repoId,
@@ -138,12 +166,29 @@ export class ReviewsPage implements OnInit {
   }
 
   async decide(id: string, status: 'dismissed' | 'accepted'): Promise<void> {
-    await this.api.post(`/api/v1/review/findings/${id}/decision`, { status });
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/review/findings/${id}/decision`, { status });
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async createIssue(id: string): Promise<void> {
-    await this.api.post(`/api/v1/review/findings/${id}/create-work-item`);
-    await this.load();
+    this.error.set('');
+    this.busy.set(true);
+    try {
+      await this.api.post(`/api/v1/review/findings/${id}/create-work-item`);
+      this.toast.ok(this.i18n.instant('reviews.issue_created'));
+      await this.load();
+    } catch (err) {
+      this.error.set((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
   }
 }

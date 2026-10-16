@@ -20,7 +20,6 @@ export class I18n {
   readonly lang = signal<Lang>((localStorage.getItem('fpm_lang') as Lang) || 'en');
 
   constructor() {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     this.dict = { en: EN, fa: FA };
     this.apply();
   }

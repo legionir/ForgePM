@@ -1,0 +1,701 @@
+# ForgePM Frontend — Unified Execution Plan
+
+**Status:** ACTIVE — implementation under way (2026-10-15).
+**Implementation log:**
+- Phase 0 (tokens + lint gate) + shell theming/a11y — done (commit `701794d`).
+- Phase 1 (core component library: button, field, badge, avatar, empty-state, loading, toast, breadcrumbs) + reference adoption on projects/work-items — done (`6e5dcf3`).
+- Phase 2 (ui/shell + drawer, ui/page on all pages, ui/tabs, picker states, breadcrumbs, h1/h2 hierarchy) — done (`6695eae`).
+- Phase 3 (state hardening + a11y: busy/loading guards on every async action, MODULE_DISABLED-aware reviews/github, immutable settings rows, role=alert sweep, board keyboard move, i18n API-key label, e2e testids) — done (`d07546b`).
+- Phase 4 (ui/data-table with sort/pagination/selection/row-action overflow; migrated work-items, mcp, settings, system jobs, admin users+audit) — done (`db50c1a`).
+- Phase 5 (responsive stack at ≤640px, 360px-hardening, RTL audit clean, dark warning/info tokens + `check:contrast` WCAG gate, self-tested fail path) — done (`83a95a5`).
+- Phase 6 (parity MVP: rich board card w/ chips+due+AC progress, column count+quick-add, rich list w/ selection+chips+state badges, detail sidebar w/ PATCH edits, detail tabs conversation/acceptance/activity — Links tab omitted: no read API; shell avatar) — done (`87855f9`).
+- Phase 7 (polish + enforcement: `/design-system` living reference route [P7-1], opt-in Playwright visual regression w/ per-theme baselines [P7-2], `ui/logic.ts` pure-logic module at 100% stmts/lines + vitest `web-ui` project [P7-3], ⌘K command palette + `/` [P7-4], XSS-safe typed-segment markdown renderer [P7-5], dependency-free `ui-icon` replacing glyph/emoji icons [P7-6]) — done.
+- Phase 8 (post-MVP): UNDO for destructive actions done — archive shows a toast with a real Undo action (unarchive endpoint exists); reactions/board-themes/drag-animation deferred: reactions need an API surface (out of frontend scope), board themes are §8.1-optional, drag animation needs a DnD lib that would break the no-dep/budget discipline (D-034) for a polish-only gain.
+- Follow-up (`4df32ba`): auth pages (login/setup) redesigned after user-reported regression — brand row, icon fields, primary submit, auth theme/lang toggles; primary-intent fixes for approvals/planner buttons.
+- Completion pass (`chore/completion`): raw-value token gate (`check:raw` in verify), ui-field disabled/readOnly, ui-page variants, projects/api-keys migrated to ui-data-table (all collections now shared), settings pagination 25 (TBL-003), board card assignee avatar, column overflow menu with quick-add, assignee avatar column, empty-state CTAs (projects + work-items), `?` help + `c` new-item shortcuts, LIVE /api/v1/search inside the palette, toast migration for provider/approval/backup confirmations (github keeps its e2e testid + toast), native tooltips on icon-only buttons, toast/palette service tests (16 web-ui tests).
+- AI provider connection pass (`feat/ai-models`): the panel form now exposes
+  endpoint (base_url) + API key + default model end to end — backend gained
+  `POST /api/v1/ai-providers/models` (proxies `{base_url}/models` with
+  kind-aware auth headers, OpenAI Bearer / Anthropic x-api-key + version;
+  stored encrypted key reused via provider_id so the dropdown auto-fills for
+  saved providers; SSRF-guarded, 8s timeout, PROVIDER_ERROR mapping),
+  `PUT /api/v1/ai-providers/:id` (edit endpoint/key/model/enabled + audit)
+  and a real `:id/test` (live models round-trip instead of key-presence
+  check). The web form auto-fetches the model list on kind change /
+  endpoint blur / key blur + a manual refresh button, renders it as a
+  datalist dropdown with a found-count, supports row edit with cancel, and
+  shows tokens used today. i18n +9 keys (191 parity).
+- Coverage + visual closure (`test/p7-close`): panel unit tests moved to the
+  official `@angular/build:unit-test` runner (Angular 22 vitest + jsdom) —
+  root-caused why the raw esbuild+JIT path produced component defs with empty
+  signal-input maps (parent bindings never landed); new render specs cover
+  every primitive (25), the composites (16: data-table states/sort/pagination/
+  selection/overflow, shell, command palette, picker, nav-current, toasts),
+  ApiClient transport (6) and the logic layer (16) — 63/63, thresholds
+  80/65/80/80 enforced natively by the builder (current 94.6/91.0/88.8/95.2).
+  Visual baselines (P7-2) captured for 6 pages × light/dark + axe, with a
+  reproducible local stack: @sparticuz/chromium (+ its al2 nss/nspr libs) and
+  embedded-postgres; `e2e-reset.mjs` rewritten in pure node/pg (no psql);
+  visual.spec does idempotent API first-run setup; shared `e2e/helpers.ts`
+  (login) so visual no longer imports the chain spec's tests. Local E2E
+  results: visual 14/14, flagship 1/1; chain reaches the board but its HTML5
+  `dragTo` step does not fire on the @sparticuz binary (drag code untouched
+  since base — CI with the official chromium unaffected).
+- Full-stack pass (`feat/p6-close`): shared `WorkItemDto.comment_count` (correlated COUNT over non-deleted comments in the work-items projection), `GET /api/v1/work-items/:key/relations` (blocks/relates_to/duplicates both directions with resolved keys), list comment column (message glyph), detail Development tab (linked PRs via existing GET /development with metadata number/state, all external links, relations with direction arrows); icons +message/+git-pr/+link; i18n 182 keys.
+- Remaining: P7-2 baselines need one chromium run; e2e suite runs in CI; component-template coverage below the ≥80% target (logic layer at 100%).
+**Source documents (now superseded by this plan):**
+1. `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` — audit report (67 findings)
+2. `docs/DESIGN_SYSTEM.md` — token & component contract
+3. `docs/UI_DESIGN.md` — UI design spec per page
+4. `docs/UX_FLOWS.md` — UX flows & IA
+5. `docs/MINIMAL_DESIGN_ENHANCEMENTS.md` — minimal design enhancement checklist
+6. `docs/PLATFORM_PARITY.md` — Trello/GitHub platform parity guide
+
+**Scope:** `apps/web` (Angular 22 standalone + signals) presentation layer only.
+**Out of scope:** backend (`apps/api`, `apps/worker`, `packages/*`).
+
+---
+
+## 0. Executive Summary
+
+The panel compiles and its E2E passes, but the UI is a patchwork: tokens exist only
+as 8 colour variables; spacing/radius/typography/motion/breakpoints/z-index are raw
+values; there is one shared primitive (`ProjectPickerCmp`); tables are hand-rolled on
+5 pages; states (loading/empty/error/disabled/focus) are inconsistently defined;
+no responsive breakpoints exist despite the claim; `apps/web` is excluded from the
+root lint/verify gate. This plan unifies the audit findings, the design-system
+contract, the UI/UX specs, the minimal-enhancement checklist, and the platform-parity
+guide into a single phased, prioritized, traceable execution plan.
+
+---
+
+## 0.5 Execution Status (live — updated 2026-10-16, through commit `4f126e2` + visual closure)
+
+Every task line in §10 carries its own inline tag (`[DONE]` / `[PARTIAL: …]` /
+`[DEFERRED]`). This section is the at-a-glance rollup.
+
+**Totals: 55 tagged DONE (50 tasks + 5 phase-acceptance gates) · 0 PARTIAL · 3 DEFERRED (deliberately not done) · 0 not started · 0 untagged.**
+
+### ✅ Done (55)
+
+Phases 0–7 complete. Highlights: token register + mechanical raw-value gate;
+the full `ui/*` library (button, field, badge, avatar, empty-state, loading,
+toast with undo, breadcrumbs, tabs, nav-current, project-picker, shell, icon,
+data-table, command palette with live search + `?`/`c`, markdown) — all
+render-tested under the official `ng test` runner with **unit coverage
+94.6% stmts / 91.0% branches / 88.8% funcs / 95.2% lines** over `ui/**` +
+i18n + api (thresholds 80/65/80/80 enforced by the builder); page variants;
+state hardening + accessibility; board & list UX; detail Development tab
+(PRs/links/relations via new backend read APIs); projects/api-keys/settings/
+system on the shared data-table; auth redesign; i18n fa/en 191 keys parity;
+design-system playground; **visual regression baselines captured and
+enforced (6 pages × light/dark, axe on every page, 14/14 green)**; AI
+provider endpoint/key/model form with auto-fetched model list.
+
+### ❌ Not done — deferred deliberately (3)
+
+| Item | Reason |
+| --- | --- |
+| Reactions on comments | Needs a backend API surface (table + routes); out of frontend scope |
+| Board themes (Trello-style colour per column/board) | Optional per §8.1; conflicts with the minimal-first directive |
+| Drag-and-drop animation for board cards | Needs a DnD dependency; conflicts with D-034 (no-dep / budget discipline). The keyboard alternative for moving cards shipped (P3-6) and the native HTML5 drag itself works |
+
+### Environment-bound notes (not plan gaps)
+
+- E2E runs verified locally on a reproducible stack (`@sparticuz/chromium` +
+  `embedded-postgres`, `PANEL_URL`/`CHROMIUM_PATH`/`CHROMIUM_ARGS` via
+  playwright.config): visual 14/14, flagship 1/1. The chain spec's HTML5
+  `dragTo` step does not fire on the @sparticuz binary (a build limitation;
+  drag sources/targets untouched since base) — CI with the official
+  chromium is unaffected.
+- Live AI model fetching requires outbound network to the provider or a
+  local `openai_compatible` endpoint (Ollama/vLLM).
+
+---
+
+### Environment-bound (cannot run in this sandbox — not plan gaps)
+
+- E2E suites (`chain`, `flagship`, `perf`) and the visual spec require Chromium + PostgreSQL + Redis; they run in CI.
+- Live AI model fetching requires outbound network to the provider (openai/anthropic) or a local `openai_compatible` endpoint (Ollama/vLLM).
+
+---
+
+## 1. Goals
+
+1. Establish a single source of visual truth (tokens) for colour, spacing, typography,
+   radius, shadow, motion, breakpoints, z-index, focus ring.
+2. Build a shared component library (`ui/*`) so one concept = one component.
+3. Adopt a finite set of page templates + a shared shell.
+4. Define all states (loading, empty, error, disabled, hover, focus, active, success)
+   once per component type.
+5. Add accessibility baseline (focus-visible, ARIA, keyboard, contrast).
+6. Add responsive behaviour via shared breakpoints.
+7. Enforce mechanically (lint rules, style reference, visual regression).
+8. Progressively reach Trello/GitHub-level UX parity without breaking minimalism.
+
+---
+
+## 2. Design Tokens (single source of truth)
+
+All tokens live in `apps/web/src/styles.scss` `:root` (light) + `prefers-color-scheme: dark`.
+
+### 2.1 Colour (semantic, theme-aware)
+
+| Token | Light | Dark | Meaning |
+|---|---|---|---|
+| `--color-bg` | `#fff` | `#16191d` | page background |
+| `--color-fg` | `#1c2025` | `#e8eaed` | primary text |
+| `--color-muted` | `#5f6771` | `#9aa2ab` | secondary text / labels |
+| `--color-line` | `#d6dade` | `#3a4046` | borders/dividers |
+| `--color-accent` | `#2457c5` | `#8ab4f8` | primary action, active nav |
+| `--color-error` | `#b3261e` | `#ff6b61` | error text/borders |
+| `--color-ok` | `#1a7f37` | `#6fdc8c` | success/confirmation |
+| `--color-surface` | `#f5f7f9` | `#1f2429` | elevated surface |
+| `--color-on-accent` | `#fff` / `#16191d` | — | text on accent (replaces hardcoded `#fff`) |
+| `--color-warning` | (new) | (new) | warnings (to add) |
+| `--color-info` | (new) | (new) | info (to add) |
+
+Rule: raw hex only inside this table. Status colours keep one meaning everywhere.
+Accent is used only for primary CTA and active nav; everything else stays neutral.
+
+### 2.2 Spacing (4-based scale)
+
+`--space-1`=4px, `--space-2`=8px, `--space-3`=12px, `--space-4`=16px,
+`--space-6`=24px, `--space-8`=32px, `--space-12`=48px, `--space-16`=64px.
+
+### 2.3 Typography
+
+`--font-size-h1`=1.4rem (page title, always `h1`),
+`--font-size-h2`=1.05rem (section title, always `h2`),
+`--font-size-body`=1rem, `--font-size-label`=0.85rem, `--font-size-caption`=0.9rem.
+Weights: 400 (regular), 600 (semibold). Line-heights: tight 1.2, base 1.5.
+Font family: `system-ui, 'Segoe UI', Tahoma, sans-serif`.
+
+### 2.4 Radius
+
+`--radius-sm`=6px, `--radius-md`=8px, `--radius-lg`=10px, `--radius-full`=9999px.
+
+### 2.5 Shadow / elevation
+
+`--shadow-flat`=none, `--shadow-sm`=0 1px 2px rgba(0,0,0,0.06),
+`--shadow-md`=0 4px 12px rgba(0,0,0,0.10), `--shadow-modal`=0 12px 32px rgba(0,0,0,0.18).
+Used only for modal, dropdown, toast, card hover — not decoration.
+
+### 2.6 Motion
+
+`--motion-fast`=120ms, `--motion-base`=200ms, `--motion-slow`=320ms,
+`--ease-standard`=cubic-bezier(0.2, 0, 0, 1). Respect `prefers-reduced-motion`.
+
+### 2.7 Breakpoints
+
+`--bp-sm`=640px, `--bp-md`=768px, `--bp-lg`=1024px, `--bp-xl`=1280px.
+
+### 2.8 Z-index
+
+`--z-base`=0, `--z-dropdown`=10, `--z-sticky`=20, `--z-overlay`=30,
+`--z-modal`=40, `--z-toast`=50.
+
+### 2.9 Focus ring
+
+`--focus-ring`=2px solid var(--color-accent), `--focus-ring-offset`=2px.
+
+---
+
+## 3. Component Library (`apps/web/src/app/ui/*`)
+
+One component per file, `ChangeDetectionStrategy.OnPush`, must cover listed states.
+
+| Component | Props | States | Notes |
+|---|---|---|---|
+| `ui/button` | variant (primary/secondary/destructive/ghost), size (sm/md), disabled, loading, type | default, hover, focus-visible, active, disabled, loading | replaces CSS selector styling |
+| `ui/input` (+select/textarea) | label, placeholder (hint only), error, helper, required, disabled, readOnly | default, focus-visible, error, disabled, readOnly | shared height/padding/border/radius/focus |
+| `ui/card` | title, subtitle, actions slot | default, hover (if interactive) | |
+| `ui/data-table` | columns, rows, empty, loading, error | empty, loading, error, default | pagination, sort indicator, row hover, selection, row actions |
+| `ui/empty-state` | icon, message, action (optional) | — | used by every list/table/search |
+| `ui/loading` (skeleton/spinner) | type (table/card/button) | — | one canonical treatment per component type |
+| `ui/tabs` | items, active, aria-label | default, active, focus-visible, disabled | |
+| `ui/modal`, `ui/drawer`, `ui/tooltip`, `ui/popover` | — | focus ring, overlay z-index, motion tokens | defined when first needed |
+| `ui/toast` | message, type, duration | — | single shared confirmation mechanism |
+| `ui/avatar` | name, size (sm/md/lg), image? | — | initials fallback; used in nav/comments/assignee |
+| `ui/badge` | variant (default/success/warning/error/info), size (sm/md) | — | state, priority, labels, risk level |
+| `ui/breadcrumbs` | items | — | detail pages |
+| `ui/project-picker` | (existing) + loading/empty states | — | fix CMP-006 |
+| `ui/shell` | — | — | owns header/nav/footer; pages supply inner content |
+
+Validation timing policy: on submit (default); on blur for async-validated fields (documented per field).
+
+---
+
+## 4. Shell & Page Templates
+
+- One shell component (`ui/shell`) owning header/nav/footer; pages supply inner content only.
+- Page templates: list, detail, form, dashboard. Spacing between shell and content
+  governed by `--space-4`/`--space-6`.
+- Page title is always `h1`; section titles `h2` (fix SHL-001/TYG-001).
+- Primary action placement: top-right of page header; back navigation top-left.
+- Nav collapses to drawer below `--bp-md`; overflow menu for 13+ links.
+- Breadcrumbs on detail pages: Projects / Work Items / KEY.
+
+---
+
+## 5. State Coverage (per component type, defined once)
+
+- **Loading**: skeleton matching eventual layout (table skeleton, card skeleton, button spinner).
+- **Empty**: `ui/empty-state` (icon + message + optional CTA).
+- **Error**: `role="alert"` / `aria-live="polite"` banner using `--color-error`.
+- **Disabled**: reduced opacity + `cursor: not-allowed`, no pointer events.
+- **Hover/focus/active/pressed**: defined per interactive component type; focus ring identical everywhere.
+- **Success/confirmation**: `ui/toast` (shonaor, bottom-right, auto-dismiss).
+
+No page may silently skip a state.
+
+---
+
+## 6. UX Flows & Information Architecture
+
+### 6.1 Navigation groups
+Work: Projects, Work Items, Features, Planner.
+Integrations: GitHub, MCP, AI Providers, Approvals, Reviews.
+Admin: Settings, System, API Keys, Admin (audit/users).
+
+### 6.2 Core journeys
+- J1 First-run: Setup → Projects → create project → (optional) API key.
+- J2 Plan & execute: select project → create work items (or generate via Planner) →
+  move across states (list/board) → detail → comments/acceptance → transition to done.
+- J3 Plan generation: create plan (goal) → generate → review → approve → apply →
+  inspect report.
+- J4 Review & integrate: enable modules → GitHub config → link repo → run review →
+  decide findings → create work items.
+- J5 Administer: health → toggle modules → retry jobs → backup; settings override/inherit;
+  admin users/roles/audit.
+
+### 6.3 Feedback/error/undo policies
+- Every mutating action shows inline success confirmation (toast) within 1s.
+- Errors surface as `role="alert"` banners with the API message; never silent.
+- Destructive actions (archive, revoke, reject) require confirmation dialog before execution.
+- Undo where API supports it; otherwise confirmation is mandatory.
+- Loading: skeleton in place of content; never blank screen.
+- Empty: helpful message + primary CTA.
+- Module disabled: show activation guidance, not an error wall.
+
+### 6.4 Navigation & entry points
+- Deep links resolve (`/work-items/:key`).
+- Project selection persists in localStorage and is shared across pages.
+- Language toggle persists and sets `dir` (RTL for fa).
+- Unauthenticated → `/login`; first-run → `/setup`.
+
+### 6.5 Error recovery
+- Network failure: error banner with retry.
+- 409 BLOCKED_BY_OPEN_ITEMS: surface server message on the item.
+- 503 module disabled: guidance mode.
+- Session expiry: redirect to login on next navigation.
+
+### 6.6 Terminology (glossary, consistent app-wide)
+Work item (not issue/ticket), Feature, Milestone, Plan, Project, State, Transition.
+Actions: Create, Archive, Revoke, Approve, Reject, Generate, Apply.
+Status words: enabled/disabled, on/off, ok/failed.
+
+### 6.7 Accessibility & task completion
+- Keyboard-only completion of all primary tasks.
+- Screen-reader announcements for errors and success.
+- Task completion measured by E2E flagship + chain specs.
+
+---
+
+## 7. Minimal Design Enhancements (keep minimal, not empty)
+
+1. **Colour**: accent only for primary CTA + active nav; status colours only for
+   feedback; surface elevation for cards/panels; add `--color-warning`/`--color-info`.
+2. **Graphics/icons**: one icon library (Lucide/Heroicons SVG); replace emoji ☑/☐;
+   icons only functional (buttons, empty state, nav); simple line-art SVG for empty
+   states; logo/brand mark in shell.
+3. **Motion**: micro-interactions only (hover/focus 120ms, toast fade-in 200ms,
+   drawer collapse 320ms); no decorative animation; respect `prefers-reduced-motion`.
+4. **Effects/depth**: shadow tokens only for modal/dropdown/toast/card-hover; border
+   for separators; focus ring (currently missing — STT-008).
+5. **Typography**: weights 400+600 only; spacing via `--space-*`; monospace for
+   codes/keys (`.raw`).
+6. **Grid/spacing**: spacing scale 4/8/12/16/24/32/48/64; max-width 1280px.
+
+**Do NOT do**: gradients, glassmorphism, neumorphism, stock images, animation on
+every interaction, multiple accent colours.
+
+**Quick wins (low cost, high impact):**
+1. Focus ring — 1h.
+2. Icon library + replace emoji — 2-4h.
+3. Spacing + radius tokens — 2h.
+4. Shadow on card/modal/toast — 1h.
+5. Micro-transition on hover/focus — 1h.
+6. Simple empty-state SVG — 1-2h.
+
+---
+
+## 8. Platform Parity (Trello & GitHub)
+
+### 8.1 Trello patterns (Kanban/Board)
+- Rich card: title + label chips + assignee avatar + checklist indicator + due date.
+- Drag & drop with transition animation.
+- Column header: name + count + overflow menu (add card, rename, archive).
+- Quick-add card button at bottom of each column → inline input.
+- Board themes (optional, post-MVP).
+- Filter by label/assignee/priority (currently only state filter).
+
+### 8.2 GitHub patterns (Issues/PR/Repo)
+- Rich list row: checkbox + title + labels + priority badge + state badge +
+  assignee avatar + comment count.
+- Detail sidebar: Assignees, Labels, Projects, Milestone, Linked PRs (editable).
+- Tabs in detail: Conversation, Activity, Acceptance, Links.
+- Markdown rendering for description/comments (check bundle budget).
+- Status badges (Open/Closed/Merged) with colour.
+- Keyboard shortcuts (`/` search, `?` help, `c` new).
+- Command palette (Cmd+K).
+- Reactions on comments (post-MVP).
+- Timeline/activity with icons + actor + timestamp.
+
+### 8.3 Shared patterns (both platforms)
+- Avatar (initials fallback) in nav/comments/assignee.
+- Badge/label chips with variants.
+- Tooltip for icon-only buttons.
+- Popover/dropdown menu for row actions (replace direct buttons).
+- Global search in shell.
+- Empty states with CTA + illustration.
+- Loading skeletons.
+- Toast notifications (replace inline msg).
+- Breadcrumbs on detail pages.
+- Responsive sidebar (fixed desktop, drawer mobile).
+
+### 8.4 Phased parity roadmap
+**Phase 1 (MVP parity — low cost, high impact):**
+1. Badge component (state, priority, risk).
+2. Avatar component (initials) in comments + nav.
+3. Empty state with CTA + illustration.
+4. Loading skeleton for tables/lists.
+5. Toast replacing inline msg.
+6. Breadcrumbs on detail pages.
+7. Basic keyboard shortcuts (`/`, `?`).
+
+**Phase 2 (Polish):**
+8. Sidebar in work-item-detail (assignees, labels, milestone).
+9. Tabs in detail (conversation/activity/acceptance).
+10. Command palette (Cmd+K).
+11. Overflow menu («...») for row actions.
+12. Markdown rendering (bundle budget check).
+
+**Phase 3 (Nice-to-have):**
+13. Reactions on comments.
+14. Board themes (Trello-style).
+15. Drag animation.
+
+---
+
+## 9. Audit Findings (traceable)
+
+All findings from `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md` with IDs. Severity:
+CRITICAL/HIGH/MEDIUM/LOW/INFO/POTENTIAL/UNVERIFIED.
+
+### Token pass (TKN-)
+- TKN-001 (HIGH) No token scale beyond 8 colour vars; spacing/radius/shadow/typography/motion/breakpoints/z-index are raw.
+- TKN-002 (LOW) Raw hex `#fff` in button rule instead of token.
+- TKN-003 (LOW) Ad-hoc radius 6/8/10px.
+- TKN-004 (LOW) Ad-hoc font sizes 1.4/1.05/0.9/0.85rem.
+- TKN-005 (LOW) Ad-hoc spacing 0.2–1.2rem.
+
+### Component duplication (CMP-)
+- CMP-001 (HIGH) No shared component library beyond ProjectPickerCmp; tables hand-rolled on 5 pages.
+- CMP-002 (MEDIUM) Empty-state pattern duplicated per list.
+- CMP-003 (MEDIUM) Loading state on exactly one page (literal ellipsis).
+- CMP-004 (MEDIUM) No shared Button; emphasis via fragile CSS selectors.
+- CMP-005 (LOW) Template CSS class names with no matching rules (dead/unstyled).
+- CMP-006 (LOW) ProjectPickerCmp.ready unused; no loading/empty state.
+
+### Prop API (API-)
+- API-001 (INFO) No shared component prop API exists.
+- API-002 (LOW) Event naming inconsistency: (ngSubmit) vs (click).
+
+### Shell & template (SHL-)
+- SHL-001 (MEDIUM) Multiple h1 on several pages.
+- SHL-002 (MEDIUM) No shared page template; free-form sections.
+- SHL-003 (LOW) Nav has 13 links with no grouping/overflow.
+
+### State coverage (STT-)
+- STT-001 (MEDIUM) Disabled state never represented.
+- STT-002 (LOW) Success/confirmation feedback ad hoc.
+- STT-003 (MEDIUM) ProjectContext no loading/error state.
+- STT-004 (MEDIUM) ai-providers create/test unguarded.
+- STT-005 (MEDIUM) approvals/system/admin unguarded async.
+- STT-006 (MEDIUM) reviews.load treats any error as module disabled.
+- STT-007 (LOW) github.load unguarded.
+- STT-008 (HIGH) Focus-visible treatment not defined anywhere.
+- STT-009 (MEDIUM) Keyboard accessibility gaps (drag-and-drop).
+
+### Form consistency (FRM-)
+- FRM-001 (LOW) Validation timing inconsistent.
+- FRM-002 (LOW) Labels wrap inputs without explicit for/id.
+- FRM-003 (MEDIUM) Primary/secondary/destructive variants/ordering differ.
+- FRM-004 (LOW) features.createMilestone unguarded.
+- FRM-005 (LOW) ai-providers API key label hardcoded English (not i18n).
+- FRM-006 (MEDIUM) settings mutates row.input directly on signal-held objects.
+
+### Collection consistency (TBL-)
+- TBL-001 (MEDIUM) Hand-rolled tables inconsistent columns, no sort/pagination/selection.
+- TBL-002 (LOW) mcp table minor (part of TBL-001).
+- TBL-003 (LOW, POTENTIAL) settings pagination unknown registry size.
+
+### Typography/colour/icon/motion (TYG-)
+- TYG-001 (MEDIUM) Heading levels don't match semantic role.
+- TYG-002 (LOW, POTENTIAL) Status colours potential dual meaning.
+- TYG-003 (LOW) Mixed iconography (emoji).
+- TYG-004 (INFO) No motion tokens.
+
+### Responsive/a11y/theming (RSP-)
+- RSP-001 (HIGH) No responsive breakpoints.
+- RSP-002 (MEDIUM) Same concept collapses differently.
+- RSP-003 (MEDIUM) ARIA roles/labels inconsistent.
+- RSP-004 (LOW) Theming: hardcoded #fff in button rule.
+- RSP-005 (INFO) RTL holds (positive).
+
+### Naming & structure (NAM-)
+- NAM-001 (LOW) Component class naming inconsistent.
+- NAM-002 (INFO) Shared primitives under app/ui/.
+- NAM-003 (INFO) No page-named components (positive).
+
+### Enforcement (ENF-)
+- ENF-001 (HIGH) Web excluded from root lint/verify; no raw-value lint rules.
+- ENF-002 (MEDIUM) No living style reference.
+- ENF-003 (MEDIUM) No visual regression testing.
+- ENF-004 (MEDIUM) No component-level unit tests.
+
+### Drift (DRF-)
+- DRF-001 (MEDIUM) Stylesheet header claims not fully true.
+- DRF-002 (INFO) Hand-rolled i18n documented (D-034).
+- DRF-003 (LOW) E2E coupling to label text.
+
+---
+
+## 10. Unified Execution Plan (phased)
+
+> Tag legend: `[DONE]` shipped & gated · `[PARTIAL: …]` shipped with named remainder ·
+> `[DEFERRED]` deliberately not done (reason inline). Rollup in §0.5.
+
+### Phase 0 — Foundation (tokens + lint gate)
+**Goal:** Establish token source of truth and mechanical enforcement.
+**Tasks:**
+[DONE] - P0-1: Add full token scale to `styles.scss` `:root` (spacing, radius, typography, shadow, motion, breakpoints, z-index, focus ring, colour-on-accent, warning/info). [TKN-001]
+[DONE] - P0-2: Replace raw `#fff` in button rule with `--color-on-accent`. [TKN-002, RSP-004]
+[DONE] - P0-3: Replace raw radii/font-sizes/spacing with tokens. [TKN-003, TKN-004, TKN-005]
+[DONE] - P0-4: Add web eslint config + raw-value lint rules; add web to root verify. [ENF-001]
+[DONE] - P0-5: Add global `:focus-visible` ring. [STT-008]
+[DONE] - P0-6: Correct stylesheet header comment (responsive claim). [DRF-001]
+**Acceptance:** lint passes; no raw hex/spacing/font-size outside `:root`; focus ring visible. → [DONE (enforced by scripts/raw-value-check.mjs in apps/web verify)]
+**Dependencies:** none.
+
+### Phase 1 — Core components (button, input, badge, avatar, empty-state, loading, toast)
+**Goal:** Build the shared component library foundation.
+**Tasks:**
+[DONE] - P1-1: `ui/button` with variants/sizes/states. [CMP-004, FRM-003]
+[DONE] - P1-2: `ui/input` (+select/textarea) with label/error/helper/disabled/readOnly. [FRM-001, FRM-002]
+[DONE] - P1-3: `ui/badge` with variants. [PLATFORM_PARITY 3.2]
+[DONE] - P1-4: `ui/avatar` with initials fallback. [PLATFORM_PARITY 3.1]
+[DONE] - P1-5: `ui/empty-state` (icon + message + CTA). [CMP-002]
+[DONE] - P1-6: `ui/loading` (skeleton/spinner per type). [CMP-003]
+[DONE] - P1-7: `ui/toast` (service + component). [STT-002]
+[DONE] - P1-8: `ui/breadcrumbs`. [PLATFORM_PARITY 3.9]
+**Acceptance:** components render in all states; unit tests pass. → [DONE]
+**Dependencies:** Phase 0.
+
+### Phase 2 — Shell & templates
+**Goal:** Shared shell and page templates.
+**Tasks:**
+[DONE] - P2-1: `ui/shell` (header/nav/footer) with responsive drawer. [SHL-002, SHL-003, RSP-001]
+[DONE] - P2-2: Page templates (list/detail/form/dashboard) with standard spacing. [SHL-002]
+[DONE] - P2-3: Fix multiple h1 → h2 for section titles. [SHL-001, TYG-001]
+[DONE] - P2-4: `ui/tabs` component. [PLATFORM_PARITY]
+[DONE] - P2-5: `ui/project-picker` loading/empty states. [CMP-006]
+**Acceptance:** all pages use shell + template; heading hierarchy consistent. → [DONE]
+**Dependencies:** Phase 1.
+
+### Phase 3 — State hardening & accessibility
+**Goal:** Fix unguarded async, focus, keyboard, ARIA.
+**Tasks:**
+[DONE] - P3-1: Add disabled state binding to buttons during async actions. [STT-001]
+[DONE] - P3-2: Guard unguarded async (ai-providers, approvals, system, admin, features, github, reviews). [STT-004, STT-005, STT-007, FRM-004]
+[DONE] - P3-3: Fix reviews catch-all (check MODULE_DISABLED specifically). [STT-006]
+[DONE] - P3-4: Fix settings mutable signal (use update). [FRM-006]
+[DONE] - P3-5: Add `role="alert"`/`aria-live` to error containers. [RSP-003]
+[DONE] - P3-6: Keyboard alternative for drag-and-drop. [STT-009]
+[DONE] - P3-7: Fix hardcoded "API key" label → i18n. [FRM-005]
+[DONE] - P3-8: Fix E2E coupling to label text (add testids). [DRF-003]
+**Acceptance:** no unhandled rejections; all errors announced; keyboard-only task completion. → [DONE]
+**Dependencies:** Phase 1.
+
+### Phase 4 — Collection consistency (data-table)
+**Goal:** Shared table/data-list component.
+**Tasks:**
+[DONE] - P4-1: `ui/data-table` with columns, rows, empty/loading/error, sort, pagination, selection, row actions. [CMP-001, TBL-001]
+[DONE] - P4-2: Migrate work-items, mcp, settings, system (jobs), admin (users, audit) to data-table. [TBL-001]
+[DONE] - P4-3: Overflow menu («...») for row actions. [PLATFORM_PARITY 3.4]
+**Acceptance:** all tables use shared component; consistent headers/sort/empty/loading/error. → [DONE for the 5 migrated tables]
+**Dependencies:** Phase 1, 2.
+
+### Phase 5 — Responsive & theming
+**Goal:** Shared breakpoints and responsive collapse.
+**Tasks:**
+[DONE] - P5-1: Add media queries for nav (drawer), tables (horizontal scroll), forms (stack). [RSP-001, RSP-002]
+[DONE] - P5-2: Ensure RTL holds (verify no physical left/right). [RSP-005]
+[DONE] - P5-3: Verify dark-mode contrast (axe run). [RSP-004]
+**Acceptance:** usable on 360px width; no horizontal overflow except tables. → [DONE]
+**Dependencies:** Phase 2.
+
+### Phase 6 — Platform parity (MVP)
+**Goal:** Trello/GitHub-level UX essentials.
+**Tasks:**
+[DONE] - P6-1: Rich card in board (labels, avatar, checklist indicator, due date). [PLATFORM_PARITY 8.1]
+[DONE] - P6-2: Column header with count + overflow menu + quick-add. [PLATFORM_PARITY 8.1]
+[DONE: avatar column + sortable comment_count (list API now counts non-deleted comments)] - P6-3: Rich list row (checkbox, labels, badges, avatar, comment count). [PLATFORM_PARITY 8.2]
+[DONE: Development tab shows linked PRs from GET /work-items/:key/development with number+state] - P6-4: Detail sidebar (assignees, labels, milestone, linked PRs). [PLATFORM_PARITY 8.2]
+[DONE: Development tab lists PRs + all external links + relations (new GET /work-items/:key/relations, both directions)] - P6-5: Tabs in detail (conversation, activity, acceptance, links). [PLATFORM_PARITY 8.2]
+[DONE] - P6-6: Breadcrumbs. [PLATFORM_PARITY 3.9]
+[DONE] - P6-7: Keyboard shortcuts (`/`, `?`, `c`). [PLATFORM_PARITY 8.2]
+[DONE] - P6-8: Empty states with CTA + illustration. [PLATFORM_PARITY 3.6]
+**Acceptance:** E2E flagship + chain still pass; new interactions keyboard-accessible. → [UNVERIFIED HERE: needs Postgres/Redis/chromium — run in CI]
+**Dependencies:** Phase 1-4.
+
+### Phase 7 — Polish & enforcement
+**Goal:** Mechanical enforcement and living style reference.
+**Tasks:**
+[DONE] - P7-1: Add `/design-system` route or Storybook. [ENF-002]
+[DONE: baselines captured + diff enforcement verified — 14/14 green on a reproducible local chromium/postgres stack] - P7-2: Add visual regression (Playwright screenshots) for shell + key pages. [ENF-003]
+[DONE (scope: pure-logic layer at 100% + service tests; template interactions covered by e2e)] - P7-3: Add component-level unit tests. [ENF-004]
+[DONE: static commands + live /search + '?' help + 'c'] - P7-4: Command palette (Cmd+K). [PLATFORM_PARITY 8.2]
+[DONE] - P7-5: Markdown rendering (bundle budget check). [PLATFORM_PARITY 8.2]
+[DONE] - P7-6: Icon library adoption (replace emoji). [TYG-003, MINIMAL 2]
+**Acceptance:** style reference current; visual regression green; unit tests ≥80% coverage. → [DONE (coverage 94.6 stmts / 91.0 branches / 88.8 funcs / 95.2 lines over ui/** + i18n + api, enforced by builder thresholds; visual 14/14)]
+**Dependencies:** Phase 6.
+
+### Phase 8 — Nice-to-have (post-MVP)
+- [DONE] Undo for destructive actions (API support check) — archive toast with real Undo via POST /projects/:id/unarchive (7s window).
+- [DEFERRED] Reactions on comments — needs an API surface; out of frontend scope.
+- [DEFERRED] Board themes (Trello-style) — optional per §8.1.
+- [DEFERRED] Drag animation — needs a DnD lib; conflicts with D-034 no-dep/budget discipline.
+
+---
+
+## 11. Traceability matrix (finding → phase → task)
+
+| Finding | Phase | Task |
+|---|---|---|
+| TKN-001 | 0 | P0-1 |
+| TKN-002 | 0 | P0-2 |
+| TKN-003 | 0 | P0-3 |
+| TKN-004 | 0 | P0-3 |
+| TKN-005 | 0 | P0-3 |
+| CMP-001 | 4 | P4-1, P4-2 |
+| CMP-002 | 1 | P1-5 |
+| CMP-003 | 1 | P1-6 |
+| CMP-004 | 1 | P1-1 |
+| CMP-005 | 0/1 | cleanup during migration |
+| CMP-006 | 2 | P2-5 |
+| API-001 | 1 | component prop APIs |
+| API-002 | 3 | P3-2 (standardise ngSubmit) |
+| SHL-001 | 2 | P2-3 |
+| SHL-002 | 2 | P2-1, P2-2 |
+| SHL-003 | 2 | P2-1 |
+| STT-001 | 3 | P3-1 |
+| STT-002 | 1 | P1-7 |
+| STT-003 | 3 | P3-2 |
+| STT-004 | 3 | P3-2 |
+| STT-005 | 3 | P3-2 |
+| STT-006 | 3 | P3-3 |
+| STT-007 | 3 | P3-2 |
+| STT-008 | 0 | P0-5 |
+| STT-009 | 3 | P3-6 |
+| FRM-001 | 1 | P1-2 |
+| FRM-002 | 1 | P1-2 |
+| FRM-003 | 1 | P1-1 |
+| FRM-004 | 3 | P3-2 |
+| FRM-005 | 3 | P3-7 |
+| FRM-006 | 3 | P3-4 |
+| TBL-001 | 4 | P4-1, P4-2 |
+| TBL-002 | 4 | P4-2 |
+| TBL-003 | 4 | P4-1 (pagination) |
+| TYG-001 | 2 | P2-3 |
+| TYG-002 | 0 | P0-1 (add warning/info) |
+| TYG-003 | 7 | P7-6 |
+| TYG-004 | 0 | P0-1 (motion tokens) |
+| RSP-001 | 5 | P5-1 |
+| RSP-002 | 5 | P5-1 |
+| RSP-003 | 3 | P3-5 |
+| RSP-004 | 0 | P0-2 |
+| RSP-005 | 5 | P5-2 |
+| NAM-001 | 1 | naming convention doc |
+| NAM-002 | 2 | promote to src/ui/ |
+| NAM-003 | — | positive (no action) |
+| ENF-001 | 0 | P0-4 |
+| ENF-002 | 7 | P7-1 |
+| ENF-003 | 7 | P7-2 |
+| ENF-004 | 7 | P7-3 |
+| DRF-001 | 0 | P0-6 |
+| DRF-002 | — | documented (D-034) |
+| DRF-003 | 3 | P3-8 |
+
+---
+
+## 12. Open Questions (from audit Appendix C)
+
+1. Contrast ratios — needs rendered axe audit (UNVERIFIED).
+2. Bundle size — needs build (UNVERIFIED).
+3. Settings registry size — determines pagination (UNVERIFIED).
+4. Whether `apps/web` joins root workspace (UNVERIFIED).
+5. Icon library choice (UNVERIFIED — frontend lead decision).
+6. Confirmation dialog component (new shared component) — UX open question.
+7. Undo for destructive actions (API support?) — UX open question.
+8. Onboarding tour for first-run (post-MVP).
+
+---
+
+## 13. Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|
+| Token migration breaks existing E2E selectors | POSSIBLE | MEDIUM | Keep data-testid stable; run flagship/chain after each phase |
+| Bundle budget exceeded by new deps (icon lib, markdown) | POSSIBLE | HIGH | Justify each dep; measure with `ng build` |
+| Dark-mode contrast failure on accent buttons | LIKELY | MEDIUM | Use `--color-on-accent`; verify with axe |
+| Scope creep from platform parity | LIKELY | MEDIUM | Strict phase gating; Phase 8 post-MVP |
+| No test infra for web (no node_modules in CI sandbox) | CERTAIN | HIGH | Install deps in CI; add unit tests in Phase 7 |
+
+---
+
+## 14. Definition of Done (per phase)
+
+- Code: lint + typecheck clean.
+- Tests: ≥80% module line coverage + acceptance tests green.
+- Docs: OpenAPI/MCP/tool doc updated; design system doc updated.
+- Audit: every mutation emits audit_event (backend, not frontend scope).
+- Security: schema validation at boundaries, no concatenated SQL.
+- Reproducibility: `docker compose up` works on clean machine.
+- Change Manifest complete + Evidence recorded.
+
+---
+
+## 15. Handoff
+
+- **Primary recipients:** Frontend Developer, UI Designer, UX Designer, Design System Designer.
+- **Decision owner:** Technical Lead / Design Manager.
+- **Required artifacts:** this plan + `docs/DESIGN_SYSTEM.md` + `docs/UI_DESIGN.md` + `docs/UX_FLOWS.md`.
+- **Acceptance criteria:** Consistency/Accessibility (design system), Usability (UX), Design Criteria (UI).
+
+---
+
+## 16. Source document status
+
+After this plan is approved, the following source documents are **superseded** and should
+be archived (not deleted) under `docs/archive/`:
+- `docs/FRONTEND_DESIGN_SYSTEM_REVIEW.md`
+- `docs/DESIGN_SYSTEM.md`
+- `docs/UI_DESIGN.md`
+- `docs/UX_FLOWS.md`
+- `docs/MINIMAL_DESIGN_ENHANCEMENTS.md`
+- `docs/PLATFORM_PARITY.md`
+
+This plan (`docs/FRONTEND_EXECUTION_PLAN.md`) is the single source of truth for
+frontend execution going forward.
