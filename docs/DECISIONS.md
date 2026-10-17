@@ -419,3 +419,124 @@ Format per plan §2: Context / Decision / Reason.
   the audit gate is `npm audit --omit=dev --audit-level=high`.
 - Reason: single, ubiquitous toolchain with no corepack step; dependency
   versions stay exact-pinned in each `package.json`.
+
+## D-039 — Execution ledger: append-only is "no delete + settle-once" for the journal
+- Context: PE-0.3/I-2 asked for `BEFORE UPDATE OR DELETE` + `REVOKE` on
+  `exec_events`, `exec_evidence` and `exec_action_journal`. A journal row is
+  *born* `started` and must become `done|failed|unknown` (that is the whole resume
+  design, appendix §K), so a blanket UPDATE ban would break the feature.
+- Decision: full append-only (trigger + `REVOKE UPDATE, DELETE`) on
+  `exec_events`, `exec_evidence`, `exec_gate_checks`; `exec_action_journal` gets
+  `exec_journal_settle_only()`, which forbids DELETE outright and allows exactly
+  one UPDATE that changes only `status/finished_at/result_ref/note` from
+  `started`. `REVOKE DELETE` only, for that table.
+- Reason: the invariant that matters is "an agent can never erase or rewrite the
+  record of what it did"; a settled row keeping its outcome columns mutable is
+  still that record, and everything it claims to have done is frozen.
+
+## D-040 — Ledger code counters live in `exec_code_seq`, not on `projects`
+- Context: plan §5 (PE-0 item 2) says "no counter table; use
+  `SELECT max(seq) FOR UPDATE` + retry", while §4 table 16 and PE-0 item 1 define
+  `exec_code_seq(project_id, prefix, seq)` with the same trigger/REVOKE work.
+- Decision: `exec_code_seq` is the counter (as DATA_MODEL §H ships it).
+  `allocateLedgerCode()` inserts the zero row `ON CONFLICT DO NOTHING`, then
+  `UPDATE … FROM (SELECT … FOR UPDATE)` and retries on 40001/40P01. No column is
+  added to `projects`.
+- Reason: a per-prefix counter column on `projects` would serialise every ledger
+  write behind one hot row and would need a new `work_items`-style migration for
+  each prefix; the dedicated table is the only shape that keeps codes contiguous
+  under 20 concurrent allocations (tested).
+## D-041 — No test-execution runner: the baseline comes only from the CI log
+- Context: `docs/EXECUTION_CONTROL_PLAN.md` (D-08) originally specified a
+  three-source baseline: CI log → an ephemeral Docker runner (`exec.runner.*`,
+  `scripts/runner/run-test.sh`, `docker-compose.runner.yml`, a
+  `FORGEPM_TEST_DOCKER=1` test) → fail closed. The gate rule 12 needs
+  "the tests were run and passed" as a *fact*, not as the agent's claim.
+- Decision: the middle source is cancelled by the owner ("وارد docker نشو —
+  docker چرا لازم است؟") and stays cancelled. ForgePM never executes repo
+  code — not on the host, not in a container. `exec_baseline_tests.source` is
+  `('ci','human')`; `exec.baseline_source` is `'auto'|'ci'|'off'`; the five
+  `exec.runner*` settings keys are removed from the registry, and no
+  runner/compose file exists. With no readable CI log for the task's
+  `commit_sha`, rule 12 fails closed (`BASELINE_UNAVAILABLE`) and only an
+  explicit human waiver passes, surfaced prominently in the final report.
+- Reason: the runner existed only to make "untrusted code was executed
+  safely" verifiable; deleting the execution channel satisfies the same
+  OWASP CI/CD risks (CICD-SEC-4/5) with no new attack surface, no extra
+  deployment dependency, and no image supply-chain to pin. Fail-closed
+  behaviour is preserved, so nothing bypassable now rests on the agent's word.
+  It also removed the only "environment-bound" acceptance item in the plan:
+  no criterion is `not-run` because of Docker anymore.
+
+## D-042 — DB-bound gates are verified locally with the repo's own embedded Postgres
+- Context: PE-0's gates (`migrate`, `schema:check`, `test:integration`) and
+  every later exec phase need a real PostgreSQL, and the earlier honest report
+  said `not-run` "no Postgres/Redis/Docker" (B-009, plan OI-8/OI-9) — which
+  conflated Docker with the database and made a fixable gap look structural.
+- Decision: follow D-001 — obtain the database natively, not via containers.
+  `apps/web/scripts/dev-postgres.mjs` (`embedded-postgres`, already a
+  devDependency) boots a real PostgreSQL; with `DATABASE_URL` pointed at it,
+  `npm run migrate` (empty DB + idempotent rerun), `npm run schema:check`
+  (60 contract tables) and the exec integration suite all run. Suites that
+  need a queue still cannot run, so `tests/integration/harness.ts` gained
+  `FORGEPM_TEST_NO_REDIS=1`: `h.queue`/`h.redis` become `undefined` and any
+  queue-touching test fails loudly rather than silently passing.
+- Reason: "we have no Docker" is not a reason to skip a deterministic gate —
+  the DB gates were the whole point of PE-0 and they were green in one command
+  once the sandbox stopped depending on container tooling. The Redis suites
+  stay `not-run` (with the exact reason named) because that dependency is real;
+  the flag makes the split visible in the output instead of hidden in prose.
+
+## D-043 — Committed tooling resolves paths relative to the file, never the author's box
+- Context: `apps/web/scripts/e2e-reset.mjs` (added while Docker-free E2E resets were
+  needed, per D-001) used `createRequire('/home/user/ForgePM/apps/api/package.json')`
+  to reach `pg`. It passed on the machine that wrote it and failed in CI — and CI had
+  been unable to start for a day, so the bug travelled through `main` unnoticed and
+  now blocks every phase's remote gate (B-010).
+- Decision: anchor such resolution to the module itself
+  (`new URL('../../api/package.json', import.meta.url)`). Rule applied repo-wide: no
+  absolute filesystem path of a developer/agent machine may appear in a tracked file;
+  a repo-wide grep for `/home/` in `apps/`, `scripts/`, `packages/`, `.github/` is now
+  part of the check before any script change lands.
+- Reason: the sandbox is an implementation detail of one run. A path that only exists
+  here turns a green local report into a red remote gate, and — as PE-0 showed — the
+  red gate may not be read for hours. Determinism of the *verification harness* is
+  part of the product, so it gets the same "no environment assumptions" treatment as
+  the runtime code.
+
+## D-044 — Status tokens are tuned for the tint they generate, not just for the page
+- Context: the §11 panel E2E (`chain.spec.ts`) runs axe over the major pages and
+  failed on `main` with one serious violation: `.ui-badge--info` painted
+  `color-mix(in srgb, var(--color-info) 12%, transparent)` as its background and the
+  same `--color-info` (`#0969da`) as its text — 4.37:1, below the WCAG AA 4.5:1 the
+  project claims. `npm run check:contrast` did not catch it because it only compared
+  each token against `color-bg`/`color-surface`, where the hue passes at 4.83:1.
+- Decision: darken the three light-theme status hues until every
+  *self-tinted* pair passes — `--color-ok: #166d2f`, `--color-warning: #845900`,
+  `--color-info: #085abb` (`--color-error` already cleared it) — and extend
+  `check:contrast` to derive those pairs from `styles.scss` itself: for every rule
+  whose `background` is a `color-mix(in srgb, var(--color-X) N%, transparent)` and
+  whose `color` is the same token, the token must hit ≥ 4.5:1 over the composite, on
+  both `color-bg` and `color-surface`, in both themes.
+- Reason: the golden rule of this repo is that anything which must not regress is
+  deterministic code, not review. A palette cannot be validated against flat
+  backgrounds only — half of the panel's status surfaces are the tokens mixed with
+  their own background. Reading the rules out of the stylesheet means a future
+  `12% → 20%` change fails the gate instead of shipping a11y debt, and pixel
+  baselines (`VISUAL=1`, opt-in) stay a human concern.
+
+## D-045 — Board drops accept the payload or the remembered key, never only one
+- Context: with the module fixed in D-044 the other §11 chain failure remained: after
+  `card.dragTo(column)` the work item's `state_name` never changed. The drop handler
+  read the key exclusively from `event.dataTransfer.getData('text/plain')`, and
+  Chromium does not reliably surface `dataTransfer` on the `drop` of a CDP-driven drag
+  (Playwright's `dragTo`) — the handler then returned early on an empty key.
+- Decision: remember the key on `dragstart`, clear it on `dragend`, and resolve a drop
+  through `draggedKey(transfer, remembered)` in `ui/logic.ts` — payload first,
+  remembered key as fallback. The HTML5 contract is unchanged (the payload is still
+  what a real user's drag carries, so cross-component drops and drag-to-other-apps
+  behave identically); the pure resolver is unit-tested in `ui-logic.spec.ts`.
+- Reason: the interaction is a pair of events, and the app may not depend on which one
+  happened to carry data. The alternative — dropping the drag assertion from the E2E
+  or driving the move only through the keyboard path — would have removed coverage of
+  a shipped interaction, which the repo's rules forbid (no test weakening).

@@ -1,4 +1,14 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  OnInit,
+  computed,
+  effect,
+  inject,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
@@ -14,7 +24,7 @@ import { ProjectContext } from '../project-context';
 import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
-import { stateVariant } from '../ui/logic';
+import { draggedKey, stateVariant } from '../ui/logic';
 
 export { stateVariant };
 
@@ -51,12 +61,30 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable],
+  imports: [
+    FormsModule,
+    RouterLink,
+    ProjectPickerCmp,
+    UiButton,
+    UiBadge,
+    UiAvatar,
+    UiIcon,
+    UiField,
+    UiControl,
+    UiPage,
+    UiTabs,
+    UiDataTable,
+  ],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
       <ui-project-picker />
 
-      <ui-tabs [items]="viewTabs" [active]="view()" [ariaLabel]="i18n.instant('work_items.view')" (tabChange)="setView($event)" />
+      <ui-tabs
+        [items]="viewTabs"
+        [active]="view()"
+        [ariaLabel]="i18n.instant('work_items.view')"
+        (tabChange)="setView($event)"
+      />
 
       <ui-field [label]="i18n.instant('work_items.filter_state')">
         <select uiControl name="cat" [(ngModel)]="category" (ngModelChange)="load()" data-testid="wi-filter">
@@ -101,7 +129,9 @@ interface ItemDto {
                   <summary
                     [attr.aria-label]="i18n.instant('work_items.column_menu') + ' — ' + st.name"
                     [title]="i18n.instant('work_items.column_menu')"
-                  ><ui-icon name="dots-h" [size]="14" /></summary>
+                  >
+                    <ui-icon name="dots-h" [size]="14" />
+                  </summary>
                   <div class="ui-dt-menu-list" role="menu">
                     <button
                       type="button"
@@ -126,7 +156,13 @@ interface ItemDto {
                 />
               }
               @for (it of items().filter((x) => x.state_id === st.id); track it.id) {
-                <div class="ui-board-card" draggable="true" (dragstart)="drag(it, ev($event))" data-testid="board-card">
+                <div
+                  class="ui-board-card"
+                  draggable="true"
+                  (dragstart)="drag(it, ev($event))"
+                  (dragend)="endDrag()"
+                  data-testid="board-card"
+                >
                   <span class="ui-board-card-title">
                     <a [routerLink]="['/work-items', it.key]">{{ it.key }}</a> {{ it.title }}
                   </span>
@@ -144,21 +180,45 @@ interface ItemDto {
                     @if (it.assignee_user_id || it.assignee_agent_id) {
                       <ui-avatar [name]="it.assignee_user_id ?? it.assignee_agent_id!" size="sm" />
                     }
-                    <ui-badge size="sm" [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'">{{ it.priority }}</ui-badge>
+                    <ui-badge
+                      size="sm"
+                      [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'"
+                      >{{ it.priority }}</ui-badge
+                    >
                     @if (it.acceptance_criteria.length) {
-                      <span class="ui-ac-progress" data-testid="board-card-ac">{{ acDone(it) }}/{{ it.acceptance_criteria.length }} ☑</span>
+                      <span class="ui-ac-progress" data-testid="board-card-ac"
+                        >{{ acDone(it) }}/{{ it.acceptance_criteria.length }} ☑</span
+                      >
                     }
                     @if (it.due_date) {
                       <span class="ui-due">{{ it.due_date }}</span>
                     }
                   </span>
                   <span class="ui-board-card-move">
-                    <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, -1)"
+                    <button
+                      type="button"
+                      ui-button
+                      variant="ghost"
+                      size="sm"
+                      [disabled]="!hasRel(it, -1)"
                       [attr.aria-label]="i18n.instant('work_items.move_prev')"
-                      (click)="moveRel(it, -1)" data-testid="board-move-prev"><ui-icon name="chevron-left" [size]="14" /></button>
-                    <button type="button" ui-button variant="ghost" size="sm" [disabled]="!hasRel(it, 1)"
+                      (click)="moveRel(it, -1)"
+                      data-testid="board-move-prev"
+                    >
+                      <ui-icon name="chevron-left" [size]="14" />
+                    </button>
+                    <button
+                      type="button"
+                      ui-button
+                      variant="ghost"
+                      size="sm"
+                      [disabled]="!hasRel(it, 1)"
                       [attr.aria-label]="i18n.instant('work_items.move_next')"
-                      (click)="moveRel(it, 1)" data-testid="board-move-next"><ui-icon name="chevron-right" [size]="14" /></button>
+                      (click)="moveRel(it, 1)"
+                      data-testid="board-move-next"
+                    >
+                      <ui-icon name="chevron-right" [size]="14" />
+                    </button>
                   </span>
                 </div>
               }
@@ -185,7 +245,9 @@ interface ItemDto {
             }
           </select>
         </ui-field>
-        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
+        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">
+          {{ i18n.instant('work_items.new') }}
+        </button>
       </form>
     </ui-page>
   `,
@@ -275,16 +337,34 @@ export class WorkItemsPage implements OnInit {
 
   get listColumns(): UiTableColumn<ItemDto>[] {
     return [
-      { key: 'key', label: this.i18n.instant('common.key'), sortable: true, link: (it) => ['/work-items', it.key], linkTestid: 'wi-link' },
+      {
+        key: 'key',
+        label: this.i18n.instant('common.key'),
+        sortable: true,
+        link: (it) => ['/work-items', it.key],
+        linkTestid: 'wi-link',
+      },
       { key: 'title', label: this.i18n.instant('common.title'), sortable: true },
       { key: 'type', label: this.i18n.instant('work_items.type'), sortable: true },
-      { key: 'assignee', label: this.i18n.instant('work_items.assignee'), avatar: (it) => it.assignee_user_id ?? it.assignee_agent_id ?? null },
-      { key: 'comments', label: this.i18n.instant('work_items.comments'), sortable: true, value: (it) => it.comment_count },
+      {
+        key: 'assignee',
+        label: this.i18n.instant('work_items.assignee'),
+        avatar: (it) => it.assignee_user_id ?? it.assignee_agent_id ?? null,
+      },
+      {
+        key: 'comments',
+        label: this.i18n.instant('work_items.comments'),
+        sortable: true,
+        value: (it) => it.comment_count,
+      },
       {
         key: 'priority',
         label: this.i18n.instant('work_items.priority'),
         sortable: true,
-        badge: (it) => ({ text: it.priority, variant: it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default' }),
+        badge: (it) => ({
+          text: it.priority,
+          variant: it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default',
+        }),
       },
       {
         key: 'labels',
@@ -298,7 +378,12 @@ export class WorkItemsPage implements OnInit {
         value: (it) => it.state_name,
         badge: (it) => ({ text: it.state_name, variant: stateVariant(it.state_category) }),
       },
-      { key: 'due_date', label: this.i18n.instant('work_items.due_date'), sortable: true, value: (it) => it.due_date ?? '—' },
+      {
+        key: 'due_date',
+        label: this.i18n.instant('work_items.due_date'),
+        sortable: true,
+        value: (it) => it.due_date ?? '—',
+      },
     ];
   }
 
@@ -364,13 +449,23 @@ export class WorkItemsPage implements OnInit {
     e.preventDefault();
   }
 
+  /** Remembered at `dragstart` — see `draggedKey` for why the payload alone is not enough. */
+  private draggingKey: string | null = null;
+
   drag(item: ItemDto, e: Event): void {
+    this.draggingKey = item.key;
     (e as DragEvent).dataTransfer?.setData('text/plain', item.key);
+  }
+
+  /** A cancelled drag must not leave a key behind for the next drop. */
+  endDrag(): void {
+    this.draggingKey = null;
   }
 
   async drop(stateId: string, e: Event): Promise<void> {
     e.preventDefault();
-    const key = (e as DragEvent).dataTransfer?.getData('text/plain');
+    const key = draggedKey((e as DragEvent).dataTransfer, this.draggingKey);
+    this.draggingKey = null;
     if (!key) return;
     const item = this.items().find((i) => i.key === key);
     if (!item || item.state_id === stateId) return;
@@ -401,5 +496,3 @@ export class WorkItemsPage implements OnInit {
     }
   }
 }
-
-

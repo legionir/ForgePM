@@ -245,6 +245,7 @@ export interface WorkItemsTable {
   acceptance_criteria: Jsonb;
   source: Generated<'manual' | 'planner' | 'code_review' | 'refactor_review' | 'github'>;
   plan_id: string | null;
+  exec_task_id: string | null;
   created_at: Timestamp;
   updated_at: UpdatableTimestamp;
   deleted_at: Date | null;
@@ -349,7 +350,17 @@ export interface PlansTable {
   organization_id: string;
   project_id: string;
   goal: string;
-  status: 'generating' | 'needs_clarification' | 'ready' | 'approved' | 'applying' | 'applied' | 'generation_failed' | 'apply_failed' | 'canceled' | 'superseded';
+  status:
+    | 'generating'
+    | 'needs_clarification'
+    | 'ready'
+    | 'approved'
+    | 'applying'
+    | 'applied'
+    | 'generation_failed'
+    | 'apply_failed'
+    | 'canceled'
+    | 'superseded';
   current_revision_id: string | null;
   created_by: string;
   created_at: Timestamp;
@@ -564,6 +575,271 @@ export interface CodeStructureIndexTable {
   created_at: Timestamp;
 }
 
+// ---- Execution control ledger (docs/EXECUTION_CONTROL_PLAN.md §4, migration 0010) ----
+
+export interface ExecCodeSeqTable {
+  project_id: string;
+  prefix: 'T' | 'C' | 'OI' | 'D' | 'Q' | 'F' | 'REQ' | 'AJ';
+  seq: Generated<number>;
+}
+
+export interface ExecRequirementsTable {
+  id: string;
+  organization_id: string;
+  project_id: string | null;
+  code: string;
+  text: string;
+  quote: string;
+  source: 'user_message' | 'doc' | 'human' | 'agent_derived';
+  source_ref: string | null;
+  kind: Generated<'functional' | 'non_functional'>;
+  status: Generated<'active' | 'changed' | 'dropped'>;
+  priority: Generated<'none' | 'low' | 'medium' | 'high' | 'urgent'>;
+  drop_reason: string | null;
+  dropped_by: 'human' | 'system' | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface ExecTasksTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  work_item_id: string;
+  gate_stamp_id: string | null;
+  code: string;
+  title: string;
+  description: string | null;
+  status: 'not_started' | 'in_progress' | 'awaiting_review' | 'blocked' | 'done';
+  parent_id: string | null;
+  start_ref: string | null;
+  tree_hash_start: string | null;
+  allowed_paths: Jsonb;
+  blocked_on_kind: 'task' | 'question' | 'decision' | 'external' | null;
+  blocked_on_ref: string | null;
+  blocked_reason: string | null;
+  unblock_condition: string | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+  closed_at: Date | null;
+}
+
+export interface ExecTaskDepsTable {
+  task_id: string;
+  depends_on_task_id: string;
+  created_at: Timestamp;
+}
+
+export interface ExecCriteriaTable {
+  id: string;
+  task_id: string;
+  req_id: string | null;
+  code: string;
+  text: string;
+  status: Generated<'pending' | 'verified' | 'waived'>;
+  verified_at: Date | null;
+  waiver_approval_id: string | null;
+  created_at: Timestamp;
+}
+
+export interface ExecEvidenceTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  criterion_id: string | null;
+  kind: 'test_output' | 'diff' | 'file' | 'command_output' | 'manual_check';
+  ref: string;
+  summary: string;
+  payload: string | null;
+  sha256: string | null;
+  size_bytes: number | null;
+  meta: Jsonb | null;
+  recorded_by: string;
+  created_at: Timestamp;
+}
+
+export interface ExecOpenItemsTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  code: string;
+  title: string;
+  detail: string | null;
+  type:
+    | 'incomplete_requirement'
+    | 'commitment'
+    | 'assumption'
+    | 'bug'
+    | 'risk'
+    | 'test_gap'
+    | 'design_gap'
+    | 'suggestion'
+    | 'out_of_scope';
+  blocks_completion: boolean;
+  why_not_blocking: string | null;
+  source: 'agent' | 'exit_report' | 'reviewer' | 'human' | 'hook';
+  status: 'open' | 'resolved' | 'accepted' | 'deferred' | 'wont_fix' | 'blocked' | 'awaiting_human' | 'not_applicable';
+  resolution_note: string | null;
+  resolved_by: 'agent' | 'human' | null;
+  related_ref: string | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface ExecDecisionsTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  code: string;
+  title: string;
+  context: string;
+  options: Jsonb;
+  selected: string;
+  rationale: string;
+  touches: string[];
+  reversible: boolean;
+  risk_level: 'auto' | 'review' | 'approval';
+  approval_state: 'not_required' | 'pending' | 'approved' | 'rejected';
+  approval_id: string | null;
+  applied_at: Date | null;
+  status: Generated<'proposed' | 'active' | 'superseded' | 'needs_revisit'>;
+  review_trigger: Jsonb | null;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface ExecQuestionsTable {
+  id: string;
+  organization_id: string;
+  project_id?: string;
+  task_id: string;
+  code: string;
+  question: string;
+  options: Jsonb;
+  recommendation: string;
+  why_it_matters: string;
+  impact: Jsonb | null;
+  blocking: boolean;
+  status: Generated<'open' | 'answered' | 'canceled'>;
+  answer: string | null;
+  answered_by: string | null;
+  approval_id: string | null;
+  created_at: Timestamp;
+  answered_at: Date | null;
+}
+
+export interface ExecReviewsTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  round: number;
+  review_run_id: string | null;
+  verdict: 'pass' | 'fail';
+  findings: Jsonb;
+  checked: Jsonb;
+  tree_hash: string;
+  input_meta: Jsonb | null;
+  created_at: Timestamp;
+}
+
+export interface ExecReportsTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  payload: Jsonb;
+  status: Generated<'submitted' | 'gate_passed' | 'gate_failed'>;
+  created_at: Timestamp;
+  updated_at: UpdatableTimestamp;
+}
+
+export interface ExecGateChecksTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  report_id: string;
+  ok: boolean;
+  blocked_by: Jsonb;
+  gate_version: number;
+  tree_hash: string;
+  run_source: string;
+  created_at: Timestamp;
+}
+
+export interface ExecFactsTable {
+  id: string;
+  organization_id: string;
+  project_id: string;
+  code: string;
+  key: string;
+  value: string;
+  kind: 'fact' | 'assumption';
+  source: 'code' | 'docs' | 'human' | 'tool_output' | 'agent_guess';
+  source_ref: string | null;
+  files: Jsonb;
+  file_hashes: Jsonb;
+  verified_at: Date | null;
+  status: Generated<'active' | 'stale' | 'rejected' | 'superseded'>;
+  superseded_by: string | null;
+  created_at: Timestamp;
+}
+
+export interface ExecFactDecisionsTable {
+  fact_id: string;
+  decision_id: string;
+  created_at: Timestamp;
+}
+
+export interface ExecBaselineTestsTable {
+  id: string;
+  task_id: string;
+  test_name: string;
+  result_at_start: 'pass' | 'fail' | 'skip';
+  assertion_count: number | null;
+  source: 'ci' | 'human';
+  approval_id: string | null;
+  provenance: Jsonb | null;
+  captured_at: Timestamp;
+}
+
+export interface ExecActionJournalTable {
+  id: string;
+  organization_id: string;
+  task_id: string;
+  code: string;
+  action: string;
+  target: string | null;
+  idempotent: boolean;
+  expected_effect: string;
+  pre_state_ref: string | null;
+  status: Generated<'started' | 'done' | 'failed' | 'unknown'>;
+  started_at: Timestamp;
+  finished_at: Date | null;
+  result_ref: string | null;
+  note: string | null;
+}
+
+export interface ExecEventsTable {
+  id: string;
+  organization_id: string;
+  task_id: string | null;
+  entity: string;
+  entity_id: string | null;
+  entity_code: string | null;
+  action: string;
+  actor_type: 'agent' | 'human' | 'system';
+  actor_id: string;
+  tool: string | null;
+  payload: Jsonb | null;
+  created_at: Timestamp;
+}
+
+export interface ExecReqTasksTable {
+  req_id: string;
+  task_id: string;
+  criterion_ids: Jsonb;
+  created_at: Timestamp;
+}
+
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -609,4 +885,22 @@ export interface DB {
   review_runs: ReviewRunsTable;
   review_findings: ReviewFindingsTable;
   code_structure_index: CodeStructureIndexTable;
+  exec_code_seq: ExecCodeSeqTable;
+  exec_requirements: ExecRequirementsTable;
+  exec_req_tasks: ExecReqTasksTable;
+  exec_tasks: ExecTasksTable;
+  exec_task_deps: ExecTaskDepsTable;
+  exec_criteria: ExecCriteriaTable;
+  exec_evidence: ExecEvidenceTable;
+  exec_open_items: ExecOpenItemsTable;
+  exec_decisions: ExecDecisionsTable;
+  exec_questions: ExecQuestionsTable;
+  exec_reviews: ExecReviewsTable;
+  exec_reports: ExecReportsTable;
+  exec_gate_checks: ExecGateChecksTable;
+  exec_facts: ExecFactsTable;
+  exec_fact_decisions: ExecFactDecisionsTable;
+  exec_baseline_tests: ExecBaselineTestsTable;
+  exec_action_journal: ExecActionJournalTable;
+  exec_events: ExecEventsTable;
 }

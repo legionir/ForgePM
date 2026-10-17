@@ -70,7 +70,8 @@ jobs:
           RC=$?
           set -e
           enc() { sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n' | sed -e 's/%0A$//'; }
-          echo "::error::exit=$RC e2e-first-failure::$(grep -m1 -A38 '1) \[chromium\]' /tmp/e2e.out | cut -c1-200 | enc)"
+          echo "::error::exit=$RC first-failure::$(grep -m1 -A30 '1) \[chromium\]' /tmp/e2e.out | cut -c1-190 | enc)"
+          echo "::error::summary-tail::$(grep -E 'passed|failed|flaky|skipped|Running|✘|✗' /tmp/e2e.out | tail -n 14 | cut -c1-190 | enc)"
           echo "::error::e2e-stdout-tail::$(tail -n 12 /tmp/e2e.out | enc)"
           echo "::error::web-dev-log-tail::$(tail -n 10 /tmp/forgepm-e2e-web.log 2>/dev/null | enc)"
           echo "::error::api-log-tail::$(tail -n 10 /tmp/forgepm-e2e-api.log 2>/dev/null | enc)"

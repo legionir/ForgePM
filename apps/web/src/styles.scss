@@ -8,11 +8,15 @@
   --color-line: #d6dade;
   --color-accent: #2457c5;
   --color-error: #b3261e;
-  --color-ok: #1a7f37;
+  /* Light-theme status colours are set ~14% darker than the raw palette hues:
+     badges and chips paint `color-mix(in srgb, var(--color-X) 12%, transparent)` as their
+     background with the same token as text, and the pure hues landed at 3.8–4.4:1 there.
+     `npm run check:contrast` derives that case from the stylesheet itself (D-044). */
+  --color-ok: #166d2f;
   --color-surface: #f5f7f9;
   --color-on-accent: #fff;
-  --color-warning: #9a6700;
-  --color-info: #0969da;
+  --color-warning: #845900;
+  --color-info: #085abb;
 
   /* Spacing (4-based) */
   --space-1: 0.25rem;

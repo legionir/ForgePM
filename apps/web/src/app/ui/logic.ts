@@ -45,7 +45,11 @@ export function sortRows<T>(rows: T[], columns: SortCol<T>[], sortKey: string, a
   if (!sortKey) return list;
   const col = columns.find((c) => c.key === sortKey);
   const get = (r: T): string | number =>
-    col?.sortValue ? col.sortValue(r) : col?.value ? col.value(r) : String((r as Record<string, unknown>)[sortKey] ?? '');
+    col?.sortValue
+      ? col.sortValue(r)
+      : col?.value
+        ? col.value(r)
+        : String((r as Record<string, unknown>)[sortKey] ?? '');
   return list.sort((a, b) => {
     const va = get(a);
     const vb = get(b);
@@ -139,4 +143,24 @@ export function stateVariant(category: string): 'default' | 'success' | 'warning
     default:
       return 'default';
   }
+}
+
+// ---------- board drag state ----------
+
+/**
+ * Which card a drop should move.
+ *
+ * The HTML5 transfer payload is the primary channel, but it is not portable:
+ * Chromium does not reliably surface `dataTransfer.getData` on the `drop` of a
+ * CDP-driven (Playwright) drag, and some assistive-tech pointer sequences deliver a
+ * `drop` with no payload at all. The key remembered at `dragstart` is the fallback,
+ * so the move depends on the pair of events rather than on which one carried data —
+ * that is what silently no-oped board drags in the §11 chain E2E.
+ */
+export function draggedKey(
+  transfer: { getData(type: string): string } | null | undefined,
+  remembered: string | null,
+): string | null {
+  const raw = transfer?.getData('text/plain') ?? '';
+  return raw.length > 0 ? raw : remembered;
 }

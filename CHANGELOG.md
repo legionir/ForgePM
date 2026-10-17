@@ -3,6 +3,100 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Execution control, PE-0 (2026-10-17)
+
+Scaffolding phase of `docs/EXECUTION_CONTROL_PLAN.md` (agent execution control:
+persistent ledger + deterministic Finalization Gate). No behaviour changes: the
+`exec` module is registered and OFF, so `tools/list`, `/health/ready` and every
+existing route are untouched.
+
+### Added
+
+- **Migration `0010_exec`** — the 17-table ledger (`exec_requirements`,
+  `exec_req_tasks`, `exec_tasks`, `exec_task_deps`, `exec_criteria`,
+  `exec_evidence`, `exec_open_items`, `exec_decisions`, `exec_questions`,
+  `exec_reviews`, `exec_reports`, `exec_gate_checks`, `exec_facts`,
+  `exec_fact_decisions`, `exec_baseline_tests`, `exec_action_journal`,
+  `exec_events`) plus `exec_code_seq`, `work_items.exec_task_id`, the
+  `exec_append_only()` trigger on the audit surfaces, `exec_journal_settle_only()`
+  (a journal row may be settled exactly once, its claim columns are immutable) and
+  a `REVOKE` block that applies when a dedicated app role exists. The block is the
+  contract copy in `docs/DATA_MODEL.md` §H (verified column/index parity offline).
+- **`@forgepm/shared/schemas-exec.ts`** — every ledger input (task/criterion/
+  open-item/evidence/decision/question/requirement/fact/journal/block), the exit
+  report with the "explicit none" rule as a pure checker (`checkNoneConfirmed`),
+  the risk-policy + harness documents, `parseTestLog`, `assessCheckable` (a vague
+  criterion is rejected with a fix hint) and `detectWeakening`.
+- **`@forgepm/core/src/exec/*`** — the deterministic half of the system: 13-rule
+  `evaluateGate` (+ `deriveStatusAfterFailure`, `buildFinalReport`), risk
+  `classify` with hard denials an admin cannot downgrade, open-item state machine,
+  evidence verification (ref grammar, allowed roots, payload minimums, secret
+  redaction), scope measurement, baseline comparison, journal write-lock, session
+  packing, adversarial-reviewer input assembly (conversation keys are refused) and
+  its strict output parser, ledger code allocation.
+- **16 `exec.*` settings** (`exec.policy`, `exec.test_command`,
+  `exec.test_result_parser`, `exec.protected_test_globs`, `exec.allowed_repo_roots`,
+  `exec.baseline_source`, `exec.ci_log_endpoint`, `exec.ci_log_secret_name`,
+  size/output caps, review rounds, gate/transition switches) in category
+  `execution`; defaults validate against their own schemas, and the key list
+  itself is asserted so adding one is a reviewed change (D-041 removed the five
+  `exec.runner*` keys: ForgePM never executes repo code, so `exec_baseline_tests`
+  is fed only by the CI log — `source IN ('ci','human')` — and rule 12 fails
+  closed with `BASELINE_UNAVAILABLE` until a human waives).
+- **`exec` module** (`apps/api/src/modules/exec/module.ts`) registered in
+  `app/modules.ts` with `validateConfig` that refuses to enable the module while
+  `exec.*` documents do not parse. Scopes `ledger:read` / `ledger:write` /
+  `ledger:decide` (human-only) added to `API_KEY_SCOPES` + `docs/MCP_CONTRACTS.md`.
+- **Tests**: 101 new DB-free unit tests (`packages/core/src/exec/*.test.ts`) plus a
+  4-test structural guard (`tests/unit/exec-no-spawn.test.ts`, mutation-checked)
+  covering each acceptance rule by number (F.1–F.8, C.1–C.12, B.6, B.10, J.2–J.6,
+  K.1–K.4, E.1–E.4); `tests/integration/exec-ledger-invariants.test.ts` covers the
+  DB-side invariants, 20-way concurrent code allocation and module-off gating.
+
+### Fixed
+
+- **Two inherited §11 panel E2E failures** (both were blocking every branch's remote
+  gate, since CI could not run while PR #8 was current): the info badge's contrast on
+  its own tint, and the board drop depending solely on the `dataTransfer` payload.
+  Light-theme `--color-ok`/`--color-warning`/`--color-info` are darkened so the
+  12%/14% tinted badge/chip surfaces clear 4.5:1, `npm run check:contrast` now derives
+  those tint pairs from `styles.scss` itself (52 pairs checked, D-044), and the board
+  resolves the dragged key from the payload *or* the `dragstart` memory (D-045, unit-tested
+  in `ui-logic.spec.ts`). docs/BLOCKERS.md B-010/B-011 record the attribution.
+
+- **`apps/web/scripts/e2e-reset.mjs` was not portable** (found while getting PE-0's
+  remote gate to run): it resolved `pg` via a hardcoded absolute workspace path, so
+  `bash apps/web/e2e.sh` — and therefore the CI step "Panel build + Playwright
+  flagship E2E" — failed on every machine except the one that wrote it. Now anchored
+  to the script's own location. This was inherited from `main` (PR #8 merged while
+  Actions could not start), proven by a zero-change probe of `main`'s tip; see
+  docs/BLOCKERS.md B-010.
+- `apps/api/openapi.json` + `apps/web/src/api/schema.d.ts` were stale on `main`
+  (missing `GET /api/v1/work-items/:key/relations` and
+  `POST /api/v1/ai-providers/models` from PR #8), which failed `npm run
+  gen:api:check` on `main` itself — proven by the same probe. Regenerated here.
+
+### Gate (honest reporting)
+
+- `local:` lint ✅ · typecheck (all workspaces) ✅ · `test:unit` ✅ 221/221 ·
+  `build` ✅ · `docs:check` ✅ · migration-hash manifest ✅ (9 migrations).
+- `local:` against a real PostgreSQL, booted without Docker via the repo's own
+  `apps/web/scripts/dev-postgres.mjs` (D-042): `npm run migrate` on an empty DB ✅
+  and idempotent on rerun ✅ · `npm run schema:check` ✅ "60 contract tables
+  verified" · `tests/integration/exec-ledger-invariants.test.ts` ✅ 13/13 ·
+  `npm run test:integration` with `FORGEPM_TEST_NO_REDIS=1` → 183/190, the 7
+  failures confined to pre-existing Redis-bound (`outbox`, `phase5-worker`) and
+  `pg_dump`-bound (`phase7-*`) suites. Running them found three real bugs, fixed
+  here: the gate crashed on an empty exit report, `extractCounts` misread CI
+  summary lines, and a root-level `**/*.test.ts` glob failed to match.
+- `local not-run:` coverage ≥80 on `exec/**`; the queue-based suites (no Redis in
+  this sandbox).
+- `remote:` **cannot-run** — PR #9's CI job never started ("recent account
+  payments have failed or your spending limit needs to be increased"), so there
+  is no hosted runner to prove the CI-side gates. PE-0 is therefore *not* closed:
+  fix Actions billing, attach a self-hosted runner (Postgres + Redis), or record
+  an explicit human waiver in the ledger (docs/BLOCKERS.md B-009).
+
 ## [1.0.0-rc.1] — Release candidate (2026-10-10)
 
 Phases 0–7 are complete and every acceptance gate has run green (local +

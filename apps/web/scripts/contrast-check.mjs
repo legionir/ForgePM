@@ -46,7 +46,78 @@ function ratio(a, b) {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
-const textTokens = ['color-fg', 'color-muted', 'color-accent', 'color-error', 'color-ok', 'color-warning', 'color-info'];
+/**
+ * Tinted surfaces: badges and chips paint `color-mix(in srgb, var(--color-X) N%,
+ * transparent)` as the background and set the *same* token as the text colour, so
+ * the effective contrast is worse than the token-on-background pairs checked
+ * below. The rules are read out of the stylesheet itself — change a percentage
+ * or drop the matching `color:` and the gate follows automatically.
+ * (This is the class of bug that shipped: `--color-info` on a 12% info tint read
+ * 4.37 under axe in the §11 E2E while `color-bg`/`color-surface` were fine, and the
+ * ok/warning badges were 3.8–4.1:1 on theirs — no page-level axe run happens to walk
+ * into those states, so the token maths is what pins it.)
+ */
+function mixOver(fg, bg, pct) {
+  const f = parseHex(fg);
+  const b = parseHex(bg);
+  const k = pct / 100;
+  const chans = [0, 1, 2].map((i) => f[i] * k + b[i] * (1 - k));
+  return (
+    '#' +
+    chans
+      .map((v) =>
+        Math.round(v * 255)
+          .toString(16)
+          .padStart(2, '0'),
+      )
+      .join('')
+  );
+}
+
+/** `color-mix(in srgb, var(--color-NAME) NN%, transparent)` without regex escapes. */
+function tintOf(line) {
+  const marker = 'color-mix(in srgb, var(--color-';
+  const at = line.indexOf(marker);
+  if (at === -1) return null;
+  const rest = line.slice(at + marker.length);
+  const close = rest.indexOf(')');
+  if (close === -1) return null;
+  const name = rest.slice(0, close);
+  const pctMatch = /^(\s*)(\d+)%/.exec(rest.slice(close + 1));
+  const pct = pctMatch ? Number(pctMatch[2]) : NaN;
+  if (!Number.isInteger(pct) || !line.includes('transparent)')) return null;
+  return { name, pct };
+}
+
+/** Every `.selector { … }` block whose background is a tint of its own text colour. */
+function tintRules(source) {
+  const pairs = new Set();
+  for (const chunk of source.split('}')) {
+    const brace = chunk.indexOf('{');
+    if (brace === -1) continue;
+    const body = chunk.slice(brace + 1);
+    for (const line of body.split(';')) {
+      if (!line.trimStart().startsWith('background:')) continue;
+      const tint = tintOf(line);
+      if (!tint) continue;
+      const fg = 'color: var(--color-' + tint.name + ')';
+      if (body.replace(/\s+/g, ' ').includes(fg)) pairs.add('color-' + tint.name + ':' + tint.pct);
+    }
+  }
+  return [...pairs].sort();
+}
+
+const tints = tintRules(scss);
+
+const textTokens = [
+  'color-fg',
+  'color-muted',
+  'color-accent',
+  'color-error',
+  'color-ok',
+  'color-warning',
+  'color-info',
+];
 const failures = [];
 const report = [];
 
@@ -59,12 +130,31 @@ for (const theme of ['light', 'dark']) {
       if (r < 4.5) failures.push(`${theme}: ${tk} (${t[tk]}) on ${bgName} (${t[bgName]}) = ${r.toFixed(2)} < 4.5`);
     }
   }
+  for (const tint of tints) {
+    const [tk, pctStr] = tint.split(':');
+    const pct = Number(pctStr);
+    for (const bgName of ['color-bg', 'color-surface']) {
+      const bg = mixOver(t[tk], t[bgName], pct);
+      const r = ratio(t[tk], bg);
+      report.push(`${theme}/${tk} on ${pct}% ${tk} tint over ${bgName}: ${r.toFixed(2)}`);
+      if (r < 4.5)
+        failures.push(
+          `${theme}: ${tk} (${t[tk]}) on its own ${pct}% tint over ${bgName} (${bg}) = ${r.toFixed(2)} < 4.5`,
+        );
+    }
+  }
   const onAccent = ratio(t['color-on-accent'], t['color-accent']);
   report.push(`${theme}/on-accent on accent: ${onAccent.toFixed(2)}`);
-  if (onAccent < 4.5) failures.push(`${theme}: on-accent (${t['color-on-accent']}) on accent (${t['color-accent']}) = ${onAccent.toFixed(2)} < 4.5`);
+  if (onAccent < 4.5)
+    failures.push(
+      `${theme}: on-accent (${t['color-on-accent']}) on accent (${t['color-accent']}) = ${onAccent.toFixed(2)} < 4.5`,
+    );
   const focus = ratio(t['color-accent'], t['color-bg']);
   report.push(`${theme}/focus ring: ${focus.toFixed(2)}`);
-  if (focus < 3) failures.push(`${theme}: focus ring accent (${t['color-accent']}) vs bg (${t['color-bg']}) = ${focus.toFixed(2)} < 3`);
+  if (focus < 3)
+    failures.push(
+      `${theme}: focus ring accent (${t['color-accent']}) vs bg (${t['color-bg']}) = ${focus.toFixed(2)} < 3`,
+    );
 }
 
 if (failures.length) {

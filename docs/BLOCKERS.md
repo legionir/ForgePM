@@ -72,3 +72,74 @@ it here; only missing GitHub push credentials may halt execution.
 - Mitigation: webhook→outbox→worker auto-run path is proven end-to-end in
   `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
 - Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).
+
+## B-011 — [main] Two §11 panel E2E failures inherited by every branch — fixed in PE-0's branch
+- Impact: once the E2E could start at all (B-010), `chain.spec.ts` still failed twice
+  on `main`'s own code, so every PR's `Panel build + Playwright flagship E2E` step was
+  red regardless of its content.
+- Cause 1 (a11y, deterministic): `.ui-badge--info` used `--color-info` as text on a
+  12% `--color-info` tint = 4.37:1 (< 4.5). `check:contrast` missed the whole class of
+  tinted surfaces because it only checked tokens against `color-bg`/`color-surface`.
+  Fixed by D-044 (three status hues darkened, gate extended to 52 pairs).
+- Cause 2 (interaction): the board drop read its key only from
+  `dataTransfer.getData('text/plain')`; on a CDP-driven drag Chromium does not always
+  surface the payload, so the move no-oped and the poll for `state_name` timed out at
+  60s. Fixed by D-045 (payload ∪ key remembered at `dragstart`, unit-tested).
+- Evidence chain: main's tip (PR #10, zero changes) → red at the E2E step; same tip +
+  the two stale `gen:api` artifacts → the step's failure text surfaced via
+  annotations; then both causes above. Nothing in the exec module was involved — the
+  exec gate/ledger code has its own suites.
+- Status: FIXED on this branch; `main` inherits both fixes when PE-0 merges. Local
+  proof: `check:contrast` green (52 pairs), `npm run test:web` 66/66 (3 new resolver
+  cases), `ng build` green; the E2E itself can only run on hosted CI here (no
+  chromium download in the sandbox), which is what the next push measures.
+
+## B-010 — [main] The panel E2E gate was red on `main`: `e2e-reset.mjs` hardcoded a sandbox path
+- Impact: `apps/web/scripts/e2e-reset.mjs` resolved `pg` through
+  `createRequire('/home/user/ForgePM/apps/api/package.json')` — an absolute path from
+  the machine that wrote it. Everywhere else (any CI runner, any other clone) the
+  script dies with `Cannot find module 'pg'`, so `apps/web/e2e.sh` aborts before the
+  first spec and the CI step "Panel build (Angular) + Playwright flagship E2E"
+  fails. Nothing in the panel itself is broken: `ng build` is green, and `npm run
+  verify` was green in the same run.
+- Provenance: it reached `main` with PR #8 while Actions could not start at all
+  (every run from that period ended in 3-5s with a billing message), so the gate
+  that would have caught it never ran. Attribution was made by probing `main`'s
+  tip with zero changes (PR #10): the step is red there too.
+- Fix (in PR #9, commit below): anchor the require at the script's own location —
+  `createRequire(new URL('../../api/package.json', import.meta.url))` — which works
+  from any clone and keeps the "no psql binary" property that motivated the
+  rewrite. Verified by resolving `pg` from a copied-out path; a repo-wide grep
+  shows no other committed absolute workspace paths.
+- Status: FIXED on the branch; `main` needs the same commit (it arrives with PE-0's
+  merge). Lesson recorded in `docs/DECISIONS.md` D-043: paths in committed
+  tooling are resolved relative to the file, never relative to the author's box.
+
+## B-009 — [environment] Execution-control DB gates: originally not run — mostly resolved (D-042)
+- Original impact (when PE-0 was written): `npm run migrate`, `npm run
+  schema:check` against a live schema and `npm run test:integration` (including
+  `tests/integration/exec-ledger-invariants.test.ts`: append-only triggers,
+  20-way concurrent code allocation, module-off behaviour) were not executed —
+  the sandbox had no database binaries, and `apt-get` has no network. The suites
+  were only proven offline (column/index parity against the shipped SQL).
+- Mitigation now in place: the database is obtained the same way D-001 solves it
+  — natively, without containers — through the repo's own
+  `apps/web/scripts/dev-postgres.mjs` (`embedded-postgres`). `FORGEPM_TEST_NO_REDIS=1`
+  in `tests/integration/harness.ts` lets the DB-only suites run while any
+  queue-touching test fails loudly instead of silently passing.
+- Status: PARTIALLY RESOLVED (2026-10-17). With a live PostgreSQL: `migrate` on an
+  empty DB ✅ and idempotent on rerun ✅ · `schema:check` ✅ "60 contract tables
+  verified" · `exec-ledger-invariants.test.ts` ✅ 13/13 · full `test:integration`
+  183/190, the 7 failures all environment-bound (`outbox`, `phase5-worker` need
+  Redis; `phase7-backup`, `phase7-system` need `pg_dump`/`psql`) and all in
+  pre-existing suites, none in exec scope. That run exposed and fixed three real
+  bugs, so the gates were worth running. Plan OI-8/OI-9 are closed — D-041
+  cancelled the only Docker-bound acceptance item, so nothing is skipped
+  "because there is no Docker".
+- Still open: (1) no Redis here ⇒ the queue suites and the `remote:` CI line.
+  PR #9's CI never started: GitHub Actions reports "recent account payments have
+  failed or your spending limit needs to be increased", so there is currently no
+  hosted runner at all. Either fix the billing/spend limit, attach a self-hosted
+  runner (Postgres + Redis), or waive PE-0's `remote:` gate explicitly in the
+  ledger. PE-0 is **not** closed until one of those happens.
+

@@ -19,7 +19,7 @@ function parseContract(): Map<string, { columns: Map<string, string>; indexes: s
   const md = readFileSync(DOC, 'utf8');
   const blocks = [...md.matchAll(/```sql\n([\s\S]*?)```/g)].map((m) => m[1]);
   // Blocks covered by shipped migrations: §A infra, §B core, §C domain,
-  // §D planner, §E mcp, §F github, §G reviews. Later blocks skipped.
+  // §D planner, §E mcp, §F github, §G reviews, §H execution-control ledger.
   const anchors = [
     'CREATE TABLE outbox',
     'CREATE TABLE organizations',
@@ -28,6 +28,7 @@ function parseContract(): Map<string, { columns: Map<string, string>; indexes: s
     'CREATE TABLE mcp_tool_calls',
     'CREATE TABLE repositories',
     'CREATE TABLE review_runs',
+    'CREATE TABLE exec_tasks',
   ];
   const relevant = blocks.filter((b) => anchors.some((a) => b.includes(a)));
   if (relevant.length < anchors.length) throw new Error(`DATA_MODEL.md: expected ${anchors.length} covered blocks, found ${relevant.length}`);

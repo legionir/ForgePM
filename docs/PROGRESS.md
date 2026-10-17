@@ -75,3 +75,48 @@ in CI per B-001), publish.sh idempotent (two passes), branch protection not
 applied (token scope, recorded). `docs/FINAL_REPORT.md` written and pushed.
 Tags `v0.0.0`..`v0.7.0` + `v1.0.0-rc.1` present on origin. Stop condition
 reached (plan §2 "اجرای بی‌توقف" item 3a).
+
+---
+
+## Execution control (docs/EXECUTION_CONTROL_PLAN.md)
+
+### PE-0 — module scaffold, migration, settings, codes
+Status: **code complete — local gates green, hosted CI green except the
+(inherited, now fixed) panel E2E step; PE-0 stays open until the job is fully green**.
+
+- Done: `0010_exec` (17 tables + triggers + REVOKE + `work_items.exec_task_id`),
+  DATA_MODEL §H contract block (column/index parity checked offline), shared
+  exec schemas, `packages/core/src/exec/*` (gate, policy, open items, evidence,
+  scope, baseline, journal, session, review input, codes, events), 16 `exec.*`
+  settings (the five `exec.runner*` keys were struck with D-041), `exec` module registration (off by default), `ledger:*` scopes,
+  101 exec unit tests + a 4-test structural guard (no spawn path, D-041), docs
+  (DECISIONS D-039…D-043, BLOCKERS B-009/B-010, CHANGELOG, plan PE-0 results).
+- `local:` `lint` ✅ · `typecheck` (all workspaces) ✅ · `test:unit` ✅ 221/221 ·
+  `build` ✅ · `docs:check` ✅ · `check-migration-hashes` ✅ (manifest updated).
+- `local (real DB, no Docker):` `migrate` on an empty PostgreSQL ✅ + idempotent
+  rerun ✅ · `schema:check` ✅ ("60 contract tables verified") ·
+  `tests/integration/exec-ledger-invariants.test.ts` ✅ 13/13 · full
+  `test:integration` with `FORGEPM_TEST_NO_REDIS=1` → 183/190 (the 7 failures
+  are environment-only: `outbox`/`phase5-worker` need Redis,
+  `phase7-backup`/`phase7-system` need `pg_dump`; none touches exec) ·
+  migration manifest ✅ 9 hashes. DB came from the repo's own embedded
+  Postgres path (D-042); the three exec bugs this run exposed are fixed in the
+  same commit.
+- `local not-run:` the queue-based suites (no Redis in this sandbox; they run in
+  CI). Coverage is **no longer** not-run: hosted CI executed `npm run verify`
+  with the coverage thresholds and it is green.
+- Plan OI‑8/OI‑9 are closed: the Docker-bound test was cancelled together with the
+  runner path (D-041), so nothing is skipped "because there is no Docker".
+- `remote:` **running again** (billing fixed) — on PR #9: `Install`,
+  `Migration hash guard`, `Migrations on an empty DB`, `npm run verify`
+  (lint+typecheck+unit+integration+**coverage thresholds**+build) and
+  `gen:api drift check` are ✅ on hosted CI. The remaining red step was
+  `Panel build + Playwright flagship E2E`, which is red on `main` too (proven with
+  the zero-change probe PR #10): `e2e-reset.mjs` hardcoded the author's absolute
+  workspace path, so `pg` could not be resolved off that machine (B-010, D-043).
+  With that fixed the step exposed two more `main`-side failures — a badge contrast
+  violation and the board drop depending only on `dataTransfer` — both fixed here as
+  well (B-011, D-044/D-045), together with the stale `openapi.json`/`schema.d.ts`.
+- Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
+  `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
+  `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.
