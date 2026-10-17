@@ -114,9 +114,11 @@ Status: **code complete — local gates green, hosted CI green except the
   `Panel build + Playwright flagship E2E`, which is red on `main` too (proven with
   the zero-change probe PR #10): `e2e-reset.mjs` hardcoded the author's absolute
   workspace path, so `pg` could not be resolved off that machine (B-010, D-043).
-  With that fixed the step exposed two more `main`-side failures — a badge contrast
-  violation and the board drop depending only on `dataTransfer` — both fixed here as
-  well (B-011, D-044/D-045), together with the stale `openapi.json`/`schema.d.ts`.
+  With that fixed the step exposed two more `main`-side failures: the badge/chip tint
+  contrast (fixed here, CI-confirmed gone — D-044) and the board drag, which never
+  starts an HTML5 drag session under headless Chromium and stays **open** as an owner
+  decision (B-011, D-045, issue #11). Net `remote:`: every step green **except** that inherited
+  E2E step, so PE-0 is not closed from this branch.
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

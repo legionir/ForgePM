@@ -73,26 +73,35 @@ it here; only missing GitHub push credentials may halt execution.
   `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
 - Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).
 
-## B-011 — [main] Two §11 panel E2E failures inherited by every branch — fixed in PE-0's branch
-- Impact: once the E2E could start at all (B-010), `chain.spec.ts` still failed twice
-  on `main`'s own code, so every PR's `Panel build + Playwright flagship E2E` step was
-  red regardless of its content.
-- Cause 1 (a11y, deterministic): `.ui-badge--info` used `--color-info` as text on a
-  12% `--color-info` tint = 4.37:1 (< 4.5). `check:contrast` missed the whole class of
-  tinted surfaces because it only checked tokens against `color-bg`/`color-surface`.
-  Fixed by D-044 (three status hues darkened, gate extended to 52 pairs).
-- Cause 2 (interaction): the board drop read its key only from
-  `dataTransfer.getData('text/plain')`; on a CDP-driven drag Chromium does not always
-  surface the payload, so the move no-oped and the poll for `state_name` timed out at
-  60s. Fixed by D-045 (payload ∪ key remembered at `dragstart`, unit-tested).
+## B-011 — [main] Two §11 panel E2E failures inherited by every branch — one fixed, one open
+- Impact: once the E2E could start at all (B-010), `chain.spec.ts` failed twice on
+  `main`'s own code, so every PR's `Panel build + Playwright flagship E2E` step was red
+  regardless of its content.
+- Cause 1 (a11y, **fixed**): `.ui-badge--info` painted `color-mix(in srgb,
+  var(--color-info) 12%, transparent)` as background with the same token as text —
+  4.37:1 against the 4.5:1 the project claims; `ok`/`warning` badges were 3.8–4.1:1 on
+  their tints. `check:contrast` missed the whole class of tinted surfaces because it
+  only compared tokens against `color-bg`/`color-surface`. Fixed by D-044 (three
+  light-theme status hues darkened; the gate now derives the tint pairs from
+  `styles.scss` itself — 52 pairs) and CI confirmed the axe violation disappeared.
+- Cause 2 (interaction, **open**): `card.dragTo(column)` completes but the item never
+  moves. Not the payload — a `dragstart` fallback was shipped and CI failed
+  identically, so the `drop` handler is never reached: headless Chromium does not start
+  an HTML5 drag session for `dragTo` on this markup. Reverted (D-045) rather than keep
+  code that fixes nothing. Two honest ways out, and they are the panel owner's call:
+  pointer-event dragging in the board (real and headless drags behave the same), or
+  synthesising `DragEvent`+`DataTransfer` in the spec (tests the wiring, not a browser
+  drag). Weakening or deleting the assertion is not on the table.
 - Evidence chain: main's tip (PR #10, zero changes) → red at the E2E step; same tip +
-  the two stale `gen:api` artifacts → the step's failure text surfaced via
-  annotations; then both causes above. Nothing in the exec module was involved — the
-  exec gate/ledger code has its own suites.
-- Status: FIXED on this branch; `main` inherits both fixes when PE-0 merges. Local
-  proof: `check:contrast` green (52 pairs), `npm run test:web` 66/66 (3 new resolver
-  cases), `ng build` green; the E2E itself can only run on hosted CI here (no
-  chromium download in the sandbox), which is what the next push measures.
+  the two stale `gen:api` artifacts → the failure text surfaced through annotations;
+  then both causes above. Nothing in the exec module was involved — the ledger/gate
+  code has its own suites, all of which passed in the same job.
+- Status: HALF FIXED. Cause 1 lands with PE-0's merge (and `main` gets it then); cause
+  2 keeps `remote:` red for every branch until the panel owner picks an option (tracked
+  as legionir/ForgePM#11), so
+  PE-0 is **not** declared closed from this branch. The E2E cannot run in this sandbox
+  at all (no chromium download), which is exactly why the hosted job is the arbiter.
+
 
 ## B-010 — [main] The panel E2E gate was red on `main`: `e2e-reset.mjs` hardcoded a sandbox path
 - Impact: `apps/web/scripts/e2e-reset.mjs` resolved `pg` through

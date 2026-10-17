@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  draggedKey,
   filterCommands,
   initialsOf,
   nextTabIndex,
@@ -49,7 +48,7 @@ interface Row {
 const cols: (UiTableColumn<Row> | SortCol<Row>)[] = [
   { key: 'id' },
   { key: 'title', sortable: true },
-  { key: 'prio', sortable: true, sortValue: (r) => ({ urgent: 3, high: 2, low: 1 })[r.prio] ?? 0 },
+  { key: 'prio', sortable: true, sortValue: (r) => ({ urgent: 3, high: 2, low: 1 }[r.prio] ?? 0) },
 ];
 const rows: Row[] = [
   { id: 'a', title: 'Beta', prio: 'high' },
@@ -181,22 +180,5 @@ describe('CommandPalette service', () => {
     expect(svc.open()).toBe(false);
     svc.hide();
     expect(svc.open()).toBe(false);
-  });
-});
-
-describe('draggedKey (board drop resolution)', () => {
-  const transfer = (value: string) => ({ getData: () => value });
-  it('prefers the transfer payload', () => {
-    expect(draggedKey(transfer('WI-1'), 'WI-2')).toBe('WI-1');
-  });
-  it('falls back to the key remembered at dragstart when the payload is empty', () => {
-    // Chromium drops the payload on CDP-driven drags; the move must still happen.
-    expect(draggedKey(transfer(''), 'WI-3')).toBe('WI-3');
-    expect(draggedKey(null, 'WI-4')).toBe('WI-4');
-    expect(draggedKey(undefined, 'WI-5')).toBe('WI-5');
-  });
-  it('resolves to nothing when neither channel has a key', () => {
-    expect(draggedKey(transfer(''), null)).toBeNull();
-    expect(draggedKey(null, null)).toBeNull();
   });
 });

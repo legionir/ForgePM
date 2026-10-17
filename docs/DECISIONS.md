@@ -525,18 +525,25 @@ Format per plan §2: Context / Decision / Reason.
   `12% → 20%` change fails the gate instead of shipping a11y debt, and pixel
   baselines (`VISUAL=1`, opt-in) stay a human concern.
 
-## D-045 — Board drops accept the payload or the remembered key, never only one
-- Context: with the module fixed in D-044 the other §11 chain failure remained: after
-  `card.dragTo(column)` the work item's `state_name` never changed. The drop handler
-  read the key exclusively from `event.dataTransfer.getData('text/plain')`, and
-  Chromium does not reliably surface `dataTransfer` on the `drop` of a CDP-driven drag
-  (Playwright's `dragTo`) — the handler then returned early on an empty key.
-- Decision: remember the key on `dragstart`, clear it on `dragend`, and resolve a drop
-  through `draggedKey(transfer, remembered)` in `ui/logic.ts` — payload first,
-  remembered key as fallback. The HTML5 contract is unchanged (the payload is still
-  what a real user's drag carries, so cross-component drops and drag-to-other-apps
-  behave identically); the pure resolver is unit-tested in `ui-logic.spec.ts`.
-- Reason: the interaction is a pair of events, and the app may not depend on which one
-  happened to carry data. The alternative — dropping the drag assertion from the E2E
-  or driving the move only through the keyboard path — would have removed coverage of
-  a shipped interaction, which the repo's rules forbid (no test weakening).
+## D-045 — Board drag in headless Chromium: diagnosed, deliberately not patched blind
+- Context: after D-044 the §11 chain E2E had one failure left — `card.dragTo(column)`
+  completed without error but the item's `state_name` never changed (60s poll). The
+  board uses HTML5 DnD (`draggable` + `dragstart`/`dragover`/`drop`, key carried in
+  `dataTransfer`), and a fallback that also remembered the key at `dragstart` was
+  implemented and shipped in the same push — CI then still failed identically, which
+  proves the `drop` handler never runs at all: headless Chromium does not enter a
+  drag session for `dragTo` on this markup, so neither channel carries a key.
+- Decision: the fallback was reverted (it fixed nothing and would have stayed as
+  unverifiable code). The remaining work is a design choice about the interaction, not
+  a bug fix, and it belongs to the panel owner: either (a) drive the board from
+  pointer events (mouse/touch) with HTML5 DnD as an enhancement, which makes real
+  dragging and headless dragging behave the same and is the a11y-honest option, or
+  (b) keep HTML5 DnD and have the spec synthesise `DragEvent`s with a real
+  `DataTransfer` via `page.evaluate` — which tests the wiring but no longer tests a
+  browser drag. Raising it as an open item (B-011, legionir/ForgePM issue) instead of
+  choosing quietly.
+- Reason: PE-0's contract is that nothing bypassable rests on judgement, and the same
+  discipline applies to fixes: code that is not known to fix anything must not ride
+  along inside another phase's PR. The contrast half was kept because CI proved the
+  axe violation gone; this half has no such proof, and both candidate fixes change
+  what the E2E means — a scope decision, which is the owner's.
