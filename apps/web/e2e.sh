@@ -27,7 +27,13 @@ sleep 1
 
 if [[ "$RESET_DB" == "1" ]]; then
   echo "e2e: reset $E2E_DB"
-  DATABASE_URL="$PGURI" E2E_DB="$E2E_DB" node "$WEB_DIR/scripts/e2e-db.mjs" >/dev/null
+  # Not silenced: when this fails (permissions, a server that is up but not ready) the
+  # reason is one line deep in the gate's own output, and a red gate whose log says only
+  # "exit 1" gets diagnosed by guessing.
+  if ! DATABASE_URL="$PGURI" E2E_DB="$E2E_DB" node "$WEB_DIR/scripts/e2e-db.mjs"; then
+    echo "e2e: could not recreate $E2E_DB via scripts/e2e-db.mjs (see the error above)" >&2
+    exit 1
+  fi
 fi
 echo "e2e: migrate + build api"
 ( cd "$ROOT" && DATABASE_URL="$API_URL" npm run migrate >/dev/null && npm run build -w @forgepm/shared -w @forgepm/core -w @forgepm/api >/dev/null )

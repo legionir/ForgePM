@@ -69,7 +69,19 @@ jobs:
           # not only in a sandbox: they are the deterministic half of the board-drag
           # gate (apps/web/src/app/ui/board-drag.spec.ts, issue #11).
           (cd apps/web && npx ng test --configuration=coverage)
-          bash apps/web/e2e.sh
+          # A red panel gate must announce itself: the raw Actions log is not always
+          # reachable from the tooling that closes a phase, so the tail of the run plus
+          # the api/dev-server logs go into an annotation instead of only into the log.
+          set +e
+          bash apps/web/e2e.sh 2>&1 | tee /tmp/e2e.out
+          E2E_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$E2E_STATUS" -ne 0 ]; then
+            MSG=$(tail -n 40 /tmp/e2e.out /tmp/forgepm-e2e-api.log /tmp/forgepm-e2e-web.log 2>/dev/null \
+              | tr -d '\r' | sed 's/%/%25/g; s/:/%3A/g' | awk '{printf "%s%s", sep, $0; sep="%0A"}')
+            echo "::error::panel E2E failed (exit $E2E_STATUS) — $MSG"
+            exit "$E2E_STATUS"
+          fi
 
       - name: "i18n key parity check (plan §11)"
         run: (cd apps/web && node scripts/i18n-check.mjs)
