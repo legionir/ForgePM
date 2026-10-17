@@ -791,7 +791,9 @@ PE‑8 → PE‑9 → PE‑10 → PE‑11 → PE‑12. پنل می‌تواند 
 
 ## ۱۷. تعریف «تمام» (Definition of Done) برای این پروژه
 
-1. **۱۰۰٪ معیارهای پذیرش A–K (§۶ تا §۱۳)** با برچسب `auto:` برای هرکدام به فایل/تست.
+1. **۱۰۹ معیار پذیرش A–K + PE‑0/PE‑12 (§۵ تا §۱۳)** تیک‌خورده؛ هرکدام با برچسب
+   `auto:` به فایل تست یا `manual:` به دستور اجرایی مشخص (قاعدهٔ `AGENTS.md`: بدون اجرای
+   واقعی دروازه، سبز اعلام نمی‌شود).
 2. `npm run verify` سبز (lint, typecheck, unit, integration, coverage ≥ 80, build) +
    `schema:check` + `docs:check` + `gen:api:check` + `migration-hash` + `i18n-check`.
 3. `npm run exec:e2e` سبز در CI (۱۳ صحنه) — **سناریوی بخش ۵ + ۶ مورد ضمیمه**.
