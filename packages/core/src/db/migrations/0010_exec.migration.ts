@@ -300,7 +300,7 @@ CREATE TABLE exec_baseline_tests (
   test_name text NOT NULL,
   result_at_start text NOT NULL CHECK (result_at_start IN ('pass','fail','skip')),
   assertion_count integer,
-  source text NOT NULL CHECK (source IN ('ci','runner','human')),
+  source text NOT NULL CHECK (source IN ('ci','human')),
   approval_id uuid REFERENCES approval_requests(id),
   provenance jsonb,
   captured_at timestamptz NOT NULL DEFAULT now(),
@@ -367,12 +367,6 @@ BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'exec: exec_action_journal rows may not be deleted' USING ERRCODE = '42809';
   END IF;
-  IF OLD.status <> 'started' THEN
-    RAISE EXCEPTION 'exec_action_journal % is already settled (%)', OLD.code, OLD.status USING ERRCODE = '42809';
-  END IF;
-  IF NEW.status = 'started' THEN
-    RAISE EXCEPTION 'exec_action_journal % may not go back to started', OLD.code USING ERRCODE = '42809';
-  END IF;
   IF NEW.id IS DISTINCT FROM OLD.id OR NEW.task_id IS DISTINCT FROM OLD.task_id
      OR NEW.code IS DISTINCT FROM OLD.code OR NEW.action IS DISTINCT FROM OLD.action
      OR NEW.idempotent IS DISTINCT FROM OLD.idempotent
@@ -380,6 +374,12 @@ BEGIN
      OR NEW.pre_state_ref IS DISTINCT FROM OLD.pre_state_ref
      OR NEW.started_at IS DISTINCT FROM OLD.started_at THEN
     RAISE EXCEPTION 'exec_action_journal: only status/finished_at/result_ref/note may change' USING ERRCODE = '42809';
+  END IF;
+  IF OLD.status <> 'started' THEN
+    RAISE EXCEPTION 'exec_action_journal % is already settled (%)', OLD.code, OLD.status USING ERRCODE = '42809';
+  END IF;
+  IF NEW.status = 'started' THEN
+    RAISE EXCEPTION 'exec_action_journal % may not go back to started', OLD.code USING ERRCODE = '42809';
   END IF;
   RETURN NEW;
 END;

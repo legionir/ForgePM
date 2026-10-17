@@ -919,7 +919,7 @@ CREATE TABLE exec_baseline_tests (
   test_name text NOT NULL,
   result_at_start text NOT NULL,    -- pass|fail|skip
   assertion_count integer,
-  source text NOT NULL,             -- ci|runner|human
+  source text NOT NULL,             -- ci|human
   approval_id uuid REFERENCES approval_requests(id),
   provenance jsonb,
   captured_at timestamptz NOT NULL DEFAULT now(),

@@ -10,7 +10,15 @@ the derived documents — do not duplicate them here.
 2. Write the phase's acceptance-criteria tests first (red).
 3. Implement until green; API and panel pages of that phase ship together.
 4. **Local Verification:** `npm run verify` (lint, typecheck, unit, integration,
-   coverage thresholds, build) must finish without errors.
+   coverage thresholds, build) must finish without errors. DB-backed gates are
+   *not* optional and never need Docker (D-001): boot the repo's embedded
+   PostgreSQL (`node apps/web/scripts/dev-postgres.mjs`, or the
+   `@embedded-postgres/linux-x64` binaries with `initdb`/`pg_ctl`), then run
+   `DATABASE_URL=postgres://postgres:postgres@127.0.0.1:<port>/<db>
+   npm run migrate && npm run schema:check && npm run test:integration`.
+   With no Redis available, prefix `FORGEPM_TEST_NO_REDIS=1` — queue-touching
+   tests then fail loudly instead of silently passing, and the report says which
+   suites were skipped and why (naming Redis/`pg_dump`, never "no Docker").
 5. Update `CHANGELOG.md` + phase docs, commit, squash-merge to `main`, tag
    `v0.<N>.0`.
 6. If a remote exists, push and pass **Remote CI**. Every phase report has two

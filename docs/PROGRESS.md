@@ -88,17 +88,28 @@ Status: **code complete, partially verified locally**.
   exec schemas, `packages/core/src/exec/*` (gate, policy, open items, evidence,
   scope, baseline, journal, session, review input, codes, events), 21 `exec.*`
   settings, `exec` module registration (off by default), `ledger:*` scopes,
-  99 unit tests, integration test file, docs (DECISIONS D-039/D-040, BLOCKERS
+  101 exec unit tests + a 4-test structural guard (no spawn path, D-041), docs (DECISIONS D-039/D-040, BLOCKERS
   B-009, CHANGELOG, plan PE-0 checkbox results).
-- `local:` `lint` ✅ · `typecheck` (all workspaces) ✅ · `test:unit` ✅ 215/215 ·
+- `local:` `lint` ✅ · `typecheck` (all workspaces) ✅ · `test:unit` ✅ 221/221 ·
   `build` ✅ · `docs:check` ✅ · `check-migration-hashes` ✅ (manifest updated).
-- `local not-run:` `migrate` / `schema:check` / `test:integration` / coverage —
-  no Postgres, Redis or Docker in this sandbox (B-009 = plan OI-8/OI-9).
+- `local (real DB, no Docker):` `migrate` on an empty PostgreSQL ✅ + idempotent
+  rerun ✅ · `schema:check` ✅ ("60 contract tables verified") ·
+  `tests/integration/exec-ledger-invariants.test.ts` ✅ 13/13 · full
+  `test:integration` with `FORGEPM_TEST_NO_REDIS=1` → 183/190 (the 7 failures
+  are environment-only: `outbox`/`phase5-worker` need Redis,
+  `phase7-backup`/`phase7-system` need `pg_dump`; none touches exec) ·
+  migration manifest ✅ 9 hashes. DB came from the repo's own embedded
+  Postgres path (D-042); the three exec bugs this run exposed are fixed in the
+  same commit.
+- `local not-run:` coverage (≥80 on exec) — the gate that needs `npm test`
+  with coverage; queue-based suites (Redis).
 - `remote:` **cannot-run** — PR #9 CI (run 39066115968) never started: GitHub
   reports "recent account payments have failed or your spending limit needs to be
   increased" for `ubuntu-latest`. So the DB-dependent gates have no remote proof;
-  a self-hosted runner (docker + Postgres/Redis) or an explicit human waiver is
-  required (plan OI‑9, B‑009).
+  an explicit human waiver (or a self-hosted runner) is still required for the
+  `remote:` line only — the DB gates themselves are now locally verified (D-042).
+  Plan OI‑8/OI‑9 are closed: the Docker-bound test was cancelled with the runner
+  path (D-041), so nothing is skipped "because there is no Docker".
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

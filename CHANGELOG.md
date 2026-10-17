@@ -34,27 +34,45 @@ existing route are untouched.
   redaction), scope measurement, baseline comparison, journal write-lock, session
   packing, adversarial-reviewer input assembly (conversation keys are refused) and
   its strict output parser, ledger code allocation.
-- **21 `exec.*` settings** (`exec.policy`, `exec.test_command`,
+- **16 `exec.*` settings** (`exec.policy`, `exec.test_command`,
   `exec.test_result_parser`, `exec.protected_test_globs`, `exec.allowed_repo_roots`,
-  `exec.baseline_source`, `exec.ci_log_*`, `exec.runner.*`, size/output caps,
-  review rounds, gate/transition switches) in category `execution`; defaults
-  validate against their own schemas in a unit test.
+  `exec.baseline_source`, `exec.ci_log_endpoint`, `exec.ci_log_secret_name`,
+  size/output caps, review rounds, gate/transition switches) in category
+  `execution`; defaults validate against their own schemas, and the key list
+  itself is asserted so adding one is a reviewed change (D-041 removed the five
+  `exec.runner*` keys: ForgePM never executes repo code, so `exec_baseline_tests`
+  is fed only by the CI log — `source IN ('ci','human')` — and rule 12 fails
+  closed with `BASELINE_UNAVAILABLE` until a human waives).
 - **`exec` module** (`apps/api/src/modules/exec/module.ts`) registered in
   `app/modules.ts` with `validateConfig` that refuses to enable the module while
   `exec.*` documents do not parse. Scopes `ledger:read` / `ledger:write` /
   `ledger:decide` (human-only) added to `API_KEY_SCOPES` + `docs/MCP_CONTRACTS.md`.
-- **Tests**: 99 new DB-free unit tests (`packages/core/src/exec/*.test.ts`)
+- **Tests**: 101 new DB-free unit tests (`packages/core/src/exec/*.test.ts`) plus a
+  4-test structural guard (`tests/unit/exec-no-spawn.test.ts`, mutation-checked)
   covering each acceptance rule by number (F.1–F.8, C.1–C.12, B.6, B.10, J.2–J.6,
   K.1–K.4, E.1–E.4); `tests/integration/exec-ledger-invariants.test.ts` covers the
   DB-side invariants, 20-way concurrent code allocation and module-off gating.
 
-### Not yet (honest gate)
+### Gate (honest reporting)
 
-- `local:` lint / typecheck / unit (215) / build / docs:check / migration-hash
-  manifest green. `not-run:` `npm run migrate`, `schema:check` and
-  `test:integration` — no Postgres/Redis/Docker in the authoring sandbox
-  (docs/BLOCKERS.md B-009, plan §18 OI-8/OI-9). `remote:` not-configured for this
-  branch (no push yet).
+- `local:` lint ✅ · typecheck (all workspaces) ✅ · `test:unit` ✅ 221/221 ·
+  `build` ✅ · `docs:check` ✅ · migration-hash manifest ✅ (9 migrations).
+- `local:` against a real PostgreSQL, booted without Docker via the repo's own
+  `apps/web/scripts/dev-postgres.mjs` (D-042): `npm run migrate` on an empty DB ✅
+  and idempotent on rerun ✅ · `npm run schema:check` ✅ "60 contract tables
+  verified" · `tests/integration/exec-ledger-invariants.test.ts` ✅ 13/13 ·
+  `npm run test:integration` with `FORGEPM_TEST_NO_REDIS=1` → 183/190, the 7
+  failures confined to pre-existing Redis-bound (`outbox`, `phase5-worker`) and
+  `pg_dump`-bound (`phase7-*`) suites. Running them found three real bugs, fixed
+  here: the gate crashed on an empty exit report, `extractCounts` misread CI
+  summary lines, and a root-level `**/*.test.ts` glob failed to match.
+- `local not-run:` coverage ≥80 on `exec/**`; the queue-based suites (no Redis in
+  this sandbox).
+- `remote:` **cannot-run** — PR #9's CI job never started ("recent account
+  payments have failed or your spending limit needs to be increased"), so there
+  is no hosted runner to prove the CI-side gates. PE-0 is therefore *not* closed:
+  fix Actions billing, attach a self-hosted runner (Postgres + Redis), or record
+  an explicit human waiver in the ledger (docs/BLOCKERS.md B-009).
 
 ## [1.0.0-rc.1] — Release candidate (2026-10-10)
 

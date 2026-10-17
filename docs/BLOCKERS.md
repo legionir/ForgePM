@@ -73,23 +73,31 @@ it here; only missing GitHub push credentials may halt execution.
   `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
 - Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).
 
-## B-009 — [environment] Execution-control (PE-0) DB-dependent gates not run locally
-- Impact: `npm run migrate`, `npm run schema:check` against a live schema and
-  `npm run test:integration` (including the new
+## B-009 — [environment] Execution-control DB gates: originally not run — mostly resolved (D-042)
+- Original impact (when PE-0 was written): `npm run migrate`, `npm run
+  schema:check` against a live schema and `npm run test:integration` (including
   `tests/integration/exec-ledger-invariants.test.ts`: append-only triggers,
-  20-way concurrent code allocation, module-off behaviour) were NOT executed in
-  the sandbox where PE-0 was written — no Postgres, no Redis, no Docker, and
-  `apt-get` has no network. They are written, committed and green-by-construction
-  against the same SQL the migration ships (offline column/index parity check),
-  but they have not been executed against a real database yet.
-- Mitigation: the unit suites (215 tests incl. 99 exec tests) + lint + typecheck +
-  build all pass locally; the integration file is deterministic and isolated per
-  file via the standard harness. Run `npm run test:integration && npm run
-  schema:check` on any host with the CI service containers before closing PE-0.
-- Status: OPEN — this is OI-8/OI-9 of `docs/EXECUTION_CONTROL_PLAN.md` §18
-  (accept `not-run` in CI without docker, or provide a runner); no gate result is
-  claimed for those two items. **Update (2026-10-17):** PR #9's CI never started —
-  GitHub Actions reports "recent account payments have failed or your spending
-  limit needs to be increased", so there is currently no hosted runner at all.
-  Either fix the billing/spend limit, attach a self-hosted runner with docker +
-  Postgres/Redis, or waive PE-0's DB gates explicitly (recorded in the ledger).
+  20-way concurrent code allocation, module-off behaviour) were not executed —
+  the sandbox had no database binaries, and `apt-get` has no network. The suites
+  were only proven offline (column/index parity against the shipped SQL).
+- Mitigation now in place: the database is obtained the same way D-001 solves it
+  — natively, without containers — through the repo's own
+  `apps/web/scripts/dev-postgres.mjs` (`embedded-postgres`). `FORGEPM_TEST_NO_REDIS=1`
+  in `tests/integration/harness.ts` lets the DB-only suites run while any
+  queue-touching test fails loudly instead of silently passing.
+- Status: PARTIALLY RESOLVED (2026-10-17). With a live PostgreSQL: `migrate` on an
+  empty DB ✅ and idempotent on rerun ✅ · `schema:check` ✅ "60 contract tables
+  verified" · `exec-ledger-invariants.test.ts` ✅ 13/13 · full `test:integration`
+  183/190, the 7 failures all environment-bound (`outbox`, `phase5-worker` need
+  Redis; `phase7-backup`, `phase7-system` need `pg_dump`/`psql`) and all in
+  pre-existing suites, none in exec scope. That run exposed and fixed three real
+  bugs, so the gates were worth running. Plan OI-8/OI-9 are closed — D-041
+  cancelled the only Docker-bound acceptance item, so nothing is skipped
+  "because there is no Docker".
+- Still open: (1) no Redis here ⇒ the queue suites and the `remote:` CI line.
+  PR #9's CI never started: GitHub Actions reports "recent account payments have
+  failed or your spending limit needs to be increased", so there is currently no
+  hosted runner at all. Either fix the billing/spend limit, attach a self-hosted
+  runner (Postgres + Redis), or waive PE-0's `remote:` gate explicitly in the
+  ledger. PE-0 is **not** closed until one of those happens.
+

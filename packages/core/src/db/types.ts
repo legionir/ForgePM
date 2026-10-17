@@ -350,7 +350,17 @@ export interface PlansTable {
   organization_id: string;
   project_id: string;
   goal: string;
-  status: 'generating' | 'needs_clarification' | 'ready' | 'approved' | 'applying' | 'applied' | 'generation_failed' | 'apply_failed' | 'canceled' | 'superseded';
+  status:
+    | 'generating'
+    | 'needs_clarification'
+    | 'ready'
+    | 'approved'
+    | 'applying'
+    | 'applied'
+    | 'generation_failed'
+    | 'apply_failed'
+    | 'canceled'
+    | 'superseded';
   current_revision_id: string | null;
   created_by: string;
   created_at: Timestamp;
@@ -565,7 +575,6 @@ export interface CodeStructureIndexTable {
   created_at: Timestamp;
 }
 
-
 // ---- Execution control ledger (docs/EXECUTION_CONTROL_PLAN.md §4, migration 0010) ----
 
 export interface ExecCodeSeqTable {
@@ -656,7 +665,16 @@ export interface ExecOpenItemsTable {
   code: string;
   title: string;
   detail: string | null;
-  type: 'incomplete_requirement' | 'commitment' | 'assumption' | 'bug' | 'risk' | 'test_gap' | 'design_gap' | 'suggestion' | 'out_of_scope';
+  type:
+    | 'incomplete_requirement'
+    | 'commitment'
+    | 'assumption'
+    | 'bug'
+    | 'risk'
+    | 'test_gap'
+    | 'design_gap'
+    | 'suggestion'
+    | 'out_of_scope';
   blocks_completion: boolean;
   why_not_blocking: string | null;
   source: 'agent' | 'exit_report' | 'reviewer' | 'human' | 'hook';
@@ -777,7 +795,7 @@ export interface ExecBaselineTestsTable {
   test_name: string;
   result_at_start: 'pass' | 'fail' | 'skip';
   assertion_count: number | null;
-  source: 'ci' | 'runner' | 'human';
+  source: 'ci' | 'human';
   approval_id: string | null;
   provenance: Jsonb | null;
   captured_at: Timestamp;

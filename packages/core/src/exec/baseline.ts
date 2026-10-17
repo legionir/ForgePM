@@ -2,26 +2,38 @@ import { parseTestLog, type ParsedTestLog } from '@forgepm/shared';
 import { matchPathGlob } from './scope';
 
 /**
- * Baseline bookkeeping (appendix §J). The agent never types results: the code
- * runs (or reads CI) and stores the parsed outcome. Rule 12 of the gate then
- * compares "before" against "after".
+ * Baseline bookkeeping (appendix §J). The agent never types results: a row is
+ * either parsed out of the CI log for the task's sha, or recorded by a human
+ * behind an approval. ForgePM does not execute repo code at all (D-041), so
+ * there is no third kind. Rule 12 of the gate compares "before" against "after".
  */
+
+/** `exec_baseline_tests.source` — keep in sync with the DB CHECK (asserted). */
+export type BaselineSource = 'ci' | 'human';
 
 export interface BaselineRow {
   name: string;
   result: 'pass' | 'fail' | 'skip';
   assertions?: number;
   /** Where the row came from, recorded so a baseline can be audited. */
-  source?: 'ci' | 'runner' | 'agent';
+  source?: BaselineSource;
 }
 
 export type ParserCfg = { pass: string[]; fail: string[]; skip: string[]; test_line?: string };
 
-export function baselineFromLog(log: string, parser: ParserCfg, source: 'ci' | 'runner'): { rows: BaselineRow[]; totals: ParsedTestLog['totals']; complete: boolean } {
+export function baselineFromLog(
+  log: string,
+  parser: ParserCfg,
+  source: BaselineSource = 'ci',
+): { rows: BaselineRow[]; totals: ParsedTestLog['totals']; complete: boolean } {
   const p = parseTestLog(log, parser);
   const rows: BaselineRow[] = p.names.map((n) => ({
     name: n,
-    result: p.failures.some((f) => f.includes(n.slice(0, 40))) ? 'fail' : p.skipped.some((k) => k.includes(n.slice(0, 40))) ? 'skip' : 'pass',
+    result: p.failures.some((f) => f.includes(n.slice(0, 40)))
+      ? 'fail'
+      : p.skipped.some((k) => k.includes(n.slice(0, 40)))
+        ? 'skip'
+        : 'pass',
     source,
   }));
   return { rows, totals: p.totals, complete: p.complete };

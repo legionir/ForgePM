@@ -35,9 +35,9 @@
 10. **حجم و بازه:** سقف «۴۰۰–۸۰۰ خط» پرامپت **لغو** شد (مالک: «هدف تحقق کامل ارزش است، خط مهم
     نیست»): برآورد ~۵۰۰۰–۶۰۰۰ خط و **۲۶–۳۰ روز‌مهندس** برای ۱۳ فاز کامل (A–K + پنل کامل + ۲۸ ابزار).
     سقف **کیفی** پابرجاست: ≤ ۴۰۰ خط/فایل، ≤ ۶۰ خط/تابع، بدون وابستگی غیرضروری.
-11. **اجرای تست (`test_command`) مطابق استاندارد امنیتی**: فقط در **runner جدا و ناپایدار**
-    (ephemeral container: non-root، cap‑drop ALL، ro‑fs، seccomp، `--network none`، بدون env والد،
-    TTL)؛ **هیچ fallback به host**؛ سه‌سطحی `ci → sandbox → blocked` (§۱۳، PE‑8).
+11. **نتیجهٔ تست مطابق استاندارد امنیتی**: این پلتفرم **هیچ‌وقت کد مخزن را اجرا نمی‌کند** — نه روی
+    host، نه در container (D‑08 بازبینی‌شده، مالک ۲۰۲۶‑۱۰‑۱۷). نتیجه فقط از **لاگ CI** همان `commit_sha`
+    خوانده و parse می‌شود؛ لاگ نبود ⇒ قاعدهٔ ۱۲ **رد**. هیچ `runner`/host‑exec وجود ندارد (§۱۳، PE‑8).
 
 ---
 
@@ -63,7 +63,7 @@
 | audit trail | ✅ `recordAudit` (شکست = rollback) | هر mutation ledger یک `audit_event` |
 | لاگ فراخوانی ابزار | ✅ `mcp_tool_calls` (mask + cap 50KB) | `exec_events` فقط برای تغییر وضعیت‌ها؛ ردیابی خام از `mcp_tool_calls` |
 | CLI انسانی | ❌ فقط `scripts/*.ts` با tsx (بدون باینری `bin` در مخزن) | **استاندارد خودِ مخزن**: `scripts/ledger-cli.ts` + `npm run ledger -- …` روی REST (بدون SQL مستقیم)؛ پکیج npm جدا **نه** (D‑11) |
-| `test_command` اجراشده توسط کد | ⚠️ `REPO_MOUNT_ROOT` برای منابع محلی | منبع سه‌سطحی: **CI artifact → runner جدا/ephemeral → blocked**؛ بدون اجرای host (D‑08، §۱۳) |
+| `test_command` اجراشده توسط کد | ⚠️ اجرای کد مخزن در پروسهٔ خودی ممنوع | **بدون اجرا**: نتیجه فقط از لاگ CI همان `sha` خوانده می‌شود؛ نبود لاگ ⇒ قاعدهٔ ۱۲ رد (D‑08، §۱۳) |
 | Hookها (PreToolUse) | ❌ | اسکریپت تولید + تست اسکیمای `.claude/settings.json`؛ تعهد = «مسدودسازی سمت سرور» (§۱۰، PE‑5 F.9) |
 
 **نتیجه:** ~۶۵٪ زیرساخت لازم وجود دارد. کار اصلی، **قلمرو جدید داده + دروازهٔ قطعی +
@@ -85,7 +85,7 @@
 | D‑05 | `policy.json` → تنظیم `exec.policy` (JSONB، zod، override در سطح سازمان/پروژه) | منبع حقیقت واحد + بدون restart + قابل audit + واریث | ویرایش فایل ساده‌تر است ⇒ `npm run policy:print/set` + صفحهٔ `exec-policy` در پنل همان سهولت را می‌دهند | ✅ approved (PE‑0) |
 | D‑06 | `start_ref` + `tree_hash` توسط **hook/اسکریپت سمت ایجنت** (`scripts/ledger-hook`) یا `baseline_capture`/`scope_check` خوانده می‌شود | سرور به clone ایجنت دسترسی ندارد (runner فقط برای اجرای تست mount می‌شود) | اگر هیچ‌کدام نبود → manifest از hash فایل‌ها، وگرنه `scope:'unknown'` و **رد قاعدهٔ ۱۱** (fail closed) | بی‌خطر |
 | D‑07 | حجم ~۵۰۰۰–۶۰۰۰ خط، نه ۴۰۰–۸۰۰ | ضمیمه دامنه را به ۱۱ بخش + پنل کامل + ۲۸ ابزار گسترش داد | مالک: «تعداد خط مهم نیست، تحقق کامل ارزش مهم است» ⇒ سقف خط لغو، سقف فایل/تابع و «وابستگی غیرضروری ممنوع» باقی می‌ماند (تست ساختاری C.11) | ✅ approved (مالک) |
-| D‑08 | اجرای `test_command`: سه‌سطحی **CI → runner جدا → blocked**؛ `exec.run_on_host` حذف شد | استاندارد امنیتی اجرای کد نامطمئن: ایزولاسیون ناپایدار، بدون secret، بدون egress، بدون fallback به host | runner در دسترس نباشد ⇒ قاعدهٔ ۱۲ **رد** (fail closed)، نه `skipped`؛ عبور فقط با تأیید صریح انسان (waive) که در گزارش نهایی برجسته می‌شود | ✅ approved (استاندارد: OWASP CI/CD + hardening اجرا) |
+| D‑08 | **(بازبینی مالک ۲۰۲۶‑۱۰‑۱۷)** baseline فقط از **لاگ CI** خوانده می‌شود؛ ForgePM هیچ کدی اجرا نمی‌کند — نه host، نه container/docker | مالک: «وارد docker نشو؛ docker چرا لازم است؟». اجرای تست کارِ CI خودِ مخزن است و لاگش منبع قابل‌بازبینی همان اجرا؛ یک runner یعنی یک سطح حمله + یک وابستگی استقرار اضافه، بدون ارزش افزودهٔ امنیتی | نبودِ لاگ CI ⇒ قاعدهٔ ۱۲ **رد** (`BASELINE_UNAVAILABLE`)، نه `skipped`؛ عبور فقط با waive صریح انسانی که در گزارش نهایی برجسته می‌شود. کلیدهای `exec.runner.*` و فایل‌های `scripts/runner/*` از پلن حذف شدند | ✅ approved (مالک) |
 | D‑09 | افزودن `0010_exec.migration.ts` (۱۷ جدول) و **یک خط** به `schema-check.ts` (anchors) | `schema:check` بلوک §H را نمی‌شناسد | تنها تغییر کد خارج از قلمرو ماژول؛ در فاز PE‑0 | بی‌خطر |
 | D‑10 | ارجاع `out_of_scope` در نسخهٔ ۱ فقط `open_item(type=out_of_scope)` است نه WorkItem جدا | جلوگیری از تورم موجودیت | گم‌شدن → همه در `req_coverage`/`ledger_status`/پنل دیده می‌شوند | بی‌خطر |
 | D‑11 | `ledger-cli` = اسکریپت مخزن (`scripts/ledger-cli.ts` + `npm run ledger`)، نه باینری npm | «مطابق استانداردها» = استاندارد خودِ مخزن: همهٔ ابزارها `scripts/*.ts` با tsx (۱۴ مورد)، بدون `bin` | کشف‌پذیری برای تیم بیرونی ⇒ در `README` + `docs/RUNBOOK.md` مستند؛ در صورت نیاز بعداً به پکیج `@forgepm/ledger-cli` منتقل می‌شود (بدون تغییر API) | ✅ approved |
@@ -115,11 +115,10 @@
    ├─ approval_requests (human)      ← تأیید/رد/answer/waive/drop/promote
    ├─ review engine (kind 'exec')   ← بازبین خصمانه، ورودی ایزوله، tree_hash
    ├─ work-items guard              ← transition به 'completed' بدون Gate = FORBIDDEN
-   └─ BullMQ jobs (exec.baseline, exec.verify_facts, exec.review) از طریق outbox
-                                        │
-                                        ▼
-                        [runner] forgepm-runner (docker, ephemeral, no-net, non-root)
-                        اجرای test_command → فقط stdout/stderr کریدنی + exit code برمی‌گردد
+   └─ BullMQ jobs (exec.verify_facts, exec.review) از طریق outbox
+
+   baseline هرگز با اجرای کد ساخته نمی‌شود: `exec_baseline_tests` فقط از **لاگ CI** همان
+   `sha` پر می‌شود (fetch + parse). لاگ نبود ⇒ قاعدهٔ ۱۲ رد — fail closed (D‑08).
 
 ### ۳.۱ لایه‌بندی و مسیر فایل‌ها
 
@@ -133,16 +132,16 @@
 | worker | `apps/worker/src/handlers.ts` (ثبت) + `apps/worker/src/exec/` | handlerهای `exec.baseline`, `exec.verify_facts`, `exec.review` |
 | CLI انسان | `scripts/ledger-cli.ts` (+ `npm run ledger`، `npm run policy:print/set`) | §۹.۵ — استاندارد مخزن: اسکریپت tsx، بدون پکیج npm جدا (D‑11) |
 | پنل (کامل) | `pages/exec-tasks.ts`, `pages/exec-ledger.ts`, `pages/exec-policy.ts`, تب `exec` در `work-item-detail` | §۱۳ (PE‑12) — مشاهده + تمام قفل‌گشایی‌ها (fa/en، RTL) |
-| runner (اختیاری) | `scripts/runner/run-test.sh` + `docker-compose.runner.yml` | §۱۳ — تصویر ناپایدار؛ فقط API را صدا می‌زند، به DB نه |
 | مستند | `docs/EXECUTION_CONTROL.md`, `docs/LEDGER_RULES.md`, افزودن §H به `DATA_MODEL.md` | §۱۴ |
 
 `packages/core/src/exec/`:
 `codes.ts` (شناسه خوانا) · `open-items.ts` (ماشین وضعیت + قوانین بستن) · `evidence.ts`
 (اعتبارسنجی ref) · `policy.ts` (طبقه‌بندی ریسک) · `exit-report.ts` (تبدیل به آیتم + validate) ·
 `gate.ts` (۱۳ قاعده) · `requirements.ts` (پوشش، needs_revisit) · `plan.ts` (deps/چرخه/block/unblock) ·
-`facts.ts` (hash/stale/supersede/promote) · `scope.ts` (glob + diff) · `baseline.ts` (parse نتایج + تضعیف) ·
-`journal.ts` (started→unknown) · `session.ts` (بستهٔ اولویت‌دار با سقف) · `runner.ts`
-(صدای runner + کریدن/پارس خروجی + fail‑closed) · `types.ts`.
+`facts.ts` (hash/stale/supersede/promote) · `scope.ts` (glob + diff · test weakening) ·
+`journal.ts` (started→unknown) · `session.ts` (بستهٔ اولویت‌دار با سقف) · `baseline.ts` (parse لاگ CI
++ fail‑closed) · `types.ts`. **`runner.ts` وجود ندارد**: در کل `packages/core/src/exec/**` هیچ
+`child_process`/`spawn`/`exec` مجاز نیست — گارد J.7c: `tests/unit/exec-no-spawn.test.ts`.
 
 ### ۳.۲ اصول تغییرناپذیری (Invariant‌ها) — همان‌ها که تست می‌شوند
 
@@ -161,8 +160,8 @@
 - **I‑9** هر ۲۸ ابزار همیشه ثبت و visible‌اند (تصمیم D‑12)؛ کنترل هزینه فقط از راه توصیف کوتاه،
   سقف خروجی و `session_start` به‌عنوان نقطهٔ شروع. `tools/list` هیچ‌وقت ابزاری را برای یک کلید
   `ledger:*` پنهان نمی‌کند (مگر ماژول خاموش باشد).
-- **I‑10** هیچ اجرایی از کد مخزن روی host سرور/worker انجام نمی‌شود؛ تنها مسیر، runner ناپایدار
-  یا artifact آی‌سی است (D‑08). نبودِ runner ⇒ خطای `RUNNER_UNAVAILABLE` و **رد** قاعدهٔ ۱۲.
+- **I‑10** هیچ کدی از مخزن اجرا نمی‌شود — نه روی host/worker، نه در container (D‑08). تنها منبع
+  baseline لاگ CI همان `sha` است؛ نبودش ⇒ `BASELINE_UNAVAILABLE` و **رد** قاعدهٔ ۱۲ (fail closed).
 - **I‑8** هر نوشتن = یک `exec_events` + یک `audit_event` در **همان تراکنش** (شکست = rollback).
 
 ### ۳.۳ قرارداد خطا (اضافه‌شدنی به `error-codes.ts`)
@@ -172,6 +171,7 @@ LEDGER_NOT_FOUND 404 · LEDGER_STATE_INVALID 409 · LEDGER_TRANSITION_NOT_ALLOWE
 GATE_FAILED 409 · CRITERION_NOT_CHECKABLE 422 · EVIDENCE_INVALID 422
 SCOPE_VIOLATION 422 · JOURNAL_UNRESOLVED 409 · FACT_STALE 409
 REQUIREMENT_UNCOVERED 409 · REVIEW_STALE 409 · REVIEW_OUTPUT_INVALID 422
+BASELINE_UNAVAILABLE 503 (no CI log for this sha → rule 12 fails closed)
 APPROVAL_PENDING 409 · SELF_APPROVAL_FORBIDDEN 403   (موجود: FORBIDDEN_SELF_APPROVAL)
 ```
 
@@ -201,7 +201,7 @@ APPROVAL_PENDING 409 · SELF_APPROVAL_FORBIDDEN 403   (موجود: FORBIDDEN_SEL
 | 11 | `exec_task_deps` | `task_id, depends_on_task_id, created_at` | `CHECK task_id <> depends_on_task_id`؛ چرخه در کد (گراف) |
 | 12 | `exec_facts` | `id, code 'F-###', key, value, kind('fact','assumption'), source('code','docs','human','tool_output','agent_guess'), source_ref, files jsonb, file_hashes jsonb, verified_at, status('active','stale','rejected','superseded'), superseded_by, created_at` | `kind='fact' ⇒ source<>'agent_guess'`؛ `(project_id, key)` unactive یکتای جزئی |
 | 13 | `exec_fact_decisions` | `fact_id, decision_id, created_at` | پل stale → needs_revisit |
-| 14 | `exec_baseline_tests` | `id, task_id, test_name, result_at_start('pass','fail','skip'), assertion_count, source('ci','runner','human'), provenance jsonb, captured_at` | فقط writer = کد (job/CI parser)؛ `source='human'` **فقط** با approval انسانی و در گزارش نهایی برجسته؛ `provenance` = `{run_id, sha, job, started_at, exit_code, sha256_log}` |
+| 14 | `exec_baseline_tests` | `id, task_id, test_name, result_at_start('pass','fail','skip'), assertion_count, source('ci','human'), provenance jsonb, captured_at` | فقط writer = کد (parser لاگ CI)؛ `source='human'` **فقط** با approval انسانی و در گزارش نهایی برجسته؛ `provenance` = `{run_id, sha, job, started_at, exit_code, sha256_log}` |
 | 15 | `exec_action_journal` | `id, task_id, code 'AJ-###', action, target, idempotent, expected_effect, pre_state_ref, status('started','done','failed','unknown'), started_at, finished_at, result_ref, note` | `started` بازنشانی خودکار به `unknown` در `session_start` |
 | 16 | `exec_code_seq` | `project_id, prefix('T','C','OI','D','Q','F','REQ','AJ'), seq` | شمارندهٔ کد خوانا؛ `allocateLedgerCode` با `SELECT … FOR UPDATE` (تست همزمانی PE‑0.5) |
 | 17 | `exec_gate_checks` | `id, task_id, report_id, ok, blocked_by jsonb, gate_version, tree_hash, run_source, created_at` | **مهرِ Gate**: هر ارزیابی (شامل رد) یک ردیف غیرقابل‌حذف؛ `done` فقط وقتی latest با `tree_hash = current` و `ok=true` باشد — حتی اگر کسی SQL مستقیم بزند |
@@ -220,18 +220,13 @@ APPROVAL_PENDING 409 · SELF_APPROVAL_FORBIDDEN 403   (موجود: FORBIDDEN_SEL
 ```
 modules.exec_control.enabled            bool  = false
 exec.policy                    jsonb   = POLICY_DEFAULT (§۶)            (قابل override در پروژه)
-exec.test_command              string  = ''   (اجرا فقط در runner/CI؛ هیچ مسیر host وجود ندارد)
+exec.test_command              string  = ''   (فقط می‌گوید کدام کار CI این نتایج را تولید می‌کند؛ اجرا در CI خودِ مخزن)
 exec.test_result_parser       jsonb   = { "pass":[…], "fail":[…], "skip":[…] } regex‌های نام TEST
 exec.protected_test_globs     array   = ["**/*.test.ts","**/test/**/*.ts","**/e2e/**/*.spec.ts"]
 exec.allowed_repo_roots        array   = []                              (prefix-safe، مثل github/config.ts)
-exec.baseline_source           enum    = 'auto' | 'ci' | 'runner' | 'off'  (پیش‌فرض auto = ci → runner)
+exec.baseline_source           enum    = 'auto' | 'ci' | 'off'   (auto = تلاش برای خواندن لاگ CI همان sha)
 exec.ci_log_endpoint           string  = ''       (مثلاً https://api.github.com/repos/{owner}/{repo}/actions/runs/{id}/logs)
-exec.ci_log_headers_ref        string  = ''       (کلید `secrets` برای توکن read-only لاگ CI)
-exec.runner.enabled            bool    = false    (false ⇒ baseline رد، نه skipped — fail closed)
-exec.runner.image              string  = 'forgepm-runner:node22'
-exec.runner.network            enum    = 'none' | 'registry-allowlist'   (پیش‌فرض none)
-exec.runner_timeout_sec        int     = 900      (سقف: 1800)
-exec.runner_max_output_bytes   int     = 1048576
+exec.ci_log_secret_name        string  = ''       (نام کلید `secrets` برای توکن read-only لاگ CI)
 exec.evidence_max_bytes        int     = 131072
 exec.session_output_max_bytes  int     = 8192
 exec.tool_output_max_bytes     int     = 16384
@@ -243,8 +238,10 @@ exec.stale_check_on_start      bool    = true
 
 **۱۸ کلید** جدید؛ همه در تست واحد با `z` خودِ registry اعتبارسنجی می‌شوند (الگوی `env.test.ts`) و
 هیچ‌کدام `secret: true` نیست (توکن CI فقط در جدول `secrets` رمزنگاری‌شده، اینجا فقط **نام** کلید است).
-**کلیدهای لغو‌شده نسبت به پیش‌نویس:** `exec.tools.level` (D‑12)، `exec.harness.enabled` و
-`exec.allow_host_test_command` (D‑08 — امکان اجرای روی host به‌کلید تعریف نشده تا اشتباه‌پذیر نباشد).
+**کلیدهای لغو‌شده نسبت به پیش‌نویس:** `exec.tools.level` (D‑12)، `exec.harness.enabled`،
+`exec.allow_host_test_command` و پنج کلید `exec.runner.*`/`exec.runner_timeout_sec`/
+`exec.runner_max_output_bytes` — D‑08 بازبینی‌شده: هیچ مسیر اجرایی وجود ندارد، پس تنظیماتش هم معنا
+ندارد. شمار کلیدهای `exec.*` در پیاده‌سازی: **۱۶** (تست واحد این شمارش را قفل می‌کند).
 
 ---
 
@@ -311,13 +308,13 @@ exec.stale_check_on_start      bool    = true
 
 **معیارهای پذیرش PE‑0** (نتیجهٔ اجرای PE‑0 در ۲۰۲۶‑۱۰‑۱۷؛ `local:` = همان‌جا اجرا شد)
 
-- [~] PE‑0.1 اجرای `npm run migrate` روی DB خالی: **کد نوشته و ثبت شد** (`0010_exec` +
-      `manifest.sha256`؛ `local: node scripts/check-migration-hashes.mjs` سبز). خودِ migrate
-      در سندباکس **not-run** (Postgres در دسترس نبود)؛ ایدمپوتنسی در
-      `tests/integration/exec-ledger-invariants.test.ts` پوشش داده شد.
-- [~] PE‑0.2 `schema:check`: بلوک §H با ۱۷ جدول و ۱۹ ایندکس + anchor `CREATE TABLE exec_tasks`
-      اضافه شد و برابری ستون/نوع/ایندکس «دیتامدل ↔ مهاجرت» با اسکریپت آفلاین تست شد
-      (`local:` ۱۷/۱۷ یکسان). اجرای real-DB **not-run** (نیازمند Postgres زنده).
+- [x] PE‑0.1 اجرای `npm run migrate` روی DB **خالی و واقعی**: سبز (`0010_exec` اعمال شد) و
+      اجرای دوم **idempotent** (بدون خطا، بدون مهاجرت جدید). `check-migration-hashes.mjs` سبز
+      (۹ مهاجرت در manifest). نکتهٔ محیط: DB از همان راه بومی مخزن گرفته شد —
+      `node apps/web/scripts/dev-postgres.mjs` (embedded‑postgres، بدون docker؛ الگوی D‑001).
+- [x] PE‑0.2 `npm run schema:check` روی Postgres زنده: **«schema:check OK — 60 contract tables
+      verified»** (بلوک §H با ۱۷ جدول و ۱۹ ایندکس + anchor `CREATE TABLE exec_tasks`). برابری
+      ستون/نوع/ایندکس «دیتامدل ↔ مهاجرت» هم آفلاین تأیید شد (۱۷/۱۷، ۱۹/۱۹).
 - [x] PE‑0.3 آپ‑فوری/تک‌نشینی: `exec_events`، `exec_evidence`، `exec_gate_checks` با
       `exec_append_only()`؛ `exec_action_journal` با `exec_journal_settle_only()` (ثبت فقط یک‌بار،
       ستون‌های ادعا تغییرناپذیر) + `REVOKE`. تست: `exec-ledger-invariants.test.ts`.
@@ -332,10 +329,20 @@ exec.stale_check_on_start      bool    = true
 - [x] PE‑0.6 `execControlModule` ثبت شد، پیش‌فرض خاموش (`modules.exec.enabled=false`)،
       `validateConfig` اسکیماهای `exec.*` را در لحظهٔ فعال‌سازی چک می‌کند؛ `tools/list` بدون
       ابزار exec باقی می‌ماند (تست module-off در همان فایل integration).
-- [~] PE‑0.7 `local: lint` سبز، `typecheck` (همهٔ ورک‌اسپیس‌ها) سبز، `test:unit` سبز
-      (۲۱۵ تست، از جمله ۹۹ تست exec)، `build` سبز. `test:integration`، `coverage` و
-      `schema:check` real‑DB: **not-run** در این محیط (Postgres/Redis/Docker نیست) — OI‑8/OI‑9
-      همچنان باز؛ `docs:check` سبز.
+- [x] PE‑0.7 `local:` lint سبز · typecheck (همهٔ ورک‌اسپیس‌ها) سبز · `test:unit` سبز
+      (۲۲۱ تست، از جمله ۱۰۱ تست exec و ۴ تست گارد ساختاری J.7c) · build سبز · `docs:check` سبز ·
+      `npm run test:integration` با `FORGEPM_TEST_NO_REDIS=1`: **۱۸۳/۱۹۰ سبز** — از جمله
+      `exec-ledger-invariants.test.ts` **۱۳/۱۳** (همین اجرا ۳ باگ واقعی را بیرون کشید و رفع شد).
+      ۴ فایل قرمز (= ۷ تست) تماماً محیطی‌اند و ربطی به exec ندارند: `outbox`، `phase5-worker`
+      (به Redis لازم دارند؛ در این سندباکس بالا نمی‌آید — `redis-memory-server` هم باینری نداشت)
+      و `phase7-backup`/`phase7-system` (به `pg_dump`/`psql` واقعی). `remote:` در جدول پایین.
+- [ ] PE‑0.8 `remote:` — سبز شدن CI روی PR. در PR #9 اجرا **شروع نشد** (صورتحساب Actions؛
+      «recent account payments have failed») ⇒ `cannot-run`. تا این سبز نشود PE‑0 **بسته
+      محسوب نمی‌شود** (طبق اصل ۱۲ پلن: fail closed، حتی علیه خودمان).
+
+**راهنمای تکرار محلی (بدون docker):**
+`node apps/web/scripts/dev-postgres.mjs` (پورت ۵۴۳۳) یا `@embedded-postgres/linux-x64` روی پورت دلخواه،
+سپس `DATABASE_URL=postgres://postgres:postgres@127.0.0.1:<port>/forgepm_test FORGEPM_TEST_NO_REDIS=1 npx vitest run --project integration tests/integration/exec-ledger-invariants.test.ts`.
 
 ---
 
@@ -644,22 +651,22 @@ title='human arbitration required')` و Gate **هرگز** خودکار سبز ن
 بدون git)؛ هر فایل خارج از `allowed_paths` → `exec_open_items(out_of_scope, blocks=true,
 source='hook')`. گسترش محدوده فقط با `approval_requests(action='exec.scope_expand')` و
 `ledger-cli approve-scope`.
-`baseline.ts` + `runner.ts` — baseline **هیچ‌وقت** از دهان ایجنت گرفته نمی‌شود و **هیچ‌وقت** روی
-host سرور اجرا نمی‌شود. سه منبع با اولویت قطعی (`exec.baseline_source='auto'`):
+`baseline.ts` — baseline **هیچ‌وقت** از دهان ایجنت گرفته نمی‌شود و **هیچ‌وقت** توسط ForgePM اجرا
+نمی‌شود (نه host، نه container). تنها منبع، لاگ CI است (`exec.baseline_source`):
 
 | # | منبع | چگونه | `provenance` |
 |---|---|---|---|
 | 1 | **CI** (ترجیحی) | خواندن artifact/لاگ کارخانهٔ CI همان `sha` با `exec.ci_log_endpoint` + توکن **read-only از جدول `secrets`**؛ parse با `exec.test_result_parser` | `{provider:'github_actions', run_id, job, sha, sha256_log}` |
-| 2 | **runner ناپایدار** | job `exec.baseline` روی worker → `docker run --rm` روی `exec.runner.image` با `--user 1000:1000 --cap-drop ALL --security-opt no-new-privileges --security-opt seccomp=<profile> --read-only --tmpfs /tmp --memory 2g --cpus 2 --pids-limit 128 --network none` (تنها `exec.runner.network='registry-allowlist'` egress محدود می‌دهد)، **بدون env والد**، فرمان با `exec -a` بدون string interpolation، `timeout exec.runner_timeout_sec`، خروجی کریده تا `exec.runner_max_output_bytes` | `{backend:'docker', image, started_at, exit_code, sha256_log}` |
-| 3 | **هیچ‌کدام** | `RUNNER_UNAVAILABLE` ⇒ **رد قاعدهٔ ۱۲ (fail closed)**. بدون fallback به host، بدون `skipped` خودکار. تنها راه عبور: waive صریح انسانی با `approval_id` که در گزارش نهایی برجسته می‌شود | `{reason:'no_source'}` |
+| 2 | **هیچ‌کدام** | `BASELINE_UNAVAILABLE` ⇒ **رد قاعدهٔ ۱۲ (fail closed)**. بدون اجرای host، بدون container، بدون `skipped` خودکار. تنها راه عبور: waive صریح انسانی با `approval_id` که در گزارش نهایی برجسته می‌شود | `{reason:'no_source'}` |
 
-**استاندارد مرجع (چرا این شکل؟):** OWASP Top 10 CI/CD Security Risks — به‌ویژه CICD‑SEC‑4
-(Poisoned Pipeline Execution: اجرای کد مخزن در context با دسترسی به secret‌ها) و CICD‑SEC‑5 (PBAC:
-هر مرحله فقط منابع خودش را ببیند) — و CI/CD Security Cheat Sheet / hardening راهنماها:
-ایزولاسیون ناپایدار per‑run، non‑root با dropped capabilities، root‑fs read‑only، عدم‌انتقال env،
-egress deny‑by‑default، بازگرداندن «شواهد کریده» (exit code + لاگ) به‌جای shell قابل‌استفادهٔ مجدد،
-و **fail closed وقتی ایزولاسیون قابل‌اثبات نیست** (نه quiet downgrade به host). پس کلید
-`exec.allow_host_test_command` از پلن حذف شد تا «راه فرار آسان» وجود نداشته باشد.
+**استاندارد مرجع (چرا این شکل؟):** OWASP Top 10 CI/CD Security Risks — CICD‑SEC‑4 (Poisoned Pipeline
+Execution: اجرای کد مخزن در context دارای secret) و CICD‑SEC‑5 (PBAC). نسخهٔ اول این پلن برای رعایت
+همین استاندارد یک «runner ایزولهٔ ناپایدار» (container با cap‑drop/seccomp/no‑net) طراحی کرده بود؛
+مالک آن را رد کرد و راه بهتری انتخاب شد: **کانال اجرا را نساز**. خواصی که runner قرار بود بدهد —
+شاهدِ بی‌طرف بودن نتیجه، نبودِ دسترسی به secret در لحظهٔ اجرا، و fail closed — با خواندن لاگ CIِ
+همان `sha` (به‌همراه `run_id`/`job` در `provenance`) حفظ می‌شوند، بدون سطح حملهٔ جدید و بدون وابستگی
+استقرار. کلیدهای `exec.allow_host_test_command` و `exec.runner.*` به همین دلیل وجود ندارند: هیچ مسیر
+اجرایی یعنی هیچ تنظیماتی برای آن.
 
 سپس قاعدهٔ ۱۲ Gate: اجرای مجدد + سه تشخیص: `fail` جدید، **ناپدید شدن** تست، و تضعیف (کاهش تعداد
 `it/test/assert` در `exec.protected_test_globs` یا افزودن `skip/only/xit/xdescribe`) →
@@ -673,8 +680,12 @@ egress deny‑by‑default، بازگرداندن «شواهد کریده» (exi
       برای قاعدهٔ ۱۲ کافی نیست (تست شمارش writer).
 - [ ] J.5 `allowed_paths` بدون تأیید انسان قابل تغییر نیست (تست از هر ۳ مسیر: MCP، REST، CLI با کلید ایجنت).
 ۲ `skipped` + آیتم ریسک `blocks=false`؛ در گزارش نهایی برجسته.
-- [ ] J.7 اجرای تست در sandbox: تست واحد روی `exec/test-runner.ts` — reject خارج از
-      `allowed_repo_roots`، reject symlink escape، timeout، cap خروجی ۱MB، بدون env والد.
+- [ ] J.7 (بازبینی‌شده با D‑08) هیچ مسیر اجرایی در کد نیست: تست واحد `exec/ledger.test.ts` روی
+      `baselineFromLog`/`compareBaseline` — parse لاگ CI، رد لاگ بدون خط نتیجه، و
+      `baseline_source='off'` ⇒ قاعدهٔ ۱۲ **رد** (نه `skipped`؛ `exec/gate.test.ts`).
+      ب. J.7b ماسک secret روی متن ذخیره‌شونده (`exec/evidence.ts::redactSecrets`، تست در
+      `exec/evidence.test.ts`). ج. J.7c گارد ساختاری در `tests/unit/exec-no-spawn.test.ts` (جزئی از
+      `npm run verify`) — با mutation check تأیید شد که الگو `spawn`/`execFile` را واقعاً می‌گیرد.
 - [ ] J.8 پروژهٔ بدون git ⇒ manifest fallback و `start_ref=null`؛ Gate رد نمی‌کند ولی
       `scope:'manifest'` را در گزارش می‌آورد.
 
@@ -745,7 +756,7 @@ stale خودکار در `session_start` + پیش از `task_complete` + job دو
 - [ ] I.6 `fact_query` فکت stale را با `status:'stale'` + `warning` برمی‌گرداند، نه به‌عنوان واقعیت.
 - [ ] I.7 هیچ `fact` با `source_ref` غیرقابل‌بازدید باقی نمی‌ماند (`file:` موجود، `commit:` پارسable).
 
-### PE‑12 — **پنل کامل**، README، سناریوی E2E، runner، مستندات
+### PE‑12 — **پنل کامل**، README، سناریوی E2E، مستندات
 
 **پنل کامل (D‑13)** — همه از REST انسانی/اداری، بدون هیچ مسیر نوشتن مستقیم به DB:
 
@@ -765,15 +776,15 @@ stale خودکار در `session_start` + پیش از `task_complete` + job دو
 تنها افزوده‌ها: (الف) قطعهٔ پیکربندی + ساخت کلید API با اسکوپ‌های `ledger:*` در `docs/MCP.md`؛
 (ب) رفتار fail‑closed: سرور پایین ⇒ ابزار نوشتن `MODULE_UNAVAILABLE` با پیام «ادعا نکن، صبر کن»؛
 (ج) **اختیاری، پیش‌فرض خاموش، بدون DB:** `npm run ledger -- snapshot --out .agent-ledger/status.json`
-(JSON فقط‑خواندنی + TTL، برچسب `"advisory_only": true`)؛ (د) `scripts/claude-hook.mjs` (PE‑5 F.9) و
-`scripts/runner/run-test.sh` + `docker-compose.runner.yml` (PE‑8) در `docs/RUNBOOK.md`.
-**هیچ وابستگی جدید runtime اضافه نمی‌شود** (نه `better-sqlite3`، نه `sqlite3`؛ runner از CLI داکر
-از پیش موجود روی host استفاده می‌کند و اگر نبود، منبع ۳ فعال است).
+(JSON فقط‑خواندنی + TTL، برچسب `"advisory_only": true`)؛ (د) `scripts/claude-hook.mjs` (PE‑5 F.9) و پیکربندی
+خواندن لاگ CI (`exec.ci_log_endpoint` + `exec.ci_log_secret_name`) در `docs/RUNBOOK.md` مستند می‌شود.
+**هیچ** Dockerfile/compose/runner ساخته نمی‌شود و **هیچ وابستگی جدیدی** اضافه نمی‌شود: نه
+`better-sqlite3`/`sqlite3` (D‑01)، نه ابزار container (D‑08).
 - `docs/EXECUTION_CONTROL.md`: جدول وضعیت ۱۱۱ معیار پذیرش A–K با ستون «تست متناظر» و خط‌های
   `local:`/`remote:` (الگوی `npm run report:phase`)؛ `README.md`: بخش «Execution control».
 - مستندات لازم دیگر: §H در `docs/DATA_MODEL.md` (قرارداد ۱۷ جدول)، `docs/API_CONTRACTS.md`
   (endpoint‌های `/api/v1/exec/*`)، `docs/MCP_CONTRACTS.md` (جدول ۲۸ ابزار + اسکوپ‌ها)،
-  `docs/SECURITY.md` (threat model runner)، `docs/RUNBOOK.md`، `docs/DECISIONS.md` (D‑01…D‑13)،
+  `docs/SECURITY.md` (threat model «نبودِ اجرای کد»)، `docs/RUNBOOK.md`، `docs/DECISIONS.md` (D‑01…D‑13)،
   `CHANGELOG.md`، و بازتولید `openapi.json`/`schema.d.ts` با `npm run gen:api`.
 
 **PE‑12 — سناریوی انتهای-به-انتها (`scripts/exec-e2e.ts`, `npm run exec:e2e`)** — ۱۳ صحنه:
@@ -787,7 +798,7 @@ stale خودکار در `session_start` + پیش از `task_complete` + job دو
 | 5 | `touches=['public_api']` | `approval/pending`؛ اعمال بدون تأیید → `APPROVAL_PENDING` |
 | 6 | `task_complete` زودهنگام | `ok:false` با `blocked_by` دقیق |
 | 7 | فایل خارج از `allowed_paths` | آیتم مسدودکننده |
-| 8 | حذف تست baseline (منبع در CI: fixture با `source='ci'`؛ با `FORGEPM_TEST_DOCKER=1`: runner واقعی) | قاعدهٔ ۱۲ رد |
+| 8 | حذف تست baseline (fixture از لاگ CI یک commit سبز + نسخهٔ تغییریافته برای حالت رد) | قاعدهٔ ۱۲ رد |
 | 9 | تغییر فایل مرجع فکت | stale → needs_revisit → رد |
 | 10 | کرش میانهٔ migration | `unknown` اول؛ تکرار مسدود |
 | 11 | بازبینی (stub provider) | TODO جاافتاده → finding |
@@ -819,12 +830,12 @@ stale خودکار در `session_start` + پیش از `task_complete` + job دو
 
 | نوع | کجا | نمونه |
 |---|---|---|
-| واحد (کد قطعی، بدون DB) | `packages/core/src/exec/*.test.ts`, `packages/shared/src/schemas-exec.test.ts`, `tests/unit/*` | policy، ۱۳ قاعدهٔ gate، assertCheckable، scope glob، parser لاگ CI، runner argv، journal، session pack، codes |
+| واحد (کد قطعی، بدون DB) | `packages/core/src/exec/*.test.ts`, `packages/shared/src/schemas-exec.test.ts`, `tests/unit/*` | policy، ۱۳ قاعدهٔ gate، assertCheckable، scope glob، parser لاگ CI، journal، session pack، codes |
 | Integration (Postgres+Redis واقعی) | `tests/integration/exec-*.test.ts` با `createHarness()` | ledger, gate روی تسک واقعی، approvals، stale/review، req coverage، resume |
 | MCP contract | `apps/api/test/integration/exec-sdk.test.ts` (SDK + stdio) و `tests/integration/exec-mcp.test.ts` (JSON-RPC) | tools/list با/بدون enable، scope، rate limit، idempotency، envelope خطا |
 | E2E پذیرش | `scripts/exec-e2e.ts` + `npm run exec:e2e` (CI) | ۱۳ صحنهٔ §۱۳ (PE‑12) |
 | پنل | `apps/web/src/app/pages/{exec-tasks,exec-policy}.spec.ts` + `apps/web/e2e/chain.spec.ts` | درخت تسک، dry‑run gate، approve/waive از پنل، RTL/contrast/raw‑check |
-| ایزولاسیون اجرا | `tests/unit/exec-runner.test.ts` (argv builder) + `tests/integration/exec-runner-docker.test.ts` (پشت `FORGEPM_TEST_DOCKER`) | نبود secret والد در خروجی، رد نوشتن روی fs، timeout، کریدینگ، نبودِ fallback به host |
+| نبودِ هر مسیر اجرایی (D‑08) | `tests/unit/exec-no-spawn.test.ts` (هیچ `child_process`/`spawn`/`execFile` در `packages/core/src/exec/**` و `apps/api/src/modules/exec/**` + خودآزمایی الگو + نبودِ `docker-compose.runner.yml`) و `packages/core/src/exec/ledger.test.ts` (parse لاگ CI، قاعدهٔ `source`) | اگر روزی کانال اجرا اضافه شود `npm run verify` قرمز می‌شود — به‌جای اتکا به بازبینی انسانی |
 | مهر گیت | `tests/integration/exec-gate-stamp.test.ts` | `done` بدون مهر معتبر = drift؛ `tree_hash` متفاوت = رد |
 | دروازهٔ ساختاری | تست‌های موجود | `schema:check`, `docs:check`, `gen:api:check`, `check-migration-hashes`, `eslint-boundaries` |
 | نفوذ/امنیت | `tests/integration/pou-exec-security.test.ts` | حذف رکورد، حذف مسیر، secret mask، path traversal، SQL injection در `ref` (کوتاه‌ترین مسیر: همه از Kysely parameterized) |
@@ -839,8 +850,8 @@ stale خودکار در `session_start` + پیش از `task_complete` + job دو
 
 | ریسک | کاهش |
 |---|---|
-| اجرای `test_command` = RCE (CICD‑SEC‑4) | **فقط** runner ناپایدار داکر (non‑root، `--cap-drop ALL`، no‑new‑privileges، seccomp، `--read-only` + tmpfs، `--network none`، بدون env والد، timeout، کریدینگ خروجی، mem/cpu/pids limits) یا artifact خواندنی CI؛ **کلید host‑exec وجود ندارد**؛ نبودِ runner ⇒ `RUNNER_UNAVAILABLE` و **رد** قاعدهٔ ۱۲ (fail closed)؛ تست J.7/J.7b/J.7c |
-| نشت secret والد به لاگ تست | env تزریق‌شده فقط `{PATH, HOME=/tmp/run, NODE_ENV=test}`؛ mask خروجی runner با `maskInput` قبل از ذخیره؛ تست J.7b «نبود `FORGEPM_SECRET_KEY`/`fpm_` در لاگ» |
+| اجرای `test_command` = RCE (CICD‑SEC‑4) | **ساخته نمی‌شود**: هیچ مسیر اجرایی در کد نیست (نه host، نه container، نه compose). نتیجه فقط از **لاگ CI** همان `commit_sha` خوانده/parse می‌شود؛ نبودش ⇒ `BASELINE_UNAVAILABLE` و **رد** قاعدهٔ ۱۲ (fail closed)؛ waive فقط انسانی و برجسته در گزارش نهایی؛ تست J.7 + گارد ساختاری J.7c |
+| نشت secret به لاگ ذخیره‌شده | هر خروجیِ ذخیره‌شونده با `maskInput` ماسک و به `exec.evidence_max_bytes` سقف می‌شود؛ تست J.7b «نبود `FORGEPM_SECRET_KEY`/`fpm_` در متن ذخیره‌شده» |
 | ابطال/جعل نتیجهٔ baseline | `provenance` (run_id/sha/sha256 log) در `exec_baseline_tests`؛ writer فقط کد؛ `run_source` در مهر `exec_gate_checks`؛ تست J.4 |
 | **تورم ۲۸ ابزار MCP → context و فراموشی ثبت** (ریسک پذیرفته‌شدهٔ D‑12) | همه فعال؛ کنترل فقط با: توضیح ≤ ۲۰۰ کاراکتر (تست registry)، `exec.tool_output_max_bytes` + `truncated`، `session_start` به‌عنوان تنها نقطهٔ شروع، و **الزام رفتاری** D.3؛ ابزارهای استفاده‌نشده در گزارش نهایی فهرست می‌شوند (حذف خودسرانه ممنوع) |
 | Ledger به‌عنوان منبع نشت secret | mask قبل از ذخیره (الگوی `maskInput`) + تست B.16 + رد الگوهای `fpm_`/PEM/AWS |
@@ -851,16 +862,18 @@ stale خودکار در `session_start` + پیش از `task_complete` + job دو
 | نبود `start_ref` (ایجنت hook ندارد) | fallback manifest + علامت `scope:'unknown'` و **رد قاعدهٔ ۱۱** (fail closed) |
 | هزینهٔ LLM بازبینی | `exec.max_cost_tokens` + `ai_calls` (E.8) + حداکثر ۲ دور |
 | پنل کامل = سطح حملهٔ جدید (فرم‌های قفل‌گشایی) | همه از endpoint‌های انسانی با `exec:decide` + self‑approval ممنوع + audit + `reason` الزامی + preview تأثیر؛ UI هیچ قدرت اضافه‌ای نسبت به CLI ندارد (A‑8)؛ تست L.4b/L.4c |
-| اعتیاد به docker روی host (runner) | runner **اختیاری** است؛ نبودش ⇒ قاعدهٔ ۱۲ رد + waive انسانی (بدون silent downgrade)؛ `docker-compose.runner.yml` + تصویر pin‌شده در `docs/RUNBOOK.md` |
+| فشار برای «اجرای تست توسط خود پلتفرم» | این قابلیت ساخته نمی‌شود (D‑08 بازبینی‌شده): منبع فقط لاگ CI است؛ نبودش ⇒ قاعدهٔ ۱۲ رد + waive انسانی (بدون silent downgrade و بدون host/container) |
 
-**تهدیدهای پذیرفته‌شده و صریح (باید در گزارش نهایی برای انسان بیایند):** (۱) اجرای کد مخزن در
-runner همچنان یک کانال RCE است — فقط ایزوله، نه خنثی؛ (۲) `exec.runner.image` باید pin‌شده و
-ساخته‌شده در pipeline خودی باشد (ریسک supply‑chain، مثل `Dockerfile` مخزن)؛ (۳) خواندن لاگ CI با
-توکن read‑only یعنی وابستگی به GitHub — در self‑host بدون CI، منبع ۲ یا waive فعال است.
+**تهدیدهای پذیرفته‌شده و صریح (باید در گزارش نهایی برای انسان بیایند):** (۱) باور لاگ CI یعنی باور
+خروجی یک pipeline بیرونی — کاهش‌اش: تطبیق `commit_sha` + `run_id` در `provenance` و رد لاگ بدون خط
+نتیجه؛ (۲) خواندن لاگ با توکن read‑only یعنی وابستگی به یک CI بیرونی — در self‑host بدون CI،
+`baseline_source='off'` + waive انسانی فعال است (و این **شکست امنیتی** است، نه دور زدن گیت)؛ (۳) اگر CI
+مخزن اصلاً تست اجرا نکند، قاعدهٔ ۱۲ همیشه قرمز می‌ماند — عمداً همین‌طور است: «خودم اجرا می‌کنم» به
+«در CI سبز است» ترجیح داده نمی‌شود.
 
-`docs/SECURITY.md` به‌روزرسانی: § جدید «exec_control» (تهدیدها/کاهش‌ها + جدول runner)،
+`docs/SECURITY.md` به‌روزرسانی: § جدید «exec_control» (تهدیدها/کاهش‌ها + جدول منابع baseline)،
 `docs/RUNBOOK.md`: «قفل شدن تسک → dry‑run گیت از CLI/پنل»، «پاکسازی journal معلّق»،
-«فعال‌سازی runner + تصویر pin‌شده»، «restore از بکاپ + verify».
+«پیکربندی `exec.ci_log_endpoint` + توکن read‑only»، «restore از بکاپ + verify».
 
 ---
 
@@ -876,20 +889,21 @@ runner همچنان یک کانال RCE است — فقط ایزوله، نه خ
 | PE‑5 (F) | policy engine + policy config + hook template | PE‑4 | ۱ |
 | PE‑6 (D) | LEDGER_RULES.md + AGENTS.md + تست رفتاری ۳ تسک | PE‑2..PE‑5 | ۱ |
 | PE‑7 (E) | بازبین خصمانه (`kind:'exec'`) + ابطال hash | PE‑3, PE‑4 | ۲–۲٫۵ |
-| PE‑8 (J) | scope + baseline (CI/runner + argv + fail closed) + test weakening | PE‑0, PE‑3 | ۲٫۵–۳ |
+| PE‑8 (J) | scope + baseline (فقط لاگ CI + fail closed) + test weakening | PE‑0, PE‑3 | ۱٫۵–۲ |
 | PE‑9 (G+H) | requirements registry + plan/deps/blocked | PE‑1..PE‑3 | ۲ |
 | PE‑10 (K) | journal + session_start + reconcile | PE‑3 | ۱٫۵ |
 | PE‑11 (I) | facts + verify + links | PE‑10 (session hook) | ۲ |
-| PE‑12 | **پنل کامل** (۶ جزء) + README/docs + e2e + CI step + runner compose | همه | ۳–۳٫۵ |
+| PE‑12 | **پنل کامل** (۶ جزء) + README/docs + e2e + CI step | همه | ۳–۳٫۵ |
 | **جمع** | ۱۳ فاز، ~۵۰۰۰–۶۰۰۰ خط کد | | **۲۶–۳۰ روز‌مهندس** |
 
 **قاعدهٔ ترتیب (به‌روز):** دامنه **کاهش نمی‌یابد** (تصمیم مالک)؛ ترتیب فقط برای حداکثرکردن
 ارزش زودرس است: PE‑0…PE‑7 (حلقهٔ کنترل اصلی) → PE‑9 (الزامات/پلن؛ جلوی «حذف بی‌صدای الزام») →
-PE‑8 (scope/baseline/runner) → PE‑10 → PE‑11 → PE‑12. تنها حالت کاهش دامنه: تصمیم صریح انسانی
+PE‑8 (scope/baseline) → PE‑10 → PE‑11 → PE‑12. تنها حالت کاهش دامنه: تصمیم صریح انسانی
 ثبت‌شده با `waive`/`open_item(type='out_of_scope')` — نه تصمیم ایجنت. هیچ فازی با
 `skip`/`TODO` تحویل نمی‌شود؛ اگر چیزی لازم شد و در این پلن نبود → `open_item` و توقف.
-`J.7b` تنها تستی است که در محیط بدون docker اجرا نمی‌شود و در گزارش فاز صادقانه
-`local: pass (exec-runner-docker: not-run — no docker)` ثبت می‌گردد (نه «سبز کامل»).
+هیچ معیاری به docker وابسته نیست (D‑08 بازبینی‌شده)، پس هیچ ردیف `not-run`ی از این بابت در گزارش فاز
+ثبت نمی‌شود. تنها `not-run`های مشروع همان‌ها هستند که به سرویس بیرونی نیاز دارند (مثلاً لاگ یک run
+واقعی در J.7، یا remote CI روی self‑host).
 
 **نقشهٔ شاخه/تگ:** هر فاز = `phase/exec-<N>-<slug>` از `main`، squash‑merge،
 تگ `v1.<N>.0-rc.<m>` پس از سبز شدن remote CI (قرارداد `AGENTS.md`).
@@ -933,7 +947,7 @@ PE‑8 (scope/baseline/runner) → PE‑10 → PE‑11 → PE‑12. تنها ح�
 | OI‑1 | Postgres یا SQLite محلی؟ | **Postgres** («وقتی دیتابیس داریم، نیاز به دیتابیس دیگر نیست») | D‑01: بدون DB دوم؛ `.agent-ledger/` فقط JSON اختیاریِ فقط‑خواندنی (پیش‌فرض خاموش) |
 | OI‑2 | ابزارها در `forgepm-mcp` یا MCP مستقل؟ | **یک MCP واحد** | D‑02: همان `ToolRegistry` + `/mcp`/`forgepm-mcp` stdio؛ بدون بریج و بدون پکیج جدید |
 | OI‑3 | سقف ۸۰۰ خط یا تحقق کامل؟ | **تحقق کامل؛ تعداد خط مهم نیست** | D‑07: سقف خط لغو؛ هر ۱۳ فاز کامل؛ برآورد ۲۶–۳۰ روز؛ سقف کیفی فایل/تابع و «وابستگی غیرضروری ممنوع» پابرجا |
-| OI‑4 | اجرای `test_command` روی سرور یا از CI؟ | **«مطابق استانداردها»** | D‑08: سه‌سطحی `ci → runner(ناپایدار/ایزوله) → fail closed` بر پایهٔ OWASP CI/CD (SEC‑4/SEC‑5)؛ کلید `run_on_host` **وجود ندارد** |
+| OI‑4 | اجرای `test_command` روی سرور یا از CI؟ | **«مطابق استانداردها»**، سپس بازبینی مالک ۲۰۲۶‑۱۰‑۱۷: «وارد docker نشو» | D‑08: **هیچ‌کدام** — نتیجه فقط از لاگ CI خوانده می‌شود؛ OWASP CI/CD SEC‑4 با *نساختنِ* کانال اجرا رعایت می‌شود. کلیدهای `run_on_host`/`runner.*` وجود ندارند |
 | OI‑5 | CLI باینری npm یا اسکریپت مخزن؟ | **«مطابق استانداردها»** | D‑11: `scripts/ledger-cli.ts` + `npm run ledger` (الگوی ۱۴ اسکریپت tsx موجود مخزن) |
 | OI‑6 | ۲۸ ابزار یا فقط ۱۲ ابزار core؟ | **ابزار کامل** | D‑12: هر ۲۸ ابزار ثبت و visible؛ `exec.tools.level` حذف شد؛ کنترل هزینهٔ context با ۴ مکانیزم (§۴.۰) |
 | OI‑7 | پنل کامل یا فقط‑خواندنی + درگاه تأیید؟ | **پنل کامل** | D‑13: ۶ جزء UI در PE‑12 (جدول + جزییات + فرم‌های قفل‌گشایی + سیاست + تب تسک + Approvals) با تست i18n/contrast/e2e |
@@ -942,8 +956,8 @@ PE‑8 (scope/baseline/runner) → PE‑10 → PE‑11 → PE‑12. تنها ح�
 
 | ref | عنوان | نوع | نیازمند |
 |---|---|---|---|
-| OI‑8 | در CI بدون docker، `J.7b` فقط `not-run` ثبت می‌شود؛ آیا برای سبز شدن فاز کافی است؟ | risk | تأیید مالک (پیشنهاد: بله، به‌شرط صداقت در خط `local:`؛ گارد قطعی همان `J.7c` ساختاری است) |
-| OI‑9 | self‑host بدون GitHub ⇒ لاگ CI نیست ⇒ `RUNNER_UNAVAILABLE` ⇒ waive انسانی برای هر تسک؛ قابل‌تحمل؟ | design_gap | پاسخ مالک (مسیر پیشنهادی: `exec.baseline_source='runner'` با docker) |
+| OI‑8 | ~~پذیرش `not-run` برای تست وابسته به docker~~ | — | **بی‌موضوع شد** (۲۰۲۶‑۱۰‑۱۷): با حذف runner، هیچ تستی به docker وابسته نیست؛ همهٔ معیارهای PE‑8 با Postgres اجرا می‌شوند |
+| OI‑9 | self‑host بدون GitHub ⇒ لاگ CI نیست ⇒ `BASELINE_UNAVAILABLE` ⇒ waive انسانی برای هر تسک؛ قابل‌تحمل؟ | design_gap | **پاسخ مالک: docker راه‌حل نیست.** گزینه‌های مجاز: (الف) هر CIای که لاگش از `exec.ci_log_endpoint` خوانده شود (GitLab/Jenkins/Azure یا pipeline محلی — سازگار با `provider='generic'`)، (ب) `baseline_source='off'` + پذیرش اینکه قاعدهٔ ۱۲ فقط با waive انسانی عبور می‌کند. اجرای خودکار در container ساخته نمی‌شود |
 | OI‑10 | تأیید انسانی با `admin` موجود یا اسکوپ جدید `exec:decide`؟ | design_gap | تصمیم PE‑4 (پیشنهاد: `exec:decide` — اصل کمترین دسترسی) |
 
 **فرض‌های من (بدون تأیید؛ اگر اشتباه باشند هزینهٔ بازگشت دارند):**
@@ -968,7 +982,7 @@ D‑01/02/07/08/11/12/13 به‌دلیل `touches` مرتبط در سطح `appro
 `Postgres-only ledger`، `single MCP surface`، `gate single entry + transition guard + gate stamp`،
 `settings-based policy`، `code-allocated readable ids`، `approval_requests as the human channel`،
 `review-engine reuse for adversarial`، `full tool inventory (no core/full levels)`،
-`full panel`، `repo-script CLI`، `runner/CI-only execution (fail closed)`،
+`full panel`، `repo-script CLI`، `CI-log-only baseline (fail closed)`،
 `fail-closed offline behavior`، `line-count cap revoked (owner decision)`.
 
 ---
@@ -984,7 +998,7 @@ D‑01/02/07/08/11/12/13 به‌دلیل `touches` مرتبط در سطح `appro
 6) ledger_add_open_item برای OI‑8…OI‑10 (blocks=false) + ask_human برای OI‑9
 7) task_split: PE‑0…PE‑12 با depends_on طبق §۱۶ و allowed_paths هر فاز
 8) fact_record(source=code) برای قراردادها (unitOfWork/outbox/ModuleRegistry/REPO_MOUNT_ROOT)
-   + baseline_capture                            → منبع ci در CI؛ runner فقط با FORGEPM_TEST_DOCKER=1
+   + baseline_capture                            → منبع ci از لاگ CI؛ نبود ⇒ fail closed
 9) exec_submit_exit_report + exec_task_complete برای PE‑0 → اگر چیزی باز بماند گیت باید رد کند
 ```
 

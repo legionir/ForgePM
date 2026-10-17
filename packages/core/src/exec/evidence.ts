@@ -37,14 +37,23 @@ export interface EvidenceCheckResult {
   meta?: Record<string, unknown>;
 }
 
-const RESULT_HINT = /(\b\d+\s+(passed|passing|failed|failing|skipped)\b|\bTests\s+\d|\bTest Files\s+\d|✓|✗|×|FAIL|OK\b)/i;
+const RESULT_HINT =
+  /(\b\d+\s+(passed|passing|failed|failing|skipped)\b|\bTests\s+\d|\bTest Files\s+\d|✓|✗|×|FAIL|OK\b)/i;
 
 export function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
 /** `path:…` and `commit:<sha>:path` are the two file-addressable ref shapes. */
-export function parseRef(ref: string): { kind: 'file' | 'commit' | 'ci' | 'cmd' | 'test' | 'unknown'; path?: string; sha?: string; run?: string; job?: string; test?: string; line?: number } {
+export function parseRef(ref: string): {
+  kind: 'file' | 'commit' | 'ci' | 'cmd' | 'test' | 'unknown';
+  path?: string;
+  sha?: string;
+  run?: string;
+  job?: string;
+  test?: string;
+  line?: number;
+} {
   let m = /^ci:([^:\s]+)(?::([^\s]+))?$/.exec(ref);
   if (m) return { kind: 'ci', run: m[1], job: m[2] };
   m = /^cmd:(.+)$/.exec(ref);
@@ -68,35 +77,61 @@ export function underRoot(path: string, roots: readonly string[]): boolean {
   const norm = (p: string) => p.replace(/\/+$/, '');
   const clean = path.replace(/^\.\//, '');
   if (clean.startsWith('..') || clean.includes('/../') || clean.startsWith('/') || clean.includes('\\')) return false;
-  return roots.some((r) => r && clean === norm(r) || clean.startsWith(`${norm(r)}/`));
+  return roots.some((r) => (r && clean === norm(r)) || clean.startsWith(`${norm(r)}/`));
 }
 
 export function checkEvidence(input: EvidenceCheckInput): EvidenceCheckResult {
   const max = input.maxBytes ?? 131_072;
   const summary = (input.summary ?? '').trim();
   if (summary.length < 20) {
-    return invalid('summary too short', `a summary of at least 20 chars that states WHAT was observed (got ${summary.length})`);
+    return invalid(
+      'summary too short',
+      `a summary of at least 20 chars that states WHAT was observed (got ${summary.length})`,
+    );
   }
   if (input.kind === 'manual_check' && input.actorType === 'agent') {
-    return invalid('manual_check may only be recorded by a human', 'attach real output instead (test_output / command_output), or ask the human to record the check');
+    return invalid(
+      'manual_check may only be recorded by a human',
+      'attach real output instead (test_output / command_output), or ask the human to record the check',
+    );
   }
 
   const ref = parseRef(input.ref ?? '');
   let meta: Record<string, unknown> = { ref_kind: ref.kind };
 
   if (ref.kind === 'unknown') {
-    return invalid(`ref '${input.ref}' is not readable by an auditor`, 'use file:<path>[:line] | commit:<sha>:<path> | ci:<run_id>:<job> | test:<name> | cmd:<command>');
+    return invalid(
+      `ref '${input.ref}' is not readable by an auditor`,
+      'use file:<path>[:line] | commit:<sha>:<path> | ci:<run_id>:<job> | test:<name> | cmd:<command>',
+    );
   }
 
   // File-addressable refs must exist inside an allowed root.
   if (ref.kind === 'file' && ref.path) {
     if (!underRoot(ref.path, input.roots)) {
-      return { ...invalid(`ref path '${ref.path}' is outside exec.allowed_repo_roots`, 'point at a file inside a configured repo root'), code: 'SCOPE_VIOLATION' };
+      return {
+        ...invalid(
+          `ref path '${ref.path}' is outside exec.allowed_repo_roots`,
+          'point at a file inside a configured repo root',
+        ),
+        code: 'SCOPE_VIOLATION',
+      };
     }
-    if (!input.fs.exists(ref.path)) return { ...invalid(`ref path '${ref.path}' does not exist`, 'run the thing you claim; a path to a missing file is not evidence'), code: 'EVIDENCE_UNAVAILABLE' };
+    if (!input.fs.exists(ref.path))
+      return {
+        ...invalid(
+          `ref path '${ref.path}' does not exist`,
+          'run the thing you claim; a path to a missing file is not evidence',
+        ),
+        code: 'EVIDENCE_UNAVAILABLE',
+      };
     meta.sha256_file = undefined;
     const body = input.fs.read(ref.path);
-    if (body === null) return { ...invalid(`ref path '${ref.path}' is not readable`, 'ensure the file is inside a mounted root'), code: 'EVIDENCE_UNAVAILABLE' };
+    if (body === null)
+      return {
+        ...invalid(`ref path '${ref.path}' is not readable`, 'ensure the file is inside a mounted root'),
+        code: 'EVIDENCE_UNAVAILABLE',
+      };
     meta.sha256_file = sha256(body);
     meta.bytes_file = Buffer.byteLength(body);
   }
@@ -105,29 +140,48 @@ export function checkEvidence(input: EvidenceCheckInput): EvidenceCheckResult {
   const payload = input.payload ?? '';
   const size = Buffer.byteLength(payload);
   if (size > max) {
-    return invalid(`payload is ${size} bytes (max ${max})`, 'store the output where the ref points (journal/CI log) and reference it instead of pasting');
+    return invalid(
+      `payload is ${size} bytes (max ${max})`,
+      'store the output where the ref points (journal/CI log) and reference it instead of pasting',
+    );
   }
 
   if (input.kind === 'test_output') {
     if (!payload && ref.kind !== 'ci') {
-      return invalid('test_output has no real output', 'paste the command output (>= 200 chars) or reference a CI run: ref="ci:<run_id>:<job>"');
+      return invalid(
+        'test_output has no real output',
+        'paste the command output (>= 200 chars) or reference a CI run: ref="ci:<run_id>:<job>"',
+      );
     }
     if (payload) {
-      if (payload.length < 200) return invalid('test_output payload is too short to be real output', 'include the runner summary lines, not a paraphrase');
-      if (!RESULT_HINT.test(payload)) return invalid('test_output payload has no result line', 'the output must contain the summary line (e.g. "Tests 12 passed")');
+      if (payload.length < 200)
+        return invalid(
+          'test_output payload is too short to be real output',
+          'include the CI log excerpt summary lines, not a paraphrase',
+        );
+      if (!RESULT_HINT.test(payload))
+        return invalid(
+          'test_output payload has no result line',
+          'the output must contain the summary line (e.g. "Tests 12 passed")',
+        );
       const counts = extractCounts(payload, input.parser);
       meta = { ...meta, ...counts };
       if (counts.failed > 0) meta.note = 'evidence records failures; the gate will still block on them (rule 6)';
     }
   }
   if (input.kind === 'command_output') {
-    if (!payload && ref.kind !== 'cmd') return invalid('command_output needs output or a cmd: ref', 'ref="cmd:<journal id>" if the run was journalled');
+    if (!payload && ref.kind !== 'cmd')
+      return invalid('command_output needs output or a cmd: ref', 'ref="cmd:<journal id>" if the run was journalled');
     if (payload && payload.length < 200 && summary.length < 40) {
-      return invalid('command_output is a bare claim', 'add >= 200 chars of output, or a summary >= 40 chars describing what it proves');
+      return invalid(
+        'command_output is a bare claim',
+        'add >= 200 chars of output, or a summary >= 40 chars describing what it proves',
+      );
     }
   }
   if (input.kind === 'diff' && !payload) {
-    if (ref.kind !== 'commit') return invalid('diff evidence needs a commit ref or the diff text', 'ref="commit:<sha>:path" or paste the diff');
+    if (ref.kind !== 'commit')
+      return invalid('diff evidence needs a commit ref or the diff text', 'ref="commit:<sha>:path" or paste the diff');
   }
 
   return {
@@ -138,7 +192,10 @@ export function checkEvidence(input: EvidenceCheckInput): EvidenceCheckResult {
   };
 }
 
-export function extractCounts(payload: string, parser?: { pass: string[]; fail: string[]; skip: string[] }): { passed: number; failed: number; skipped: number } {
+export function extractCounts(
+  payload: string,
+  parser?: { pass: string[]; fail: string[]; skip: string[] },
+): { passed: number; failed: number; skipped: number } {
   // One parser for every log we read: the shared implementation is the tested one.
   const p = parseTestLog(payload, parser);
   return { passed: p.totals.pass, failed: p.totals.fail, skipped: p.totals.skip };

@@ -34,7 +34,10 @@ let taskId: string;
 let taskCode: string;
 
 async function seedTask(): Promise<void> {
-  const seed = await seedOrg(db, { email: `exec-${process.pid}-${Date.now()}@example.invalid`, password: 'sup3r-s3cret-pass' });
+  const seed = await seedOrg(db, {
+    email: `exec-${process.pid}-${Date.now()}@example.invalid`,
+    password: 'sup3r-s3cret-pass',
+  });
   orgId = seed.organizationId;
   projectId = seed.projectId;
   const state = await db
@@ -85,7 +88,7 @@ describe('PE-0.1/0.2 migration + shape', () => {
         GROUP BY tablename HAVING count(*) > 1
       ) d
     `.execute(db);
-    expect(dup.rows).toHaveLength(0);
+    expect(Number((dup.rows as { n: string }[])[0].n)).toBe(0);
   });
 
   it('all 17 ledger tables exist', async () => {
@@ -94,16 +97,38 @@ describe('PE-0.1/0.2 migration + shape', () => {
     `.execute(db);
     const names = (rows as { tablename: string }[]).map((r) => r.tablename).sort();
     expect(names).toHaveLength(17);
-    for (const must of ['exec_code_seq', 'exec_tasks', 'exec_criteria', 'exec_evidence', 'exec_open_items', 'exec_decisions', 'exec_questions', 'exec_reviews', 'exec_reports', 'exec_gate_checks', 'exec_facts', 'exec_baseline_tests', 'exec_action_journal', 'exec_events', 'exec_requirements']) {
+    for (const must of [
+      'exec_code_seq',
+      'exec_tasks',
+      'exec_criteria',
+      'exec_evidence',
+      'exec_open_items',
+      'exec_decisions',
+      'exec_questions',
+      'exec_reviews',
+      'exec_reports',
+      'exec_gate_checks',
+      'exec_facts',
+      'exec_baseline_tests',
+      'exec_action_journal',
+      'exec_events',
+      'exec_requirements',
+    ]) {
       expect(names, must).toContain(must);
     }
     // the work-item link the plan promises (D-03)
-    const col = await sql<{ c: string }>`SELECT count(*)::text AS c FROM information_schema.columns WHERE table_name = 'work_items' AND column_name = 'exec_task_id'`.execute(db);
+    const col = await sql<{
+      c: string;
+    }>`SELECT count(*)::text AS c FROM information_schema.columns WHERE table_name = 'work_items' AND column_name = 'exec_task_id'`.execute(
+      db,
+    );
     expect(Number((col.rows as { c: string }[])[0].c)).toBe(1);
   });
 
   it('the counter table only accepts the eight documented prefixes', async () => {
-    await expect(sql`INSERT INTO exec_code_seq (project_id, prefix, seq) VALUES (${projectId}, 'XX', 0)`.execute(db)).rejects.toThrowError(/check|violates/i);
+    await expect(
+      sql`INSERT INTO exec_code_seq (project_id, prefix, seq) VALUES (${projectId}, 'XX', 0)`.execute(db),
+    ).rejects.toThrowError(/check|violates/i);
   });
 });
 
@@ -120,7 +145,9 @@ describe('PE-0.3 append-only enforcement (invariant I-2)', () => {
       tool: 'exec_task_start',
     });
     expect(await countEvents(db, taskId)).toBe(1);
-    await expect(sql`UPDATE exec_events SET action = 'rewritten' WHERE id = ${id}`.execute(db)).rejects.toThrowError(/append-only/);
+    await expect(sql`UPDATE exec_events SET action = 'rewritten' WHERE id = ${id}`.execute(db)).rejects.toThrowError(
+      /append-only/,
+    );
     await expect(sql`DELETE FROM exec_events WHERE id = ${id}`.execute(db)).rejects.toThrowError(/append-only/);
     expect(await countEvents(db, taskId)).toBe(1);
   });
@@ -138,8 +165,12 @@ describe('PE-0.3 append-only enforcement (invariant I-2)', () => {
       RETURNING id
     `.execute(db);
     const evidenceId = (ev.rows as { id: string }[])[0].id;
-    await expect(sql`UPDATE exec_evidence SET summary = 'tiny' WHERE id = ${evidenceId}`.execute(db)).rejects.toThrowError(/append-only/);
-    await expect(sql`DELETE FROM exec_evidence WHERE id = ${evidenceId}`.execute(db)).rejects.toThrowError(/append-only/);
+    await expect(
+      sql`UPDATE exec_evidence SET summary = 'tiny' WHERE id = ${evidenceId}`.execute(db),
+    ).rejects.toThrowError(/append-only/);
+    await expect(sql`DELETE FROM exec_evidence WHERE id = ${evidenceId}`.execute(db)).rejects.toThrowError(
+      /append-only/,
+    );
 
     const reportId = newId();
     await sql`
@@ -152,8 +183,12 @@ describe('PE-0.3 append-only enforcement (invariant I-2)', () => {
       RETURNING id
     `.execute(db);
     const gateId = (gate.rows as { id: string }[])[0].id;
-    await expect(sql`UPDATE exec_gate_checks SET ok = true WHERE id = ${gateId}`.execute(db)).rejects.toThrowError(/append-only/);
-    await expect(sql`DELETE FROM exec_gate_checks WHERE id = ${gateId}`.execute(db)).rejects.toThrowError(/append-only/);
+    await expect(sql`UPDATE exec_gate_checks SET ok = true WHERE id = ${gateId}`.execute(db)).rejects.toThrowError(
+      /append-only/,
+    );
+    await expect(sql`DELETE FROM exec_gate_checks WHERE id = ${gateId}`.execute(db)).rejects.toThrowError(
+      /append-only/,
+    );
   });
 
   it('a journal row may be settled once and only its outcome columns change', async () => {
@@ -165,15 +200,89 @@ describe('PE-0.3 append-only enforcement (invariant I-2)', () => {
     const jid = (j.rows as { id: string }[])[0].id;
 
     // rewriting the claim itself is impossible
-    await expect(sql`UPDATE exec_action_journal SET expected_effect = 'nothing happened' WHERE id = ${jid}`.execute(db)).rejects.toThrowError(/only status\/finished_at\/result_ref\/note/);
+    await expect(
+      sql`UPDATE exec_action_journal SET expected_effect = 'nothing happened' WHERE id = ${jid}`.execute(db),
+    ).rejects.toThrowError(/only status\/finished_at\/result_ref\/note/);
     // settling is allowed, and only once
-    await expect(sql`UPDATE exec_action_journal SET status = 'done', finished_at = now(), result_ref = 'cmd:1' WHERE id = ${jid}`.execute(db)).resolves.toBeDefined();
-    await expect(sql`UPDATE exec_action_journal SET status = 'failed', finished_at = now() WHERE id = ${jid}`.execute(db)).rejects.toThrowError(/already settled/);
-    await expect(sql`DELETE FROM exec_action_journal WHERE id = ${jid}`.execute(db)).rejects.toThrowError(/may not be deleted/);
+    await expect(
+      sql`UPDATE exec_action_journal SET status = 'done', finished_at = now(), result_ref = 'cmd:1' WHERE id = ${jid}`.execute(
+        db,
+      ),
+    ).resolves.toBeDefined();
+    await expect(
+      sql`UPDATE exec_action_journal SET status = 'failed', finished_at = now() WHERE id = ${jid}`.execute(db),
+    ).rejects.toThrowError(/already settled/);
+    await expect(sql`DELETE FROM exec_action_journal WHERE id = ${jid}`.execute(db)).rejects.toThrowError(
+      /may not be deleted/,
+    );
+  });
+
+  it('the REVOKE half of I-2 bites when a dedicated app role exists', async () => {
+    // CI/test DBs connect as the owner, so the migration's REVOKE block is a
+    // no-op there. Provision the role the RUNBOOK describes, re-apply the
+    // revoke, and prove the app role cannot rewrite the audit surfaces even
+    // while it holds full table grants.
+    await sql`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'forgepm_app') THEN CREATE ROLE forgepm_app LOGIN; END IF; END $$;`.execute(
+      db,
+    );
+    await sql`GRANT USAGE ON SCHEMA public TO forgepm_app`.execute(db);
+    await sql`GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO forgepm_app`.execute(db);
+    await sql`
+      DO $$
+      DECLARE r record;
+      BEGIN
+        FOR r IN SELECT rolname FROM pg_roles WHERE rolname IN ('forgepm_app','forgepm') LOOP
+          EXECUTE format('REVOKE UPDATE, DELETE ON exec_events, exec_gate_checks, exec_evidence FROM %I', r.rolname);
+          EXECUTE format('REVOKE DELETE ON exec_action_journal FROM %I', r.rolname);
+        END LOOP;
+      END $$;
+    `.execute(db);
+
+    const id = await appendEvent(db, {
+      organization_id: orgId,
+      task_id: taskId,
+      entity: 'exec_task',
+      entity_code: taskCode,
+      action: 'task_start',
+      actor_type: 'agent',
+      actor_id: 'agent-1',
+    });
+
+    // Every statement runs in ONE pooled connection with RESET ROLE in a
+    // finally — a leaked SET ROLE would poison the next test.
+    const asApp = (statement: string) =>
+      db.connection().execute(async (trx) => {
+        await sql`SET ROLE forgepm_app`.execute(trx as never);
+        try {
+          await sql.raw(statement).execute(trx as never);
+        } finally {
+          await sql`RESET ROLE`.execute(trx as never);
+        }
+        return 'executed';
+      });
+
+    await expect(asApp(`UPDATE exec_events SET action = 'rewritten' WHERE id = '${id}'`)).rejects.toThrowError(
+      /permission denied/,
+    );
+    await expect(asApp(`DELETE FROM exec_evidence WHERE id = '${newId()}'`)).rejects.toThrowError(/permission denied/);
+    await expect(asApp(`DELETE FROM exec_action_journal WHERE task_id = '${taskId}'`)).rejects.toThrowError(
+      /permission denied/,
+    );
+    // INSERT stays allowed: the ledger is append-only, not read-only.
+    await expect(
+      asApp(
+        `INSERT INTO exec_events (id, organization_id, entity, action, actor_type, actor_id) VALUES ('${newId()}', '${orgId}', 'probe', 'probe', 'agent', 'agent-1')`,
+      ),
+    ).resolves.toBeDefined();
+
+    // The role may own nothing, but it does hold grants/default privileges, so
+    // DROP OWNED has to come first.
+    await sql`DROP OWNED BY forgepm_app CASCADE`.execute(db);
+    await sql`DROP ROLE IF EXISTS forgepm_app`.execute(db);
   });
 
   it('the tamper CHECKs refuse the forbidden status moves (I-3)', async () => {
-  const soft = sql`
+    const soft = sql`
       INSERT INTO exec_open_items (id, organization_id, task_id, code, title, type, blocks_completion, status, resolution_note, resolved_by, source)
       VALUES (${newId()}, ${orgId}, ${taskId}, 'OI-001', ${'the requirement is not met at all'}, 'incomplete_requirement', true, 'accepted',
               ${'the agent decided this was fine and closed it'}, 'agent', 'agent')
@@ -206,7 +315,10 @@ describe('PE-0.5 code allocation', () => {
   });
 
   it('counters are per project and per prefix', async () => {
-    const other = await seedOrg({ email: `exec2-${Date.now()}@example.invalid`, password: 'sup3r-s3cret-pass' });
+    const other = await seedOrg(db, {
+      email: `exec2-${process.pid}-${Date.now()}@example.invalid`,
+      password: 'sup3r-s3cret-pass',
+    });
     await ensureCodeCounters(db, other.projectId);
     expect(await allocateLedgerCode(db, other.projectId, 'T')).toBe('T-001');
     expect(await allocateLedgerCode(db, projectId, 'OI')).toBe('OI-001');
@@ -226,7 +338,9 @@ describe('PE-0.4/0.6 module + tool surface', () => {
   });
 
   it('no tool in the whole registry is a ledger delete path', async () => {
-    const names = buildToolRegistry(db).all().map((t) => t.name);
+    const names = buildToolRegistry(db)
+      .all()
+      .map((t) => t.name);
     expect(names.filter((n) => /_delete$|^delete_/.test(n))).toEqual([]);
     // PE-0 adds no tools yet: the exec surface is dark until PE-2 registers it.
     expect(names.filter((n) => /^exec_/.test(n))).toEqual([]);

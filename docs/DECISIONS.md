@@ -446,3 +446,43 @@ Format per plan §2: Context / Decision / Reason.
   write behind one hot row and would need a new `work_items`-style migration for
   each prefix; the dedicated table is the only shape that keeps codes contiguous
   under 20 concurrent allocations (tested).
+## D-041 — No test-execution runner: the baseline comes only from the CI log
+- Context: `docs/EXECUTION_CONTROL_PLAN.md` (D-08) originally specified a
+  three-source baseline: CI log → an ephemeral Docker runner (`exec.runner.*`,
+  `scripts/runner/run-test.sh`, `docker-compose.runner.yml`, a
+  `FORGEPM_TEST_DOCKER=1` test) → fail closed. The gate rule 12 needs
+  "the tests were run and passed" as a *fact*, not as the agent's claim.
+- Decision: the middle source is cancelled by the owner ("وارد docker نشو —
+  docker چرا لازم است؟") and stays cancelled. ForgePM never executes repo
+  code — not on the host, not in a container. `exec_baseline_tests.source` is
+  `('ci','human')`; `exec.baseline_source` is `'auto'|'ci'|'off'`; the five
+  `exec.runner*` settings keys are removed from the registry, and no
+  runner/compose file exists. With no readable CI log for the task's
+  `commit_sha`, rule 12 fails closed (`BASELINE_UNAVAILABLE`) and only an
+  explicit human waiver passes, surfaced prominently in the final report.
+- Reason: the runner existed only to make "untrusted code was executed
+  safely" verifiable; deleting the execution channel satisfies the same
+  OWASP CI/CD risks (CICD-SEC-4/5) with no new attack surface, no extra
+  deployment dependency, and no image supply-chain to pin. Fail-closed
+  behaviour is preserved, so nothing bypassable now rests on the agent's word.
+  It also removed the only "environment-bound" acceptance item in the plan:
+  no criterion is `not-run` because of Docker anymore.
+
+## D-042 — DB-bound gates are verified locally with the repo's own embedded Postgres
+- Context: PE-0's gates (`migrate`, `schema:check`, `test:integration`) and
+  every later exec phase need a real PostgreSQL, and the earlier honest report
+  said `not-run` "no Postgres/Redis/Docker" (B-009, plan OI-8/OI-9) — which
+  conflated Docker with the database and made a fixable gap look structural.
+- Decision: follow D-001 — obtain the database natively, not via containers.
+  `apps/web/scripts/dev-postgres.mjs` (`embedded-postgres`, already a
+  devDependency) boots a real PostgreSQL; with `DATABASE_URL` pointed at it,
+  `npm run migrate` (empty DB + idempotent rerun), `npm run schema:check`
+  (60 contract tables) and the exec integration suite all run. Suites that
+  need a queue still cannot run, so `tests/integration/harness.ts` gained
+  `FORGEPM_TEST_NO_REDIS=1`: `h.queue`/`h.redis` become `undefined` and any
+  queue-touching test fails loudly rather than silently passing.
+- Reason: "we have no Docker" is not a reason to skip a deterministic gate —
+  the DB gates were the whole point of PE-0 and they were green in one command
+  once the sandbox stopped depending on container tooling. The Redis suites
+  stay `not-run` (with the exact reason named) because that dependency is real;
+  the flag makes the split visible in the output instead of hidden in prose.
