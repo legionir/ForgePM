@@ -29,19 +29,43 @@ describe('action journal + resume (appendix §K, acceptance K.1–K.4)', () => {
 
   it('K.2b reading, settling and asking the human always stay available', () => {
     const open = [{ code: 'AJ-1', action: 'x', idempotent: true, status: 'started' as const }];
-    for (const tool of ['exec_ledger_status', 'session_start', 'journal_done', 'journal_fail', 'ledger_ask_human', 'exec_ledger_reconcile', 'ledger_list_open']) {
+    for (const tool of [
+      'exec_ledger_status',
+      'session_start',
+      'journal_done',
+      'journal_fail',
+      'ledger_ask_human',
+      'exec_ledger_reconcile',
+      'ledger_list_open',
+    ]) {
       expect(journalWriteLock({ tool, actorType: 'agent', openRows: open }).allowed, tool).toBe(true);
     }
     expect(isReadOnly('exec_plan_view')).toBe(true);
   });
 
   it('K.3 once the rows are settled the block lifts; humans are never locked', () => {
-    expect(journalWriteLock({ tool: 'exec_run_command', actorType: 'agent', openRows: [{ code: 'AJ-1', action: 'x', idempotent: false, status: 'done' }] }).allowed).toBe(true);
-    expect(journalWriteLock({ tool: 'exec_run_command', actorType: 'human', openRows: [{ code: 'AJ-1', action: 'x', idempotent: false, status: 'unknown' }] }).allowed).toBe(true);
+    expect(
+      journalWriteLock({
+        tool: 'exec_run_command',
+        actorType: 'agent',
+        openRows: [{ code: 'AJ-1', action: 'x', idempotent: false, status: 'done' }],
+      }).allowed,
+    ).toBe(true);
+    expect(
+      journalWriteLock({
+        tool: 'exec_run_command',
+        actorType: 'human',
+        openRows: [{ code: 'AJ-1', action: 'x', idempotent: false, status: 'unknown' }],
+      }).allowed,
+    ).toBe(true);
   });
 
   it('an idempotent open row gets the shorter instruction (safe to re-run)', () => {
-    const v = journalWriteLock({ tool: 'exec_run_command', actorType: 'agent', openRows: [{ code: 'AJ-1', action: 'x', idempotent: true, status: 'started' }] });
+    const v = journalWriteLock({
+      tool: 'exec_run_command',
+      actorType: 'agent',
+      openRows: [{ code: 'AJ-1', action: 'x', idempotent: true, status: 'started' }],
+    });
     expect(v.allowed).toBe(false);
     expect(v.needed_action).toBe('finish or fail the open actions with journal_done/journal_fail');
   });

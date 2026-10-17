@@ -35,13 +35,22 @@ export interface PackedSession<T> {
 
 const DEFAULT_LIMIT = 10;
 
-export function packSession<T>(sections: readonly SessionSection<T>[], opts: { maxBytes: number; at?: Date; limitPerSection?: number }): PackedSession<T> {
+export function packSession<T>(
+  sections: readonly SessionSection<T>[],
+  opts: { maxBytes: number; at?: Date; limitPerSection?: number },
+): PackedSession<T> {
   const limit = opts.limitPerSection ?? DEFAULT_LIMIT;
   const out: PackedSession<T> = {
     generated_at: (opts.at ?? new Date()).toISOString(),
     sections: sections.map((s) => {
       const shown = s.items.slice(0, s.limit ?? limit);
-      const packed: PackedSection<T> = { key: s.key, label: s.label, shown, total: s.items.length, more: Math.max(0, s.items.length - shown.length) };
+      const packed: PackedSection<T> = {
+        key: s.key,
+        label: s.label,
+        shown,
+        total: s.items.length,
+        more: Math.max(0, s.items.length - shown.length),
+      };
       if (packed.more > 0) packed.hint = 'read the rest with ledger_list_open';
       return packed;
     }),

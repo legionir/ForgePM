@@ -33,6 +33,8 @@ export async function appendEvent(tx: DbLike, ev: LedgerEvent): Promise<string> 
 }
 
 export async function countEvents(tx: DbLike, taskId: string): Promise<number> {
-  const r = await sql<{ n: string }>`SELECT count(*)::text AS n FROM exec_events WHERE task_id = ${taskId}`.execute(tx as never);
+  const r = await sql<{ n: string }>`SELECT count(*)::text AS n FROM exec_events WHERE task_id = ${taskId}`.execute(
+    tx as never,
+  );
   return Number(r.rows[0]?.n ?? 0);
 }

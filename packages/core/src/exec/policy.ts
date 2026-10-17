@@ -183,7 +183,11 @@ export function classify(policy: ExecPolicy, input: ClassifyInput): Classified {
  * The agent's own claim about risk is only used to *raise* the level; it can
  * never lower the code-computed one (invariant I-4 / acceptance F.4).
  */
-export function mergeAgentClaim(policy: ExecPolicy, input: ClassifyInput, claimed?: unknown): { classified: Classified; claim_ignored: boolean } {
+export function mergeAgentClaim(
+  policy: ExecPolicy,
+  input: ClassifyInput,
+  claimed?: unknown,
+): { classified: Classified; claim_ignored: boolean } {
   const classified = classify(policy, input);
   if (claimed === undefined) return { classified, claim_ignored: false };
   const want = LEVEL_ORDER[String(claimed) as ExecRiskLevel] ?? -1;
@@ -217,7 +221,8 @@ export function validatePolicyShape(policy: ExecPolicy): string[] {
   for (const must of ['public_api', 'db_schema', 'auth']) {
     const hit = rules.find((x: PolicyRule) => x.category === must);
     if (!hit) problems.push(`required category '${must}' is missing`);
-    else if (LEVEL_ORDER[hit.level] < LEVEL_ORDER.approval) problems.push(`category '${must}' must be approval or deny`);
+    else if (LEVEL_ORDER[hit.level] < LEVEL_ORDER.approval)
+      problems.push(`category '${must}' must be approval or deny`);
   }
   return problems;
 }

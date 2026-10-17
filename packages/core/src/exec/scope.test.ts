@@ -20,8 +20,12 @@ describe('scope enforcement (appendix §J, acceptance J.5)', () => {
   });
 
   it('a rename is in scope only if BOTH sides are', () => {
-    expect(evaluateScope(['packages/**'], [{ path: 'packages/a.ts', status: 'R', from: 'infra/b.ts' }], true).outside).toHaveLength(1);
-    expect(evaluateScope(['packages/**'], [{ path: 'packages/a.ts', status: 'R', from: 'packages/b.ts' }], true).outside).toHaveLength(0);
+    expect(
+      evaluateScope(['packages/**'], [{ path: 'packages/a.ts', status: 'R', from: 'infra/b.ts' }], true).outside,
+    ).toHaveLength(1);
+    expect(
+      evaluateScope(['packages/**'], [{ path: 'packages/a.ts', status: 'R', from: 'packages/b.ts' }], true).outside,
+    ).toHaveLength(0);
   });
 
   it('deleting a file needs a human even when it is inside the scope', () => {

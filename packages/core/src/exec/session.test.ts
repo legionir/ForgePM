@@ -3,14 +3,26 @@ import { SESSION_ORDER, packSession, type SessionSection } from './session';
 
 type Row = { code: string; text: string };
 function rows(prefix: string, n: number): Row[] {
-  return Array.from({ length: n }, (_, i) => ({ code: `${prefix}-${i}`, text: `${prefix} item ${i} with a moderately long description to eat bytes` }));
+  return Array.from({ length: n }, (_, i) => ({
+    code: `${prefix}-${i}`,
+    text: `${prefix} item ${i} with a moderately long description to eat bytes`,
+  }));
 }
 
 describe('session pack (appendix §K.3, acceptance K.4)', () => {
   it('K.3a the order is fixed: human_pending first, tasks last', () => {
-    expect(SESSION_ORDER).toEqual(['human_pending', 'journal_unknown', 'blocking_open_items', 'stale_facts_and_revisits', 'uncovered_requirements', 'tasks']);
+    expect(SESSION_ORDER).toEqual([
+      'human_pending',
+      'journal_unknown',
+      'blocking_open_items',
+      'stale_facts_and_revisits',
+      'uncovered_requirements',
+      'tasks',
+    ]);
     const secs: SessionSection<Row>[] = SESSION_ORDER.map((k) => ({ key: k, label: k, items: rows(k, 2) }));
-    expect(packSession(secs, { maxBytes: 100_000, at: new Date('2026-01-01T00:00:00Z') }).sections.map((s) => s.key)).toEqual([...SESSION_ORDER]);
+    expect(
+      packSession(secs, { maxBytes: 100_000, at: new Date('2026-01-01T00:00:00Z') }).sections.map((s) => s.key),
+    ).toEqual([...SESSION_ORDER]);
   });
 
   it('K.3b over-long sections are capped and point at the read tool instead of truncating mid-json', () => {

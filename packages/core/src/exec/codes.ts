@@ -29,7 +29,12 @@ export function parseCode(code: string): { prefix: LedgerPrefix; seq: number } |
   const digits = m[2];
   // Padded codes never exceed MAX_DIGITS and never carry a redundant zero.
   if (digits.length > MAX_DIGITS[prefix]) return null;
-  if (digits.length > 1 && digits.startsWith('0') && Number(digits) > 0 && String(Number(digits)).length !== digits.length) {
+  if (
+    digits.length > 1 &&
+    digits.startsWith('0') &&
+    Number(digits) > 0 &&
+    String(Number(digits)).length !== digits.length
+  ) {
     // accepted form is fixed-width padding (007); 07 is a typo, not a code
   }
   const seq = Number(digits);
@@ -93,7 +98,12 @@ export async function allocateLedgerCode(
   throw new AppError('LEDGER_STATE_INVALID', 'could not allocate a ledger code after 5 attempts (counter contention)');
 }
 
-async function attemptAllocate(db: DbLike, projectId: string, prefix: LedgerPrefix, organizationId?: string): Promise<string> {
+async function attemptAllocate(
+  db: DbLike,
+  projectId: string,
+  prefix: LedgerPrefix,
+  organizationId?: string,
+): Promise<string> {
   await sql`
     INSERT INTO exec_code_seq (project_id, prefix, seq)
     VALUES (${projectId}, ${prefix}, 0)
@@ -112,13 +122,19 @@ async function attemptAllocate(db: DbLike, projectId: string, prefix: LedgerPref
   `.execute(db as never);
   const seq = Number(upd.rows[0]?.seq ?? 0);
   if (!Number.isInteger(seq) || seq < 1) {
-    throw new AppError('LEDGER_STATE_INVALID', `counter row missing for project=${projectId} prefix=${prefix}`, { organization_id: organizationId ?? null });
+    throw new AppError('LEDGER_STATE_INVALID', `counter row missing for project=${projectId} prefix=${prefix}`, {
+      organization_id: organizationId ?? null,
+    });
   }
   return formatCode(prefix, seq);
 }
 
 /** The counter must exist before the first allocation of a project (idempotent). */
-export async function ensureCodeCounters(db: DbLike, projectId: string, prefixes: readonly LedgerPrefix[] = LEDGER_PREFIXES): Promise<void> {
+export async function ensureCodeCounters(
+  db: DbLike,
+  projectId: string,
+  prefixes: readonly LedgerPrefix[] = LEDGER_PREFIXES,
+): Promise<void> {
   for (const prefix of prefixes) {
     await sql`
       INSERT INTO exec_code_seq (project_id, prefix, seq)

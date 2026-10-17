@@ -26,9 +26,10 @@ export interface BuiltReviewInput {
 }
 
 export function buildReviewInput(parts: ReviewInputParts, maxBytes = 400_000): BuiltReviewInput {
-  for (const k of Object.keys(parts)) if (FORBIDDEN_KEYS.test(k)) {
-    throw new Error(`review input key '${k}' is not allowed (the reviewer must not see conversation history)`);
-  }
+  for (const k of Object.keys(parts))
+    if (FORBIDDEN_KEYS.test(k)) {
+      throw new Error(`review input key '${k}' is not allowed (the reviewer must not see conversation history)`);
+    }
   const sections: string[] = [
     section('ORIGINAL USER REQUEST(S) — the contract you check against', parts.user_request, 'user_request'),
     section('ACCEPTANCE CRITERIA + EVIDENCE', parts.criteria, 'criteria'),
@@ -47,14 +48,27 @@ export function buildReviewInput(parts: ReviewInputParts, maxBytes = 400_000): B
   // the caller is told), never silently sent whole.
   if (Buffer.byteLength(prompt, 'utf8') > maxBytes) {
     const marker = '\n…[truncated at ' + maxBytes + ' bytes — set a smaller diff scope]';
-    const keep = Buffer.from(prompt, 'utf8').subarray(0, Math.max(0, maxBytes - Buffer.byteLength(marker, 'utf8'))).toString('utf8').replace(/\uFFFD+$/, '');
+    const keep = Buffer.from(prompt, 'utf8')
+      .subarray(0, Math.max(0, maxBytes - Buffer.byteLength(marker, 'utf8')))
+      .toString('utf8')
+      .replace(/\uFFFD+$/, '');
     prompt = keep + marker;
     excluded.push('overflow beyond maxBytes');
   }
   return {
     prompt,
     meta: {
-      sections: ['user_request', 'criteria', 'requirements', 'diff', 'ledger_status', 'exit_report', 'scope', 'baseline', 'stale_facts'],
+      sections: [
+        'user_request',
+        'criteria',
+        'requirements',
+        'diff',
+        'ledger_status',
+        'exit_report',
+        'scope',
+        'baseline',
+        'stale_facts',
+      ],
       bytes: Buffer.byteLength(prompt, 'utf8'),
       sha256: createHash('sha256').update(prompt).digest('hex'),
       excluded,
@@ -124,7 +138,8 @@ export function parseReviewOutput(raw: string): ReviewParse {
   }
   const o = (parsed ?? {}) as Record<string, unknown>;
   if (o.verdict !== 'pass' && o.verdict !== 'fail') errors.push('verdict must be "pass" or "fail"');
-  if (!Array.isArray(o.checked) || o.checked.length === 0) errors.push('checked must be a non-empty list (a clean verdict must say what was inspected)');
+  if (!Array.isArray(o.checked) || o.checked.length === 0)
+    errors.push('checked must be a non-empty list (a clean verdict must say what was inspected)');
   if (!Array.isArray(o.findings)) errors.push('findings must be an array (empty when nothing was found)');
   const findings: ReviewFinding[] = [];
   if (Array.isArray(o.findings)) {
@@ -132,8 +147,10 @@ export function parseReviewOutput(raw: string): ReviewParse {
       const x = (f ?? {}) as Record<string, unknown>;
       const at = `findings[${i}]`;
       if (typeof x.title !== 'string' || x.title.trim().length < 5) errors.push(`${at}.title missing/too short`);
-      if (!(REVIEW_FINDING_TYPES as readonly unknown[]).includes(x.type)) errors.push(`${at}.type must be one of ${REVIEW_FINDING_TYPES.join('|')}`);
-      if (typeof x.evidence_ref !== 'string' || !/^\S+/.test(String(x.evidence_ref ?? ''))) errors.push(`${at}.evidence_ref is required (a finding without a witness is not a finding)`);
+      if (!(REVIEW_FINDING_TYPES as readonly unknown[]).includes(x.type))
+        errors.push(`${at}.type must be one of ${REVIEW_FINDING_TYPES.join('|')}`);
+      if (typeof x.evidence_ref !== 'string' || !/^\S+/.test(String(x.evidence_ref ?? '')))
+        errors.push(`${at}.evidence_ref is required (a finding without a witness is not a finding)`);
       if (typeof x.why !== 'string' || x.why.trim().length < 20) errors.push(`${at}.why needs >= 20 chars`);
       const blocking = x.blocks_completion === true;
       if (x.type === 'suggestion' && blocking) errors.push(`${at}: optional suggestions may not block completion`);

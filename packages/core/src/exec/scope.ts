@@ -61,15 +61,30 @@ export interface ScopeVerdict {
 
 const TRANSIENT = new Set(['.gitignore', 'package-lock.json', 'npm-debug.log']);
 
-export function evaluateScope(allowedGlobs: readonly string[], changed: readonly ChangedFile[], hasStartRef: boolean, manifestSize?: number): ScopeVerdict {
+export function evaluateScope(
+  allowedGlobs: readonly string[],
+  changed: readonly ChangedFile[],
+  hasStartRef: boolean,
+  manifestSize?: number,
+): ScopeVerdict {
   if (!hasStartRef && !manifestSize) {
-    return { measurable: false, basis: 'none', outside: [], deleted: [], touched: 0, offending_open_items: [], needs_human: true };
+    return {
+      measurable: false,
+      basis: 'none',
+      outside: [],
+      deleted: [],
+      touched: 0,
+      offending_open_items: [],
+      needs_human: true,
+    };
   }
   const basis = hasStartRef ? 'git' : 'manifest';
   const isAllowed = (p: string) => allowedGlobs.some((g) => matchPathGlob(g, p));
   // A rename is in scope only when BOTH sides are: moving a file out of a
   // protected area must not look like an ordinary in-scope edit.
-  const outside = changed.filter((f) => (!isAllowed(f.path) || (f.from ? !isAllowed(f.from) : false)) && !isTransient(f.path));
+  const outside = changed.filter(
+    (f) => (!isAllowed(f.path) || (f.from ? !isAllowed(f.from) : false)) && !isTransient(f.path),
+  );
   const deleted = changed.filter((f) => f.status === 'D');
   return {
     measurable: true,
@@ -108,4 +123,3 @@ export function diffManifest(before: Record<string, string>, after: Record<strin
 export function isTransient(path: string): boolean {
   return TRANSIENT.has(path.split('/').pop() ?? path);
 }
-

@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { execPolicySchema, assessCheckable, EXIT_REPORT_REQUIRED_ARRAYS, checkNoneConfirmed, detectWeakening, parseTestLog } from '@forgepm/shared';
+import {
+  execPolicySchema,
+  assessCheckable,
+  EXIT_REPORT_REQUIRED_ARRAYS,
+  checkNoneConfirmed,
+  detectWeakening,
+  parseTestLog,
+} from '@forgepm/shared';
 import {
   EXEC_POLICY_DEFAULT,
   HARD_DENY_CATEGORIES,
@@ -15,10 +22,35 @@ const policy = EXEC_POLICY_DEFAULT;
 describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
   it('F.1 carries every category of the plan table and the appendix rows', () => {
     const cats = policy.rules.map((r) => r.category);
-    for (const must of ['internal_edit', 'add_module', 'local_bugfix', 'default_change', 'public_api', 'db_schema', 'auth', 'deps_add', 'deps_upgrade', 'delete_file', 'delete_data', 'config_deploy', 'ci', 'migration', 'destructive_command', 'secret', 'none']) {
+    for (const must of [
+      'internal_edit',
+      'add_module',
+      'local_bugfix',
+      'default_change',
+      'public_api',
+      'db_schema',
+      'auth',
+      'deps_add',
+      'deps_upgrade',
+      'delete_file',
+      'delete_data',
+      'config_deploy',
+      'ci',
+      'migration',
+      'destructive_command',
+      'secret',
+      'none',
+    ]) {
       expect(cats, `missing ${must}`).toContain(must);
     }
-    for (const must of ['scope_expansion', 'drop_requirement', 'waive_requirement', 'baseline_change', 'fact_promote_from_guess', 'cancel_subtask']) {
+    for (const must of [
+      'scope_expansion',
+      'drop_requirement',
+      'waive_requirement',
+      'baseline_change',
+      'fact_promote_from_guess',
+      'cancel_subtask',
+    ]) {
       expect(cats, `missing appendix row ${must}`).toContain(must);
     }
     expect(validatePolicyShape(policy)).toEqual([]);
@@ -32,7 +64,11 @@ describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
   });
 
   it('F.3 a low-risk claim from the agent never lowers the level', () => {
-    const { classified, claim_ignored } = mergeAgentClaim(policy, { touches: ['public_api'], reversible: true }, 'auto');
+    const { classified, claim_ignored } = mergeAgentClaim(
+      policy,
+      { touches: ['public_api'], reversible: true },
+      'auto',
+    );
     expect(classified.level).toBe('approval');
     expect(claim_ignored).toBe(true);
   });
@@ -75,19 +111,33 @@ describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
   });
 
   it('F.7b destructive shell commands reach at least approval', () => {
-    expect(classify(policy, { touches: ['internal_edit'], command: 'git push --force origin +main:main' }).level).toBe('deny');
-    expect(classify(policy, { touches: ['internal_edit'], command: 'git push --force origin feature/x' }).level).toBe('approval');
-    expect(classify(policy, { touches: ['internal_edit'], command: 'psql -c "DROP TABLE users"' }).level).toBe('approval');
+    expect(classify(policy, { touches: ['internal_edit'], command: 'git push --force origin +main:main' }).level).toBe(
+      'deny',
+    );
+    expect(classify(policy, { touches: ['internal_edit'], command: 'git push --force origin feature/x' }).level).toBe(
+      'approval',
+    );
+    expect(classify(policy, { touches: ['internal_edit'], command: 'psql -c "DROP TABLE users"' }).level).toBe(
+      'approval',
+    );
   });
 
   it('F.1b the policy is data: a project may raise a level without code change', () => {
-    const custom = { ...policy, rules: policy.rules.map((r) => (r.category === 'deps_add' ? { ...r, level: 'approval' as const } : r)) };
+    const custom = {
+      ...policy,
+      rules: policy.rules.map((r) => (r.category === 'deps_add' ? { ...r, level: 'approval' as const } : r)),
+    };
     expect(classify(custom, { touches: ['deps_add'], reversible: true }).level).toBe('approval');
     expect(classify(policy, { touches: ['deps_add'], reversible: true }).level).toBe('review');
   });
 
   it('validatePolicyShape rejects a policy that lowers a hard-deny or drops a required category', () => {
-    const bad = { ...policy, rules: policy.rules.filter((r) => r.category !== 'db_schema').map((r) => (r.category === 'secret' ? { ...r, level: 'auto' as const } : r)) };
+    const bad = {
+      ...policy,
+      rules: policy.rules
+        .filter((r) => r.category !== 'db_schema')
+        .map((r) => (r.category === 'secret' ? { ...r, level: 'auto' as const } : r)),
+    };
     const problems = validatePolicyShape(bad);
     expect(problems.some((p) => p.includes('db_schema'))).toBe(true);
     expect(problems.some((p) => p.includes('secret'))).toBe(true);
@@ -125,7 +175,12 @@ describe('exit report "explicit none" rule (acceptance C.3)', () => {
   });
 
   it('an empty array needs none_confirmed, a non-empty one must not claim none', () => {
-    const ok = checkNoneConfirmed(Object.fromEntries([...EXIT_REPORT_REQUIRED_ARRAYS.map((k) => [k, []]), ['none_confirmed', Object.fromEntries(EXIT_REPORT_REQUIRED_ARRAYS.map((k) => [k, true]))]]));
+    const ok = checkNoneConfirmed(
+      Object.fromEntries([
+        ...EXIT_REPORT_REQUIRED_ARRAYS.map((k) => [k, []]),
+        ['none_confirmed', Object.fromEntries(EXIT_REPORT_REQUIRED_ARRAYS.map((k) => [k, true]))],
+      ]),
+    );
     expect(ok.ok).toBe(true);
     const clash = checkNoneConfirmed({ incomplete: ['x'], none_confirmed: { incomplete: true } } as never);
     expect(clash.contradictory).toEqual(['incomplete']);
