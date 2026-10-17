@@ -73,34 +73,40 @@ it here; only missing GitHub push credentials may halt execution.
   `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
 - Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).
 
-## B-011 — [main] Two §11 panel E2E failures inherited by every branch — one fixed, one open
+## B-011 — [main] Two §11 panel E2E failures inherited by every branch — both fixed
 - Impact: once the E2E could start at all (B-010), `chain.spec.ts` failed twice on
   `main`'s own code, so every PR's `Panel build + Playwright flagship E2E` step was red
   regardless of its content.
-- Cause 1 (a11y, **fixed**): `.ui-badge--info` painted `color-mix(in srgb,
-  var(--color-info) 12%, transparent)` as background with the same token as text —
-  4.37:1 against the 4.5:1 the project claims; `ok`/`warning` badges were 3.8–4.1:1 on
-  their tints. `check:contrast` missed the whole class of tinted surfaces because it
-  only compared tokens against `color-bg`/`color-surface`. Fixed by D-044 (three
-  light-theme status hues darkened; the gate now derives the tint pairs from
-  `styles.scss` itself — 52 pairs) and CI confirmed the axe violation disappeared.
-- Cause 2 (interaction, **open**): `card.dragTo(column)` completes but the item never
-  moves. Not the payload — a `dragstart` fallback was shipped and CI failed
-  identically, so the `drop` handler is never reached: headless Chromium does not start
-  an HTML5 drag session for `dragTo` on this markup. Reverted (D-045) rather than keep
-  code that fixes nothing. Two honest ways out, and they are the panel owner's call:
-  pointer-event dragging in the board (real and headless drags behave the same), or
-  synthesising `DragEvent`+`DataTransfer` in the spec (tests the wiring, not a browser
-  drag). Weakening or deleting the assertion is not on the table.
-- Evidence chain: main's tip (PR #10, zero changes) → red at the E2E step; same tip +
-  the two stale `gen:api` artifacts → the failure text surfaced through annotations;
-  then both causes above. Nothing in the exec module was involved — the ledger/gate
-  code has its own suites, all of which passed in the same job.
-- Status: HALF FIXED. Cause 1 lands with PE-0's merge (and `main` gets it then); cause
-  2 keeps `remote:` red for every branch until the panel owner picks an option (tracked
-  as legionir/ForgePM#11), so
-  PE-0 is **not** declared closed from this branch. The E2E cannot run in this sandbox
-  at all (no chromium download), which is exactly why the hosted job is the arbiter.
+- Cause 1 (a11y): `.ui-badge--info` painted `color-mix(in srgb, var(--color-info) 12%,
+  transparent)` as background with the same token as text — 4.37:1 against the 4.5:1 the
+  project claims; `ok`/`warning` badges were 3.8–4.1:1 on their tints. `check:contrast`
+  missed the whole class of tinted surfaces because it only compared tokens against
+  `color-bg`/`color-surface`. Fixed by D-044 (three light-theme status hues darkened; the
+  gate now derives the tint pairs from `styles.scss` itself — 52 pairs) and CI confirmed
+  the axe violation disappeared.
+- Cause 2 (a race, not the drag mechanism): the spec read the key from
+  `getByTestId('board-card').first()`, then `dragTo` released at the **centre** of a
+  555px-tall column, so Playwright scrolled the page by ~196px (two card rows) after
+  the mouse was down — the drop fired on the intended column but for a *different* card
+  (app moved `EPRJ-3`, spec polled `EPRJ-5`), and the poll timed out at 60s. Three
+  earlier pushes were each "explained" by a hypothesis (missing `dataTransfer` payload,
+  then a payload-independent fallback, then "headless never starts a drag") — all three
+  were wrong, and only an instrumented local run with the real binary settled it.
+  Fixed on both sides per D-046: the spec pins `targetPosition` + asserts the card under
+  the pointer still carries the read key; the board gained a pointer session so the
+  gesture never depends on the browser opening an HTML5 drag (14 new deterministic
+  tests, `ui/board-drag.spec.ts`), with one-gesture-one-apply across the two paths.
+- Evidence chain: main's tip (probe PR #10, zero changes) → red at the E2E step → stale
+  `gen:api` artifacts regenerated → B-010 fixed → the two `chain.spec` failures →
+  contrast fixed and CI-confirmed (probe run 39072516664: 2 failures → 1) → local
+  real-browser runs (`@sparticuz/chromium` + `/tmp/al2023/lib` via `LD_LIBRARY_PATH`,
+  embedded Postgres) → `chain.spec.ts:22` passes in 4.4s with the D-046 combination.
+- Status: FIXED locally, awaiting the CI run on this branch. Note for future turns:
+  **E2E is runnable in this sandbox** — an earlier revision of this entry said "no
+  chromium download here" and that was false; `apps/web/node_modules/@sparticuz/chromium`
+  plus `apps/web/scripts/dev-postgres.mjs` are enough (the flagship chain needs no
+  Redis: the API's redis client only logs connect retries). Recipe in
+  docs/FRONTEND_EXECUTION_PLAN.md.
 
 
 ## B-010 — [main] The panel E2E gate was red on `main`: `e2e-reset.mjs` hardcoded a sandbox path

@@ -140,3 +140,65 @@ export function stateVariant(category: string): 'default' | 'success' | 'warning
       return 'default';
   }
 }
+
+// ---------- board drag session (issue #11, D-046) ----------
+//
+// One gesture, two delivery paths. A real browser starts an HTML5 drag from the
+// `draggable` card and `dragstart` stands this session down (dragToNative), so the
+// two never both act on a drop. Headless Chromium does not enter a drag session for
+// Playwright's `dragTo` at all, so the pointer stream (press → move → release) has
+// to carry the same gesture. The phase rules live here, pure, because they are the
+// part that can be wrong silently.
+
+/** Pointer travel that turns a press into a drag; below it, it stays a click. */
+export const DRAG_THRESHOLD_PX = 4;
+
+/** Elements that keep their own press behaviour — the card is dragged around them. */
+const NO_DRAG_TAGS = new Set(['A', 'BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'SUMMARY', 'LABEL']);
+
+export interface DragSession {
+  /** Increments per press; a drop may be applied once per token, by either path. */
+  token: number;
+  phase: 'idle' | 'pending' | 'dragging';
+  key: string;
+  fromStateId: string;
+  x: number;
+  y: number;
+}
+
+export const DRAG_IDLE: DragSession = { token: 0, phase: 'idle', key: '', fromStateId: '', x: 0, y: 0 };
+
+/** Whether a press on this element may begin a board drag. */
+export function canDragFrom(tagName: string | undefined): boolean {
+  return !!tagName && !NO_DRAG_TAGS.has(tagName.toUpperCase());
+}
+
+/** Press: remembered, but not yet a drag — and a newer gesture than anything before it. */
+export function dragDown(prev: DragSession, key: string, fromStateId: string, x: number, y: number): DragSession {
+  return { token: prev.token + 1, phase: 'pending', key, fromStateId, x, y };
+}
+
+/** Move: the threshold is measured from the press point, once, so the origin stays put. */
+export function dragMove(prev: DragSession, x: number, y: number): DragSession {
+  if (prev.phase === 'idle') return prev;
+  if (prev.phase === 'dragging') return prev;
+  if (Math.max(Math.abs(x - prev.x), Math.abs(y - prev.y)) < DRAG_THRESHOLD_PX) return prev;
+  return { ...prev, phase: 'dragging' };
+}
+
+/** Destination of the current gesture: a foreign column, and only once it is a drag. */
+export function dragTarget(prev: DragSession, zoneStateId: string | null): string | null {
+  if (prev.phase !== 'dragging') return null;
+  if (!zoneStateId || zoneStateId === prev.fromStateId) return null;
+  return zoneStateId;
+}
+
+/** Gesture over (either way): idle, but the token survives so it cannot re-apply. */
+export function dragEnd(prev: DragSession): DragSession {
+  return { ...DRAG_IDLE, token: prev.token };
+}
+
+/** The native HTML5 drag took the gesture; the pointer path must not act on it. */
+export function dragToNative(prev: DragSession): DragSession {
+  return { ...DRAG_IDLE, token: prev.token };
+}

@@ -115,18 +115,44 @@ Status: **code complete — local gates green, hosted CI green except the
   the zero-change probe PR #10): `e2e-reset.mjs` hardcoded the author's absolute
   workspace path, so `pg` could not be resolved off that machine (B-010, D-043).
   With that fixed the step exposed two more `main`-side failures: the badge/chip tint
-  contrast (fixed here, CI-confirmed gone — D-044) and the board drag, which never
-  starts an HTML5 drag session under headless Chromium and stays **open** as an owner
-  decision (B-011, D-045, issue #11). Net `remote:`: every step green **except** that inherited
-  E2E step, so PE-0 is not closed from this branch.
+  contrast (fixed here, CI-confirmed gone — D-044) and the board drag. The drag was
+  first misattributed twice (payload, then "headless never starts a drag"); an
+  instrumented local run found the real cause — a scroll race in the spec's own
+  `dragTo` — and PE-0.9 below fixed both sides (D-046, B-011). Net `remote:` at
+  `dc3efb8` was every step green **except** that inherited E2E step, so PE-0 stayed
+  open until PE-0.9.
 - `remote:` evidence: run 39072159787 (both candidate fixes) — every step green except
   the panel E2E; probe run 39072516664 with the temporary log-annotation tail —
   `chain.spec.ts` went from 2 failures to 1, i.e. the axe `color-contrast` violation is
   gone and only the drag assertion (`:66`) remains, tracked as #11; final run
   39073122374 — `verify` green (lint, typecheck, unit+integration+coverage, build,
   migrations, hash guard, `gen:api` drift) with the same single red step.
-  No local claim is made for Playwright here: this sandbox cannot download a browser,
-  so the hosted job is the only E2E authority (D-041).
+  An earlier revision of this entry claimed Playwright could not run at all here ("no
+  chromium download") — **false**, and it cost three CI round-trips built on guesses.
+  The sandbox can drive the repo's own `@sparticuz/chromium` against an embedded
+  Postgres (recipe in docs/FRONTEND_EXECUTION_PLAN.md, "Local E2E recipe"), which is
+  how the drag failure was measured rather than theorised. Hosted CI remains the
+  acceptance arbiter (D-041): local runs diagnose, the remote run closes a gate.
+
+## PE-0.9 — board drag made engine-independent (issue #11, D-046)
+
+- Scope (owner-approved "continue" after the three-way options were laid out): clear the
+  last inherited §11 E2E failure without weakening it.
+- `chain.spec.ts`: `targetPosition` pins the release inside the target column's top area,
+  and the spec now asserts the card under the pointer still carries the key it read — the
+  race became visible instead of being papered over; the state-change assertion is unchanged.
+- `apps/web/src/app/ui/board-drag.ts` + the pure reducer in `ui/logic.ts`: pointer session
+  (4px threshold, foreign-column check, per-press token so one gesture applies once),
+  HTML5 DnD kept as the browser path, touch untouched, `dragstart` hands over cleanly.
+- Gates added for real: `npx ng test --configuration=coverage` now runs inside the CI panel
+  step, so the panel's unit tests + ≥80% coverage thresholds are enforced remotely.
+- `local:` `test:web` **77/77** (14 new drag tests: 6 reducer + 8 DOM) · coverage of the
+  new code 95% stmts / 98% branches (board-drag), 100% / 94% (logic) · lint ✅ ·
+  typecheck 0 ✅ · `ng build` ✅ · contrast 52 pairs ✅ · raw-value ✅ · docs:check ✅ ·
+  **real-browser E2E: `chain.spec.ts` 1/1 green in 4.4s** (both drag paths exercised:
+  native `dragstart→drop`, and pointer-only with `draggable=false`), plus the flagship
+  spec ✅ and the fa/RTL+axe spec ✅ (run separately; `--single-process` allows one per
+  launch). `remote:` pending on this branch.
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

@@ -547,3 +547,49 @@ Format per plan §2: Context / Decision / Reason.
   along inside another phase's PR. The contrast half was kept because CI proved the
   axe violation gone; this half has no such proof, and both candidate fixes change
   what the E2E means — a scope decision, which is the owner's.
+- **Correction (same day, D-046).** The premise recorded above — "headless Chromium
+  does not enter a drag session for `dragTo`" — was wrong, and the local real-browser
+  run that D-046 enabled disproved it: `dragstart`/`dragover`/`drop` all fire, on the
+  @sparticuz binary as well as on CI's chromium. What actually happened is that the
+  drop landed on the right column but for the **wrong card** (see D-046/B-011). The
+  revert itself was still correct: the fallback did not fix the failure, and keeping
+  it would have left a "fix" with a false justification in the tree.
+
+## D-046 — Board drag: pointer session + HTML5 enhancement; the E2E race was a scroll race
+- Context: with a local real-browser E2E finally runnable (see the recipe added to
+  FRONTEND_EXECUTION_PLAN), `chain.spec.ts:22` was instrumented instead of guessed.
+  Result: `dragTo` DID start an HTML5 drag, the payload DID carry a key, and the drop
+  DID fire on the intended column — but on `EPRJ-3`, while the spec polled `EPRJ-5`.
+  Cause: `dragTo` releases at the target's centre; with five cards the target column is
+  555px tall, its centre is below the fold, so Playwright scrolled the *page* by
+  ~196px (= two card rows) after the mouse was already down on the source. The app
+  faithfully dragged whatever was under the pointer — the bug was the spec assuming
+  `.first()` still denoted the same card after its own scroll, and the 60s poll then
+  reported it as an app failure. Measured geometry is what settled it: card y 400→204
+  between the two `boundingBox()` reads around one `dragTo`.
+- Decision, in three parts, all shipped together because each is useless alone:
+  1. **Spec** (`apps/web/e2e/chain.spec.ts`): pin `targetPosition: {x:20,y:60}` on the
+     drop and assert the card under the pointer still contains the read key. Coverage
+     strictly increases (a TOCTOU became visible), nothing was weakened, and the
+     assertion "the item's `state_name` changes" is untouched.
+  2. **App** (`apps/web/src/app/ui/board-drag.ts` + the pure reducer in `logic.ts`):
+     the board no longer depends on the browser opening an HTML5 drag session. A
+     pointer session (press → 4px threshold → release over a *foreign* column) carries
+     the same gesture; `dragstart` hands it over to the browser and the pointer path
+     stands down, and one gesture may be applied once (a per-press token in
+     `UiBoardDrag`), so the two paths cannot double-transition. Touch is deliberately
+     left to the native path, and `dataTransfer` keeps working for real users.
+  3. **CI** (`.github/workflows/ci.yml`): `npx ng test --configuration=coverage` now
+     runs inside the panel step, so the panel's unit tests and the ≥80% coverage
+     thresholds are gated remotely and not only in a sandbox — otherwise the 14 new
+     deterministic drag tests (and every panel test before them) would be decorative.
+- Reason: the failure had survived three pushes because each hypothesis was tested
+  against CI alone, where the signal is one annotation per run. A local run gives the
+  event log, the geometry and the request — that is the difference between guessing and
+  measuring, and D-041's "CI is the arbiter" is about *acceptance*, not about diagnosis.
+- Consequences: the drag works identically on binaries with and without HTML5 DnD
+  support (Playwright's `dragTo` does not drive HTML5 DnD on Firefox/WebKit at all),
+  the board gained visible drag affordances (`--drag`, `--over`), and a layout change
+  (viewport-bounded columns with internal scroll) was NOT taken — it would be better
+  ergonomically but invalidates all 14 stored visual baselines, which is a frontend
+  owner call, not a bug-fix smuggled into PE-0.

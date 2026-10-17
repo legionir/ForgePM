@@ -60,7 +60,14 @@ test('§11 full chain: setup → project → items → board → plan → key �
   const card = page.getByTestId('board-card').first();
   const key = (await card.locator('a').textContent())!.trim();
   const beforeState = (await (await page.request.get(`/api/v1/work-items/${key}`)).json()).state_name as string;
-  await card.dragTo(page.getByTestId('board-col').nth(2));
+  // Release near the top of the target column on purpose: `dragTo` defaults to the
+  // element's centre, and on a tall column that centre is below the fold, so
+  // Playwright scrolls the *target* into view after the mouse is already down —
+  // the press then lands on a card two rows lower and the dragged item is not the
+  // one whose key was read above (measured: app moved EPRJ-3, spec polled EPRJ-5).
+  // Pinning the point keeps the gesture on the intended card without weakening it.
+  await card.dragTo(page.getByTestId('board-col').nth(2), { targetPosition: { x: 20, y: 60 } });
+  await expect(card).toContainText(key); // the card under the pointer is still the item we keyed on
   await expect
     .poll(async () => (await (await page.request.get(`/api/v1/work-items/${key}`)).json()).state_name)
     .not.toBe(beforeState);

@@ -55,14 +55,26 @@ existing route are untouched.
 
 ### Fixed
 
-- **Two inherited §11 panel E2E failures** (both were blocking every branch's remote
-  gate, since CI could not run while PR #8 was current): the info badge's contrast on
-  its own tint, and the board drop depending solely on the `dataTransfer` payload.
-  Light-theme `--color-ok`/`--color-warning`/`--color-info` are darkened so the
-  12%/14% tinted badge/chip surfaces clear 4.5:1, `npm run check:contrast` now derives
-  those tint pairs from `styles.scss` itself (52 pairs checked, D-044), and the board
-  resolves the dragged key from the payload *or* the `dragstart` memory (D-045, unit-tested
-  in `ui-logic.spec.ts`). docs/BLOCKERS.md B-010/B-011 record the attribution.
+- **Two inherited §11 panel E2E failures** (both blocked every branch's remote gate):
+  the info badge's contrast on its own tint, and the board drag never reaching a move.
+  Light-theme `--color-ok`/`--color-warning`/`--color-info` are darkened so the 12%/14%
+  tinted badge/chip surfaces clear 4.5:1, and `npm run check:contrast` now derives those
+  tint pairs from `styles.scss` itself — 52 pairs checked, D-044.
+- **Board drag: engine-independent gesture + the §11 E2E race that hid it** (D-046,
+  B-011, issue #11). `chain.spec.ts`'s `dragTo` released at a tall column's centre, so
+  Playwright scrolled the page with the mouse already down and the drop moved a
+  *different* card than the key the spec had read (app moved `EPRJ-3`, spec polled
+  `EPRJ-5`); the release point is now pinned and the spec asserts the card under the
+  pointer still carries that key. The board no longer depends on the browser opening an
+  HTML5 drag session: `apps/web/src/app/ui/board-drag.ts` runs a pointer session (pure
+  reducer in `ui/logic.ts`: press → 4px threshold → release over a foreign column) with
+  HTML5 DnD as the enhancement and a per-press token so one gesture can never apply
+  twice; touch and `dataTransfer` behaviour are unchanged. 14 new tests in
+  `ui/board-drag.spec.ts`, and `ng test --configuration=coverage` was added to the CI
+  panel step so the panel's unit tests and ≥80% coverage thresholds are gated remotely.
+  `chain.spec.ts` now passes locally against a real chromium (both drag paths exercised).
+  An earlier entry here credited D-045's `dataTransfer` fallback with fixing this; that
+  hypothesis was wrong and the fallback was reverted in `45a491a`.
 
 - **`apps/web/scripts/e2e-reset.mjs` was not portable** (found while getting PE-0's
   remote gate to run): it resolved `pg` via a hardcoded absolute workspace path, so
