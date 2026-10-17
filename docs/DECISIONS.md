@@ -540,8 +540,8 @@ Format per plan §2: Context / Decision / Reason.
   dragging and headless dragging behave the same and is the a11y-honest option, or
   (b) keep HTML5 DnD and have the spec synthesise `DragEvent`s with a real
   `DataTransfer` via `page.evaluate` — which tests the wiring but no longer tests a
-  browser drag. Raising it as an open item (B-011, legionir/ForgePM issue) instead of
-  choosing quietly.
+  browser drag. Raised as legionir/ForgePM#11 (with B-011) instead of choosing
+  quietly.
 - Reason: PE-0's contract is that nothing bypassable rests on judgement, and the same
   discipline applies to fixes: code that is not known to fix anything must not ride
   along inside another phase's PR. The contrast half was kept because CI proved the
