@@ -119,6 +119,14 @@ Status: **code complete — local gates green, hosted CI green except the
   starts an HTML5 drag session under headless Chromium and stays **open** as an owner
   decision (B-011, D-045, issue #11). Net `remote:`: every step green **except** that inherited
   E2E step, so PE-0 is not closed from this branch.
+- `remote:` evidence: run 39072159787 (both candidate fixes) — every step green except
+  the panel E2E; probe run 39072516664 with the temporary log-annotation tail —
+  `chain.spec.ts` went from 2 failures to 1, i.e. the axe `color-contrast` violation is
+  gone and only the drag assertion (`:66`) remains, tracked as #11; final run
+  39073122374 — `verify` green (lint, typecheck, unit+integration+coverage, build,
+  migrations, hash guard, `gen:api` drift) with the same single red step.
+  No local claim is made for Playwright here: this sandbox cannot download a browser,
+  so the hosted job is the only E2E authority (D-041).
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.
