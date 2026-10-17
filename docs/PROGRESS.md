@@ -94,7 +94,11 @@ Status: **code complete, partially verified locally**.
   `build` ✅ · `docs:check` ✅ · `check-migration-hashes` ✅ (manifest updated).
 - `local not-run:` `migrate` / `schema:check` / `test:integration` / coverage —
   no Postgres, Redis or Docker in this sandbox (B-009 = plan OI-8/OI-9).
-- `remote:` not-configured (branch `arena/c216c536-forgepm`, no CI run yet).
+- `remote:` **cannot-run** — PR #9 CI (run 39066115968) never started: GitHub
+  reports "recent account payments have failed or your spending limit needs to be
+  increased" for `ubuntu-latest`. So the DB-dependent gates have no remote proof;
+  a self-hosted runner (docker + Postgres/Redis) or an explicit human waiver is
+  required (plan OI‑9, B‑009).
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

@@ -88,4 +88,8 @@ it here; only missing GitHub push credentials may halt execution.
   schema:check` on any host with the CI service containers before closing PE-0.
 - Status: OPEN — this is OI-8/OI-9 of `docs/EXECUTION_CONTROL_PLAN.md` §18
   (accept `not-run` in CI without docker, or provide a runner); no gate result is
-  claimed for those two items.
+  claimed for those two items. **Update (2026-10-17):** PR #9's CI never started —
+  GitHub Actions reports "recent account payments have failed or your spending
+  limit needs to be increased", so there is currently no hosted runner at all.
+  Either fix the billing/spend limit, attach a self-hosted runner with docker +
+  Postgres/Redis, or waive PE-0's DB gates explicitly (recorded in the ledger).
