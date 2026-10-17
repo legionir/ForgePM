@@ -153,6 +153,13 @@ Status: **code complete — local gates green, hosted CI green except the
   native `dragstart→drop`, and pointer-only with `draggable=false`), plus the flagship
   spec ✅ and the fa/RTL+axe spec ✅ (run separately; `--single-process` allows one per
   launch). `remote:` pending on this branch.
+- **PE-0 CLOSED 2026-10-18** — `remote: pass` on run 39076763818 (`2edeeb9`): all 22
+  steps green, including `Panel build (Angular) + Playwright flagship E2E` and the new
+  `ng test --configuration=coverage` inside it. PE-0.9 (board drag, issue #11) was the
+  last inherited failure; it is fixed on both sides (D-046) and `chain.spec.ts` also
+  passes locally against a real chromium. The ledger-side ritual for this phase
+  (`ledger enable exec_control` + `req_add`/`record_decision`/`approve` + `task_split`)
+  is PE-1's first work item, since the ledger tools only exist from PE-1/PE-2 on.
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

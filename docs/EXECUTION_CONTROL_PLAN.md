@@ -336,7 +336,25 @@ exec.stale_check_on_start      bool    = true
       ۴ فایل قرمز (= ۷ تست) تماماً محیطی‌اند و ربطی به exec ندارند: `outbox`، `phase5-worker`
       (به Redis لازم دارند؛ در این سندباکس بالا نمی‌آید — `redis-memory-server` هم باینری نداشت)
       و `phase7-backup`/`phase7-system` (به `pg_dump`/`psql` واقعی). `remote:` در جدول پایین.
-- [~] PE‑0.8 `remote:` — پس از رفع صورتحساب Actions، CI روی PR #9 اجرا شد و
+- [x] PE‑0.8 `remote: pass` — run **39076763818** روی `2edeeb9`: **هر ۲۲ گام job سبز**،
+      از جمله `Verify` (lint+typecheck+unit+integration+سقف coverage+build) ·
+      `Migrations on an empty DB` · `Migration hash guard` · `gen:api drift check` ·
+      `Panel build (Angular) + Playwright flagship E2E` · `i18n key parity` ·
+      `Performance budget` + `P-05 first paint` · `schema:check` (و تستِ ردِ اختلاف عمدی) ·
+      `docs:check` · `phase-report` self‑test · `npm audit`. باقراردادِ «حداقل یک بار روی
+      CI میزبان سبز شود» ⇒ PE‑0 بسته است. تاریخچهٔ قرمزی (تا سبز شدن، ۵ فرضیه، ۲ تای
+      اول اشتباه): `dd13ed3` بیات‌بودن `openapi.json`/`schema.d.ts` · `1f5f541`
+      مسیرِ non‑portable در `e2e-reset.mjs` (B‑010، D‑043) · `70cc11f` کنتراست بِج/چیپ
+      (D‑044) · `45a491a` بازگرداندنِ فرضِ `dataTransfer` (D‑045) · `2edeeb9` ریشهٔ
+      واقعی + رفع هر‌دو‌سو (**D‑046**، B‑011، issue #11).
+- [x] PE‑0.9 (افزوده‌شده حین بستن PE‑0.8) — درگ بورد موتور‑مستقل شد و مسابقهٔ اسکرولِ
+      خودِ spec رفع شد: `ui/board-drag.ts` (session با آستانهٔ ۴px، توکن یک‌بارمصرف برای
+      «هر ژست حداکثر یک اعمال»، HTML5 DnD به‌عنوان مسیر مرورگر، touch بدون تغییر) +
+      reducer خالص در `ui/logic.ts` + ۱۴ تست (`ui/board-drag.spec.ts`: ۶ ریدیوسر + ۸ DOM) +
+      `targetPosition` و `expect(card).toContainText(key)` در `chain.spec.ts` — بدون
+      هیچ تضعیف/حذف ادعایی. گیتِ جدید: `npx ng test --configuration=coverage` به گام پنلِ
+      CI اضافه شد تا تست‌های یونیتِ پنل و سقف ۸۰٪ کاوراژ در میزبان هم الزامی باشند.
+      `local:` chain.spec.ts ۱/۱ سبز روی chromium واقعی (هر دو مسیر درگ سنجیده شد).
       `Install` · `Migration hash guard` · `Migrations on an empty DB` ·
       `npm run verify` (شامل integration و سقف coverage) · `gen:api drift check` همه **سبز**
       شدند. تنها گام قرمز `Panel build + Playwright flagship E2E` بود که با پروبِ بدون‌تغییر
@@ -348,6 +366,11 @@ exec.stale_check_on_start      bool    = true
 **راهنمای تکرار محلی (بدون docker):**
 `node apps/web/scripts/dev-postgres.mjs` (پورت ۵۴۳۳) یا `@embedded-postgres/linux-x64` روی پورت دلخواه،
 سپس `DATABASE_URL=postgres://postgres:postgres@127.0.0.1:<port>/forgepm_test FORGEPM_TEST_NO_REDIS=1 npx vitest run --project integration tests/integration/exec-ledger-invariants.test.ts`.
+**E2E پنل هم همین‌جا قابل اجراست** (این سندباکس chromium دارد؛ باورِ «قابل اجرا نیست» سه
+رفت‌وبرگشتِ CI هزینه داد): دستور کامل در `docs/FRONTEND_EXECUTION_PLAN.md` ذیل «Local E2E
+recipe» — `@sparticuz/chromium` با `LD_LIBRARY_PATH=/tmp/al2023/lib` (از `bin/al2023.tar.br`)،
+API روی :3101، `ng serve --proxy-config proxy.e2e.json`، و هر spec یک‌جا ( آرگومان
+`--single-process`.
 
 ---
 
