@@ -65,7 +65,16 @@ jobs:
       - name: "Panel build (Angular) + Playwright flagship E2E"
         run: |
           (cd apps/web && npm ci && npx playwright install --with-deps chromium)
-          bash apps/web/e2e.sh
+          set +e
+          bash apps/web/e2e.sh > /tmp/e2e.out 2>&1
+          RC=$?
+          set -e
+          enc() { sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n' | sed -e 's/%0A$//'; }
+          echo "::error::exit=$RC playwright-tail::$(grep -m1 -A10 -E 'Error:|failed, [0-9]+ passed|Timed out' /tmp/e2e.out | enc)"
+          echo "::error::e2e-stdout-tail::$(tail -n 12 /tmp/e2e.out | enc)"
+          echo "::error::web-dev-log-tail::$(tail -n 10 /tmp/forgepm-e2e-web.log 2>/dev/null | enc)"
+          echo "::error::api-log-tail::$(tail -n 10 /tmp/forgepm-e2e-api.log 2>/dev/null | enc)"
+          exit $RC
 
       - name: "i18n key parity check (plan §11)"
         run: (cd apps/web && node scripts/i18n-check.mjs)
