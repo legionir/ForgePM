@@ -503,3 +503,40 @@ Format per plan §2: Context / Decision / Reason.
   red gate may not be read for hours. Determinism of the *verification harness* is
   part of the product, so it gets the same "no environment assumptions" treatment as
   the runtime code.
+
+## D-044 — Status tokens are tuned for the tint they generate, not just for the page
+- Context: the §11 panel E2E (`chain.spec.ts`) runs axe over the major pages and
+  failed on `main` with one serious violation: `.ui-badge--info` painted
+  `color-mix(in srgb, var(--color-info) 12%, transparent)` as its background and the
+  same `--color-info` (`#0969da`) as its text — 4.37:1, below the WCAG AA 4.5:1 the
+  project claims. `npm run check:contrast` did not catch it because it only compared
+  each token against `color-bg`/`color-surface`, where the hue passes at 4.83:1.
+- Decision: darken the three light-theme status hues until every
+  *self-tinted* pair passes — `--color-ok: #166d2f`, `--color-warning: #845900`,
+  `--color-info: #085abb` (`--color-error` already cleared it) — and extend
+  `check:contrast` to derive those pairs from `styles.scss` itself: for every rule
+  whose `background` is a `color-mix(in srgb, var(--color-X) N%, transparent)` and
+  whose `color` is the same token, the token must hit ≥ 4.5:1 over the composite, on
+  both `color-bg` and `color-surface`, in both themes.
+- Reason: the golden rule of this repo is that anything which must not regress is
+  deterministic code, not review. A palette cannot be validated against flat
+  backgrounds only — half of the panel's status surfaces are the tokens mixed with
+  their own background. Reading the rules out of the stylesheet means a future
+  `12% → 20%` change fails the gate instead of shipping a11y debt, and pixel
+  baselines (`VISUAL=1`, opt-in) stay a human concern.
+
+## D-045 — Board drops accept the payload or the remembered key, never only one
+- Context: with the module fixed in D-044 the other §11 chain failure remained: after
+  `card.dragTo(column)` the work item's `state_name` never changed. The drop handler
+  read the key exclusively from `event.dataTransfer.getData('text/plain')`, and
+  Chromium does not reliably surface `dataTransfer` on the `drop` of a CDP-driven drag
+  (Playwright's `dragTo`) — the handler then returned early on an empty key.
+- Decision: remember the key on `dragstart`, clear it on `dragend`, and resolve a drop
+  through `draggedKey(transfer, remembered)` in `ui/logic.ts` — payload first,
+  remembered key as fallback. The HTML5 contract is unchanged (the payload is still
+  what a real user's drag carries, so cross-component drops and drag-to-other-apps
+  behave identically); the pure resolver is unit-tested in `ui-logic.spec.ts`.
+- Reason: the interaction is a pair of events, and the app may not depend on which one
+  happened to carry data. The alternative — dropping the drag assertion from the E2E
+  or driving the move only through the keyboard path — would have removed coverage of
+  a shipped interaction, which the repo's rules forbid (no test weakening).

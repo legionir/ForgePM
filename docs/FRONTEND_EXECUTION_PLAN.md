@@ -149,11 +149,11 @@ All tokens live in `apps/web/src/styles.scss` `:root` (light) + `prefers-color-s
 | `--color-line` | `#d6dade` | `#3a4046` | borders/dividers |
 | `--color-accent` | `#2457c5` | `#8ab4f8` | primary action, active nav |
 | `--color-error` | `#b3261e` | `#ff6b61` | error text/borders |
-| `--color-ok` | `#1a7f37` | `#6fdc8c` | success/confirmation |
+| `--color-ok` | `#166d2f` | `#6fdc8c` | success/confirmation |
 | `--color-surface` | `#f5f7f9` | `#1f2429` | elevated surface |
 | `--color-on-accent` | `#fff` / `#16191d` | — | text on accent (replaces hardcoded `#fff`) |
-| `--color-warning` | (new) | (new) | warnings (to add) |
-| `--color-info` | (new) | (new) | info (to add) |
+| `--color-warning` | `#845900` | `#d29922` | warnings |
+| `--color-info` | `#085abb` | `#58a6ff` | info |
 
 Rule: raw hex only inside this table. Status colours keep one meaning everywhere.
 Accent is used only for primary CTA and active nav; everything else stays neutral.
@@ -306,6 +306,9 @@ Status words: enabled/disabled, on/off, ok/failed.
 
 1. **Colour**: accent only for primary CTA + active nav; status colours only for
    feedback; surface elevation for cards/panels; add `--color-warning`/`--color-info`.
+   The three light-theme status hues were later darkened ~14% (`#166d2f`/`#845900`/`#085abb`)
+   so the 12%/14% tint that badges and chips paint stays ≥ 4.5:1 — `npm run check:contrast`
+   derives those pairs from `styles.scss` itself (D-044).
 2. **Graphics/icons**: one icon library (Lucide/Heroicons SVG); replace emoji ☑/☐;
    icons only functional (buttons, empty state, nav); simple line-art SVG for empty
    states; logo/brand mark in shell.

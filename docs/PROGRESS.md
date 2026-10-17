@@ -110,12 +110,13 @@ Status: **code complete — local gates green, hosted CI green except the
 - `remote:` **running again** (billing fixed) — on PR #9: `Install`,
   `Migration hash guard`, `Migrations on an empty DB`, `npm run verify`
   (lint+typecheck+unit+integration+**coverage thresholds**+build) and
-  `gen:api drift check` are ✅ on hosted CI. The one red step was
+  `gen:api drift check` are ✅ on hosted CI. The remaining red step was
   `Panel build + Playwright flagship E2E`, which is red on `main` too (proven with
   the zero-change probe PR #10): `e2e-reset.mjs` hardcoded the author's absolute
-  workspace path, so `pg` could not be resolved off that machine. Fixed here
-  (B-010, D-043) together with the stale `openapi.json`/`schema.d.ts` that
-  `main` also carries.
+  workspace path, so `pg` could not be resolved off that machine (B-010, D-043).
+  With that fixed the step exposed two more `main`-side failures — a badge contrast
+  violation and the board drop depending only on `dataTransfer` — both fixed here as
+  well (B-011, D-044/D-045), together with the stale `openapi.json`/`schema.d.ts`.
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

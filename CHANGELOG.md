@@ -55,6 +55,15 @@ existing route are untouched.
 
 ### Fixed
 
+- **Two inherited §11 panel E2E failures** (both were blocking every branch's remote
+  gate, since CI could not run while PR #8 was current): the info badge's contrast on
+  its own tint, and the board drop depending solely on the `dataTransfer` payload.
+  Light-theme `--color-ok`/`--color-warning`/`--color-info` are darkened so the
+  12%/14% tinted badge/chip surfaces clear 4.5:1, `npm run check:contrast` now derives
+  those tint pairs from `styles.scss` itself (52 pairs checked, D-044), and the board
+  resolves the dragged key from the payload *or* the `dragstart` memory (D-045, unit-tested
+  in `ui-logic.spec.ts`). docs/BLOCKERS.md B-010/B-011 record the attribution.
+
 - **`apps/web/scripts/e2e-reset.mjs` was not portable** (found while getting PE-0's
   remote gate to run): it resolved `pg` via a hardcoded absolute workspace path, so
   `bash apps/web/e2e.sh` — and therefore the CI step "Panel build + Playwright
