@@ -3,6 +3,59 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Execution control, PE-0 (2026-10-17)
+
+Scaffolding phase of `docs/EXECUTION_CONTROL_PLAN.md` (agent execution control:
+persistent ledger + deterministic Finalization Gate). No behaviour changes: the
+`exec` module is registered and OFF, so `tools/list`, `/health/ready` and every
+existing route are untouched.
+
+### Added
+
+- **Migration `0010_exec`** — the 17-table ledger (`exec_requirements`,
+  `exec_req_tasks`, `exec_tasks`, `exec_task_deps`, `exec_criteria`,
+  `exec_evidence`, `exec_open_items`, `exec_decisions`, `exec_questions`,
+  `exec_reviews`, `exec_reports`, `exec_gate_checks`, `exec_facts`,
+  `exec_fact_decisions`, `exec_baseline_tests`, `exec_action_journal`,
+  `exec_events`) plus `exec_code_seq`, `work_items.exec_task_id`, the
+  `exec_append_only()` trigger on the audit surfaces, `exec_journal_settle_only()`
+  (a journal row may be settled exactly once, its claim columns are immutable) and
+  a `REVOKE` block that applies when a dedicated app role exists. The block is the
+  contract copy in `docs/DATA_MODEL.md` §H (verified column/index parity offline).
+- **`@forgepm/shared/schemas-exec.ts`** — every ledger input (task/criterion/
+  open-item/evidence/decision/question/requirement/fact/journal/block), the exit
+  report with the "explicit none" rule as a pure checker (`checkNoneConfirmed`),
+  the risk-policy + harness documents, `parseTestLog`, `assessCheckable` (a vague
+  criterion is rejected with a fix hint) and `detectWeakening`.
+- **`@forgepm/core/src/exec/*`** — the deterministic half of the system: 13-rule
+  `evaluateGate` (+ `deriveStatusAfterFailure`, `buildFinalReport`), risk
+  `classify` with hard denials an admin cannot downgrade, open-item state machine,
+  evidence verification (ref grammar, allowed roots, payload minimums, secret
+  redaction), scope measurement, baseline comparison, journal write-lock, session
+  packing, adversarial-reviewer input assembly (conversation keys are refused) and
+  its strict output parser, ledger code allocation.
+- **21 `exec.*` settings** (`exec.policy`, `exec.test_command`,
+  `exec.test_result_parser`, `exec.protected_test_globs`, `exec.allowed_repo_roots`,
+  `exec.baseline_source`, `exec.ci_log_*`, `exec.runner.*`, size/output caps,
+  review rounds, gate/transition switches) in category `execution`; defaults
+  validate against their own schemas in a unit test.
+- **`exec` module** (`apps/api/src/modules/exec/module.ts`) registered in
+  `app/modules.ts` with `validateConfig` that refuses to enable the module while
+  `exec.*` documents do not parse. Scopes `ledger:read` / `ledger:write` /
+  `ledger:decide` (human-only) added to `API_KEY_SCOPES` + `docs/MCP_CONTRACTS.md`.
+- **Tests**: 99 new DB-free unit tests (`packages/core/src/exec/*.test.ts`)
+  covering each acceptance rule by number (F.1–F.8, C.1–C.12, B.6, B.10, J.2–J.6,
+  K.1–K.4, E.1–E.4); `tests/integration/exec-ledger-invariants.test.ts` covers the
+  DB-side invariants, 20-way concurrent code allocation and module-off gating.
+
+### Not yet (honest gate)
+
+- `local:` lint / typecheck / unit (215) / build / docs:check / migration-hash
+  manifest green. `not-run:` `npm run migrate`, `schema:check` and
+  `test:integration` — no Postgres/Redis/Docker in the authoring sandbox
+  (docs/BLOCKERS.md B-009, plan §18 OI-8/OI-9). `remote:` not-configured for this
+  branch (no push yet).
+
 ## [1.0.0-rc.1] — Release candidate (2026-10-10)
 
 Phases 0–7 are complete and every acceptance gate has run green (local +

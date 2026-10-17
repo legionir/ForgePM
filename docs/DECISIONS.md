@@ -419,3 +419,30 @@ Format per plan §2: Context / Decision / Reason.
   the audit gate is `npm audit --omit=dev --audit-level=high`.
 - Reason: single, ubiquitous toolchain with no corepack step; dependency
   versions stay exact-pinned in each `package.json`.
+
+## D-039 — Execution ledger: append-only is "no delete + settle-once" for the journal
+- Context: PE-0.3/I-2 asked for `BEFORE UPDATE OR DELETE` + `REVOKE` on
+  `exec_events`, `exec_evidence` and `exec_action_journal`. A journal row is
+  *born* `started` and must become `done|failed|unknown` (that is the whole resume
+  design, appendix §K), so a blanket UPDATE ban would break the feature.
+- Decision: full append-only (trigger + `REVOKE UPDATE, DELETE`) on
+  `exec_events`, `exec_evidence`, `exec_gate_checks`; `exec_action_journal` gets
+  `exec_journal_settle_only()`, which forbids DELETE outright and allows exactly
+  one UPDATE that changes only `status/finished_at/result_ref/note` from
+  `started`. `REVOKE DELETE` only, for that table.
+- Reason: the invariant that matters is "an agent can never erase or rewrite the
+  record of what it did"; a settled row keeping its outcome columns mutable is
+  still that record, and everything it claims to have done is frozen.
+
+## D-040 — Ledger code counters live in `exec_code_seq`, not on `projects`
+- Context: plan §5 (PE-0 item 2) says "no counter table; use
+  `SELECT max(seq) FOR UPDATE` + retry", while §4 table 16 and PE-0 item 1 define
+  `exec_code_seq(project_id, prefix, seq)` with the same trigger/REVOKE work.
+- Decision: `exec_code_seq` is the counter (as DATA_MODEL §H ships it).
+  `allocateLedgerCode()` inserts the zero row `ON CONFLICT DO NOTHING`, then
+  `UPDATE … FROM (SELECT … FOR UPDATE)` and retries on 40001/40P01. No column is
+  added to `projects`.
+- Reason: a per-prefix counter column on `projects` would serialise every ledger
+  write behind one hot row and would need a new `work_items`-style migration for
+  each prefix; the dedicated table is the only shape that keeps codes contiguous
+  under 20 concurrent allocations (tested).

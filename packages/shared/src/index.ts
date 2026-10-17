@@ -5,3 +5,4 @@ export * from './pagination';
 export * from './schemas-core';
 export * from './schemas-domain';
 export * from './schemas-plan';
+export * from './schemas-exec';

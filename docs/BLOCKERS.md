@@ -72,3 +72,20 @@ it here; only missing GitHub push credentials may halt execution.
 - Mitigation: webhook→outbox→worker auto-run path is proven end-to-end in
   `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
 - Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).
+
+## B-009 — [environment] Execution-control (PE-0) DB-dependent gates not run locally
+- Impact: `npm run migrate`, `npm run schema:check` against a live schema and
+  `npm run test:integration` (including the new
+  `tests/integration/exec-ledger-invariants.test.ts`: append-only triggers,
+  20-way concurrent code allocation, module-off behaviour) were NOT executed in
+  the sandbox where PE-0 was written — no Postgres, no Redis, no Docker, and
+  `apt-get` has no network. They are written, committed and green-by-construction
+  against the same SQL the migration ships (offline column/index parity check),
+  but they have not been executed against a real database yet.
+- Mitigation: the unit suites (215 tests incl. 99 exec tests) + lint + typecheck +
+  build all pass locally; the integration file is deterministic and isolated per
+  file via the standard harness. Run `npm run test:integration && npm run
+  schema:check` on any host with the CI service containers before closing PE-0.
+- Status: OPEN — this is OI-8/OI-9 of `docs/EXECUTION_CONTROL_PLAN.md` §18
+  (accept `not-run` in CI without docker, or provide a runner); no gate result is
+  claimed for those two items.

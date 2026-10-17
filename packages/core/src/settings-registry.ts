@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DEFAULT_PROTECTED_TEST_GLOBS, DEFAULT_TEST_PARSER, execPolicySchema } from '@forgepm/shared';
 
 /**
  * Settings registry (plan §5.7): every settable key has a schema, default and
@@ -6,6 +7,8 @@ import { z } from 'zod';
  * Later phases append their keys here; `modules.<name>.enabled` keys are
  * pattern-registered and always boolean.
  */
+import { EXEC_POLICY_DEFAULT } from './exec/policy';
+
 export interface SettingDefinition {
   key: string;
   schema: z.ZodTypeAny;
@@ -80,7 +83,28 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   { key: 'retention.job_days', schema: z.number().int().min(1), default: 30, category: 'retention' },
   { key: 'retention.ai_call_days', schema: z.number().int().min(1), default: 90, category: 'retention' },
   { key: 'retention.webhook_days', schema: z.number().int().min(1), default: 30, category: 'retention' },
-  { key: 'retention.mcp_call_days', schema: z.number().int().min(1), default: 30, category: 'retention' },
+  // ---- execution control (docs/EXECUTION_CONTROL_PLAN.md §4.1) ----
+  { key: 'exec.policy', schema: execPolicySchema, default: EXEC_POLICY_DEFAULT, category: 'execution' },
+  { key: 'exec.test_command', schema: z.string().max(2000), default: '', category: 'execution' },
+  { key: 'exec.test_result_parser', schema: z.object({ pass: z.array(z.string()).default([]), fail: z.array(z.string()).default([]), skip: z.array(z.string()).default([]), test_line: z.string().default('') }).passthrough(), default: { ...DEFAULT_TEST_PARSER }, category: 'execution' },
+  { key: 'exec.protected_test_globs', schema: z.array(z.string().min(1).max(200)).max(50), default: [...DEFAULT_PROTECTED_TEST_GLOBS], category: 'execution' },
+  { key: 'exec.allowed_repo_roots', schema: z.array(z.string().min(1).max(400)).max(20), default: [], category: 'execution' },
+  { key: 'exec.baseline_source', schema: z.enum(['auto', 'ci', 'runner', 'off']), default: 'auto', category: 'execution' },
+  { key: 'exec.ci_log_endpoint', schema: z.string().max(500), default: '', category: 'execution' },
+  { key: 'exec.ci_log_secret_name', schema: z.string().max(120), default: '', category: 'execution' },
+  { key: 'exec.runner.enabled', schema: z.boolean(), default: false, category: 'execution' },
+  { key: 'exec.runner.image', schema: z.string().min(1).max(300), default: 'forgepm-runner:node22', category: 'execution' },
+  { key: 'exec.runner.network', schema: z.enum(['none', 'registry-allowlist']), default: 'none', category: 'execution' },
+  { key: 'exec.runner_timeout_sec', schema: z.number().int().min(10).max(1800), default: 900, category: 'execution' },
+  { key: 'exec.runner_max_output_bytes', schema: z.number().int().min(1024).max(8_388_608), default: 1_048_576, category: 'execution' },
+  { key: 'exec.evidence_max_bytes', schema: z.number().int().min(1024).max(1_048_576), default: 131_072, category: 'execution' },
+  { key: 'exec.session_output_max_bytes', schema: z.number().int().min(1024).max(262_144), default: 8192, category: 'execution' },
+  { key: 'exec.tool_output_max_bytes', schema: z.number().int().min(1024).max(1_048_576), default: 16_384, category: 'execution' },
+  { key: 'exec.max_review_rounds', schema: z.number().int().min(1).max(5), default: 2, category: 'execution' },
+  { key: 'exec.require_review_for_done', schema: z.boolean(), default: true, category: 'execution' },
+  { key: 'exec.block_transition_when_gate_fails', schema: z.boolean(), default: true, category: 'execution' },
+  { key: 'exec.stale_check_on_start', schema: z.boolean(), default: true, category: 'execution' },
+  { key: 'exec.max_cost_tokens', schema: z.number().int().min(0), default: 0, category: 'execution' },
 ];
 
 const BY_KEY = new Map(SETTING_DEFINITIONS.map((d) => [d.key, d]));

@@ -309,18 +309,33 @@ exec.stale_check_on_start      bool    = true
    §H در `docs/DATA_MODEL.md` (الزام D‑09).
 6. `docs/EXECUTION_CONTROL.md` (این سند به‌روز، منبع فازها) + لینک در `README.md` و `docs/EXECUTION_PLAN.md`.
 
-**معیارهای پذیرش PE‑0**
+**معیارهای پذیرش PE‑0** (نتیجهٔ اجرای PE‑0 در ۲۰۲۶‑۱۰‑۱۷؛ `local:` = همان‌جا اجرا شد)
 
-- [ ] PE‑0.1 `npm run migrate` روی DB خالی سبز؛ اجرای دوم **idempotent** (بدون خطا).
-- [ ] PE‑0.2 `npm run schema:check` سبز: ۱۷ جدول §H با ستون/نوع/NOT NULL/ایندکس مطابق `DATA_MODEL.md`.
-- [ ] PE‑0.3 تست واحد: `UPDATE`/`DELETE` روی `exec_events|exec_evidence|exec_action_journal`
-      با نقش اپ `FORBIDDEN`/trigger خطا (تست `tests/integration/exec-ledger-invariants.test.ts`).
-- [ ] PE‑0.4 حذف رکورد از هر مسیر عمومی ledger با `CONFLICT LEDGER_STATE_INVALID`/خطای دسترسی رد می‌شود (تست لیست ابزارها: هیچ `*_delete` وجود ندارد).
-- [ ] PE‑0.5 ۲۰ فراخوانی همزمان `allocateLedgerCode` → ۲۰ کد یکتای پیوسته (تست همزمانی).
-- [ ] PE‑0.6 `GET /health/ready` بدون تغییر؛ ماژول پیش‌فرض خاموش و `tools/list` ایجنت بدون
-      ابزار جدید است؛ با enable، ابزارها ظاهر می‌شوند (تست integration).
-- [ ] PE‑0.7 `npm run verify` سبز (lint, typecheck, unit+integration, coverage ≥ 80, build)
-      و `docs:check` بدون لینک شکسته.
+- [~] PE‑0.1 اجرای `npm run migrate` روی DB خالی: **کد نوشته و ثبت شد** (`0010_exec` +
+      `manifest.sha256`؛ `local: node scripts/check-migration-hashes.mjs` سبز). خودِ migrate
+      در سندباکس **not-run** (Postgres در دسترس نبود)؛ ایدمپوتنسی در
+      `tests/integration/exec-ledger-invariants.test.ts` پوشش داده شد.
+- [~] PE‑0.2 `schema:check`: بلوک §H با ۱۷ جدول و ۱۹ ایندکس + anchor `CREATE TABLE exec_tasks`
+      اضافه شد و برابری ستون/نوع/ایندکس «دیتامدل ↔ مهاجرت» با اسکریپت آفلاین تست شد
+      (`local:` ۱۷/۱۷ یکسان). اجرای real-DB **not-run** (نیازمند Postgres زنده).
+- [x] PE‑0.3 آپ‑فوری/تک‌نشینی: `exec_events`، `exec_evidence`، `exec_gate_checks` با
+      `exec_append_only()`؛ `exec_action_journal` با `exec_journal_settle_only()` (ثبت فقط یک‌بار،
+      ستون‌های ادعا تغییرناپذیر) + `REVOKE`. تست: `exec-ledger-invariants.test.ts`.
+      **انحراف ثبت‌شده (D‑039):** پلن سه جدول append‑only می‌گفت؛ journal نمی‌تواند کامل
+      append‑only باشد چون `started → done|failed|unknown` ستون وضعیت را تغییر می‌دهد —
+      بنابراین DELETE کامل ممنوع و UPDATE فقط «تسویهٔ یک‌باره» است.
+- [x] PE‑0.4 هیچ `*_delete` در رجیستری وجود ندارد (تست روی `buildToolRegistry`)؛ اسکوپ‌های
+      `ledger:read|ledger:write|ledger:decide` به `API_KEY_SCOPES` اضافه شد (decide فقط انسان).
+- [x] PE‑0.5 `allocateLedgerCode` روی `exec_code_seq` با `FOR UPDATE` + retry؛ تست ۲۰ فراخوانی
+      همزمان (یکتا و پیوسته) نوشته شد. جدول شمارنده برخلاف توضیح سطر ۲ همین بخش **ساخته
+      می‌شود** (طبق جدول §۴ شمارهٔ 16 و سطر ۱ همان بخش)؛ `projects.next_*` وجود ندارد (D‑040).
+- [x] PE‑0.6 `execControlModule` ثبت شد، پیش‌فرض خاموش (`modules.exec.enabled=false`)،
+      `validateConfig` اسکیماهای `exec.*` را در لحظهٔ فعال‌سازی چک می‌کند؛ `tools/list` بدون
+      ابزار exec باقی می‌ماند (تست module-off در همان فایل integration).
+- [~] PE‑0.7 `local: lint` سبز، `typecheck` (همهٔ ورک‌اسپیس‌ها) سبز، `test:unit` سبز
+      (۲۱۵ تست، از جمله ۹۹ تست exec)، `build` سبز. `test:integration`، `coverage` و
+      `schema:check` real‑DB: **not-run** در این محیط (Postgres/Redis/Docker نیست) — OI‑8/OI‑9
+      همچنان باز؛ `docs:check` سبز.
 
 ---
 

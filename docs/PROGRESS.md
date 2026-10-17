@@ -75,3 +75,26 @@ in CI per B-001), publish.sh idempotent (two passes), branch protection not
 applied (token scope, recorded). `docs/FINAL_REPORT.md` written and pushed.
 Tags `v0.0.0`..`v0.7.0` + `v1.0.0-rc.1` present on origin. Stop condition
 reached (plan §2 "اجرای بی‌توقف" item 3a).
+
+---
+
+## Execution control (docs/EXECUTION_CONTROL_PLAN.md)
+
+### PE-0 — module scaffold, migration, settings, codes
+Status: **code complete, partially verified locally**.
+
+- Done: `0010_exec` (17 tables + triggers + REVOKE + `work_items.exec_task_id`),
+  DATA_MODEL §H contract block (column/index parity checked offline), shared
+  exec schemas, `packages/core/src/exec/*` (gate, policy, open items, evidence,
+  scope, baseline, journal, session, review input, codes, events), 21 `exec.*`
+  settings, `exec` module registration (off by default), `ledger:*` scopes,
+  99 unit tests, integration test file, docs (DECISIONS D-039/D-040, BLOCKERS
+  B-009, CHANGELOG, plan PE-0 checkbox results).
+- `local:` `lint` ✅ · `typecheck` (all workspaces) ✅ · `test:unit` ✅ 215/215 ·
+  `build` ✅ · `docs:check` ✅ · `check-migration-hashes` ✅ (manifest updated).
+- `local not-run:` `migrate` / `schema:check` / `test:integration` / coverage —
+  no Postgres, Redis or Docker in this sandbox (B-009 = plan OI-8/OI-9).
+- `remote:` not-configured (branch `arena/c216c536-forgepm`, no CI run yet).
+- Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
+  `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
+  `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.

@@ -4,6 +4,7 @@ import { sampleModule } from '../modules/sample/module';
 import { githubModule } from '../modules/github/module';
 import { validateConfig as githubValidate } from '../modules/github/config';
 import { codeReviewModule, refactorReviewModule } from '../modules/reviews/module';
+import { execControlModule } from '../modules/exec/module';
 
 /**
  * Module registration happens at startup regardless of enabled state
@@ -19,6 +20,9 @@ export function buildRegistry(): ModuleRegistry {
   // required to enable (the AI provider is checked per run, not at enable).
   registry.register(codeReviewModule);
   registry.register(refactorReviewModule);
+  // Execution control (PE-0): registered, OFF by default. `validateConfig` checks the
+  // exec.* policy/harness settings on enable so the gate never reads a broken document.
+  registry.register(execControlModule);
   // mcp_client registers in a later phase (4b, deferred).
   return registry;
 }

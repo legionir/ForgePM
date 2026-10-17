@@ -184,6 +184,7 @@ export {
   type AnyTool,
   type ToolAnnotations,
 } from './mcp/registry';
+export * from './exec';
 export {
   ModuleRegistry,
   makeRequireModule,
