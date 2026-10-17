@@ -336,9 +336,14 @@ exec.stale_check_on_start      bool    = true
       ۴ فایل قرمز (= ۷ تست) تماماً محیطی‌اند و ربطی به exec ندارند: `outbox`، `phase5-worker`
       (به Redis لازم دارند؛ در این سندباکس بالا نمی‌آید — `redis-memory-server` هم باینری نداشت)
       و `phase7-backup`/`phase7-system` (به `pg_dump`/`psql` واقعی). `remote:` در جدول پایین.
-- [ ] PE‑0.8 `remote:` — سبز شدن CI روی PR. در PR #9 اجرا **شروع نشد** (صورتحساب Actions؛
-      «recent account payments have failed») ⇒ `cannot-run`. تا این سبز نشود PE‑0 **بسته
-      محسوب نمی‌شود** (طبق اصل ۱۲ پلن: fail closed، حتی علیه خودمان).
+- [~] PE‑0.8 `remote:` — پس از رفع صورتحساب Actions، CI روی PR #9 اجرا شد و
+      `Install` · `Migration hash guard` · `Migrations on an empty DB` ·
+      `npm run verify` (شامل integration و سقف coverage) · `gen:api drift check` همه **سبز**
+      شدند. تنها گام قرمز `Panel build + Playwright flagship E2E` بود که با پروبِ بدون‌تغییر
+      روی `main` (PR #10) ثابت شد **از قبل روی main قرمز** بوده: `e2e-reset.mjs` مسیر
+      مطلقِ ماشینِ نویسنده را hardcoded داشت (B‑010، D‑043) — در همین شاخه رفع شد، به‌همراه
+      `openapi.json`/`schema.d.ts` بیاتِ main. تا سبز شدن **کل** job، PE‑0 بسته محسوب
+      نمی‌شود (اصل ۱۲ پلن: fail closed، حتی علیه خودمان).
 
 **راهنمای تکرار محلی (بدون docker):**
 `node apps/web/scripts/dev-postgres.mjs` (پورت ۵۴۳۳) یا `@embedded-postgres/linux-x64` روی پورت دلخواه،

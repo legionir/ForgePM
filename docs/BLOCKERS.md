@@ -73,6 +73,27 @@ it here; only missing GitHub push credentials may halt execution.
   `phase6-worker.test.ts` with stubs; the real adapter only fills the slots.
 - Status: OPEN — tracked with the phase-7 GitHub panel work (B-005 family).
 
+## B-010 — [main] The panel E2E gate was red on `main`: `e2e-reset.mjs` hardcoded a sandbox path
+- Impact: `apps/web/scripts/e2e-reset.mjs` resolved `pg` through
+  `createRequire('/home/user/ForgePM/apps/api/package.json')` — an absolute path from
+  the machine that wrote it. Everywhere else (any CI runner, any other clone) the
+  script dies with `Cannot find module 'pg'`, so `apps/web/e2e.sh` aborts before the
+  first spec and the CI step "Panel build (Angular) + Playwright flagship E2E"
+  fails. Nothing in the panel itself is broken: `ng build` is green, and `npm run
+  verify` was green in the same run.
+- Provenance: it reached `main` with PR #8 while Actions could not start at all
+  (every run from that period ended in 3-5s with a billing message), so the gate
+  that would have caught it never ran. Attribution was made by probing `main`'s
+  tip with zero changes (PR #10): the step is red there too.
+- Fix (in PR #9, commit below): anchor the require at the script's own location —
+  `createRequire(new URL('../../api/package.json', import.meta.url))` — which works
+  from any clone and keeps the "no psql binary" property that motivated the
+  rewrite. Verified by resolving `pg` from a copied-out path; a repo-wide grep
+  shows no other committed absolute workspace paths.
+- Status: FIXED on the branch; `main` needs the same commit (it arrives with PE-0's
+  merge). Lesson recorded in `docs/DECISIONS.md` D-043: paths in committed
+  tooling are resolved relative to the file, never relative to the author's box.
+
 ## B-009 — [environment] Execution-control DB gates: originally not run — mostly resolved (D-042)
 - Original impact (when PE-0 was written): `npm run migrate`, `npm run
   schema:check` against a live schema and `npm run test:integration` (including

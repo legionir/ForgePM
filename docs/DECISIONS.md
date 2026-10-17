@@ -486,3 +486,20 @@ Format per plan §2: Context / Decision / Reason.
   once the sandbox stopped depending on container tooling. The Redis suites
   stay `not-run` (with the exact reason named) because that dependency is real;
   the flag makes the split visible in the output instead of hidden in prose.
+
+## D-043 — Committed tooling resolves paths relative to the file, never the author's box
+- Context: `apps/web/scripts/e2e-reset.mjs` (added while Docker-free E2E resets were
+  needed, per D-001) used `createRequire('/home/user/ForgePM/apps/api/package.json')`
+  to reach `pg`. It passed on the machine that wrote it and failed in CI — and CI had
+  been unable to start for a day, so the bug travelled through `main` unnoticed and
+  now blocks every phase's remote gate (B-010).
+- Decision: anchor such resolution to the module itself
+  (`new URL('../../api/package.json', import.meta.url)`). Rule applied repo-wide: no
+  absolute filesystem path of a developer/agent machine may appear in a tracked file;
+  a repo-wide grep for `/home/` in `apps/`, `scripts/`, `packages/`, `.github/` is now
+  part of the check before any script change lands.
+- Reason: the sandbox is an implementation detail of one run. A path that only exists
+  here turns a green local report into a red remote gate, and — as PE-0 showed — the
+  red gate may not be read for hours. Determinism of the *verification harness* is
+  part of the product, so it gets the same "no environment assumptions" treatment as
+  the runtime code.

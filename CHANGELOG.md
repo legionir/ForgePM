@@ -53,6 +53,20 @@ existing route are untouched.
   K.1–K.4, E.1–E.4); `tests/integration/exec-ledger-invariants.test.ts` covers the
   DB-side invariants, 20-way concurrent code allocation and module-off gating.
 
+### Fixed
+
+- **`apps/web/scripts/e2e-reset.mjs` was not portable** (found while getting PE-0's
+  remote gate to run): it resolved `pg` via a hardcoded absolute workspace path, so
+  `bash apps/web/e2e.sh` — and therefore the CI step "Panel build + Playwright
+  flagship E2E" — failed on every machine except the one that wrote it. Now anchored
+  to the script's own location. This was inherited from `main` (PR #8 merged while
+  Actions could not start), proven by a zero-change probe of `main`'s tip; see
+  docs/BLOCKERS.md B-010.
+- `apps/api/openapi.json` + `apps/web/src/api/schema.d.ts` were stale on `main`
+  (missing `GET /api/v1/work-items/:key/relations` and
+  `POST /api/v1/ai-providers/models` from PR #8), which failed `npm run
+  gen:api:check` on `main` itself — proven by the same probe. Regenerated here.
+
 ### Gate (honest reporting)
 
 - `local:` lint ✅ · typecheck (all workspaces) ✅ · `test:unit` ✅ 221/221 ·
