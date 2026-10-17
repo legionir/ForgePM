@@ -666,6 +666,311 @@ CREATE TABLE code_structure_index (
 );
 ```
 
+## §H — Execution control ledger (phases PE-0…, migration `0010_exec`)
+
+Contract for `docs/EXECUTION_CONTROL_PLAN.md` §4. The ledger is the only source
+of truth for what an agent claims to have done; every row is update-only (no
+delete path exists in the API, the MCP tools or the CLI), and the audit surfaces
+(`exec_events`, `exec_gate_checks`, `exec_evidence`) are additionally append-only
+at the database level (`exec_append_only()` trigger + `REVOKE UPDATE, DELETE`
+from the application role when it is provisioned). `exec_action_journal` gets its
+own trigger: a row is settled exactly once and only its outcome columns may
+change (`exec_journal_settle_only`).
+
+Human-gated columns (`waiver_approval_id`, `approval_id`, `dropped_by`,
+`resolved_by`, baseline `source='human'`) are the only way to relax a rule, and
+they are all enforced by `CHECK` constraints, not by prompts.
+
+```sql
+CREATE TABLE exec_code_seq (
+  project_id uuid NOT NULL REFERENCES projects(id),
+  prefix text NOT NULL,             -- 'T'|'C'|'OI'|'D'|'Q'|'F'|'REQ'|'AJ'
+  seq integer NOT NULL DEFAULT 0,
+  PRIMARY KEY (project_id, prefix)
+);
+
+CREATE TABLE exec_requirements (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  project_id uuid,
+  code text NOT NULL,               -- REQ-### per organization
+  text text NOT NULL,               -- verbatim requirement
+  quote text NOT NULL,              -- verbatim excerpt of the user message
+  source text NOT NULL,             -- user_message|doc|human|agent_derived
+  source_ref text,
+  kind text NOT NULL DEFAULT 'functional',   -- functional|non_functional
+  status text NOT NULL DEFAULT 'active',      -- active|changed|dropped
+  priority text NOT NULL DEFAULT 'medium',
+  drop_reason text,
+  dropped_by text,                  -- human|system only (never 'agent')
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (id, organization_id)
+);
+CREATE UNIQUE INDEX exec_reqs_code_uniq ON exec_requirements (organization_id, code);
+CREATE INDEX exec_reqs_project_status_idx ON exec_requirements (project_id, status);
+
+CREATE TABLE exec_tasks (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  project_id uuid NOT NULL,
+  work_item_id uuid NOT NULL REFERENCES work_items(id),
+  gate_stamp_id uuid,
+  code text NOT NULL,               -- T-###
+  title text NOT NULL,
+  description text,
+  status text NOT NULL DEFAULT 'not_started',  -- not_started|in_progress|awaiting_review|blocked|done
+  parent_id uuid REFERENCES exec_tasks(id),
+  start_ref text,                   -- commit/tree hash recorded at task start
+  tree_hash_start text,
+  allowed_paths jsonb NOT NULL DEFAULT '[]',   -- glob list; scope is enforced from this
+  blocked_on_kind text,             -- task|question|decision|external
+  blocked_on_ref uuid,
+  blocked_reason text,
+  unblock_condition text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  closed_at timestamptz,
+  UNIQUE (id, organization_id),
+  UNIQUE (project_id, code),
+  FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id)
+);
+CREATE INDEX exec_tasks_project_status_idx ON exec_tasks (project_id, status, id);
+CREATE INDEX exec_tasks_parent_idx ON exec_tasks (parent_id) WHERE parent_id IS NOT NULL;
+
+CREATE TABLE exec_task_deps (
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  depends_on_task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (task_id, depends_on_task_id)
+);
+
+CREATE TABLE exec_criteria (
+  id uuid PRIMARY KEY,
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  req_id uuid REFERENCES exec_requirements(id),
+  code text NOT NULL,               -- C-# within the task
+  text text NOT NULL,               -- must be checkable (assertCheckable)
+  status text NOT NULL DEFAULT 'pending',   -- pending|verified|waived
+  verified_at timestamptz,
+  waiver_approval_id uuid REFERENCES approval_requests(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (task_id, code)
+);
+CREATE INDEX exec_criteria_task_status_idx ON exec_criteria (task_id, status);
+
+CREATE TABLE exec_evidence (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  criterion_id uuid REFERENCES exec_criteria(id),
+  kind text NOT NULL,               -- test_output|diff|file|command_output|manual_check
+  ref text NOT NULL,
+  summary text NOT NULL,
+  payload text,
+  sha256 text,
+  size_bytes integer,
+  meta jsonb,
+  recorded_by text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX exec_evidence_criterion_idx ON exec_evidence (criterion_id);
+CREATE INDEX exec_evidence_task_idx ON exec_evidence (task_id);
+
+CREATE TABLE exec_open_items (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  code text NOT NULL,               -- OI-###
+  title text NOT NULL,
+  detail text,
+  type text NOT NULL,               -- incomplete_requirement|commitment|assumption|bug|risk|test_gap|design_gap|suggestion|out_of_scope
+  blocks_completion boolean NOT NULL DEFAULT false,
+  why_not_blocking text,
+  source text NOT NULL,             -- agent|exit_report|reviewer|human|hook
+  status text NOT NULL DEFAULT 'open',   -- open|resolved|accepted|deferred|wont_fix|blocked|awaiting_human|not_applicable
+  resolution_note text,
+  resolved_by text,                 -- agent|human
+  related_ref text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (task_id, code)
+);
+CREATE INDEX exec_open_items_task_status_idx ON exec_open_items (task_id, status, blocks_completion);
+CREATE INDEX exec_open_items_open_idx ON exec_open_items (organization_id, status) WHERE status IN ('open','blocked','awaiting_human');
+
+CREATE TABLE exec_decisions (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  code text NOT NULL,               -- D-###
+  title text NOT NULL,
+  context text NOT NULL,
+  options jsonb NOT NULL,
+  selected text NOT NULL,
+  rationale text NOT NULL,
+  touches text[] NOT NULL DEFAULT '{none}',
+  reversible boolean NOT NULL,
+  risk_level text NOT NULL,         -- computed by policy.ts only
+  approval_state text NOT NULL,     -- not_required|pending|approved|rejected
+  approval_id uuid REFERENCES approval_requests(id),
+  applied_at timestamptz,
+  status text NOT NULL DEFAULT 'proposed',   -- proposed|active|superseded|needs_revisit
+  review_trigger jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (task_id, code)
+);
+CREATE INDEX exec_decisions_task_idx ON exec_decisions (task_id, status);
+CREATE INDEX exec_decisions_pending_idx ON exec_decisions (organization_id, approval_state) WHERE approval_state IN ('pending','rejected');
+
+CREATE TABLE exec_questions (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  code text NOT NULL,               -- Q-###
+  question text NOT NULL,
+  options jsonb NOT NULL,
+  recommendation text NOT NULL,
+  why_it_matters text NOT NULL,
+  impact jsonb,
+  blocking boolean NOT NULL DEFAULT false,
+  status text NOT NULL DEFAULT 'open',   -- open|answered|canceled
+  answer text,
+  answered_by text,
+  approval_id uuid REFERENCES approval_requests(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  answered_at timestamptz,
+  UNIQUE (task_id, code)
+);
+CREATE INDEX exec_questions_open_idx ON exec_questions (organization_id, status) WHERE status = 'open';
+
+CREATE TABLE exec_reviews (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  round integer NOT NULL,
+  review_run_id uuid REFERENCES review_runs(id),
+  verdict text NOT NULL,            -- pass|fail
+  findings jsonb NOT NULL DEFAULT '[]',
+  checked jsonb NOT NULL DEFAULT '[]',
+  tree_hash text NOT NULL,
+  input_meta jsonb,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (task_id, round)
+);
+
+CREATE TABLE exec_reports (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  payload jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'submitted',   -- submitted|gate_passed|gate_failed
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX exec_reports_task_idx ON exec_reports (task_id, created_at DESC, id DESC);
+
+CREATE TABLE exec_gate_checks (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  report_id uuid NOT NULL REFERENCES exec_reports(id),
+  ok boolean NOT NULL,
+  blocked_by jsonb NOT NULL DEFAULT '[]',
+  gate_version integer NOT NULL,
+  tree_hash text NOT NULL,
+  run_source text NOT NULL DEFAULT 'none',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX exec_gate_task_created_idx ON exec_gate_checks (task_id, created_at DESC, id DESC);
+
+CREATE TABLE exec_facts (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  project_id uuid NOT NULL,
+  code text NOT NULL,               -- F-###
+  key text NOT NULL,
+  value text NOT NULL,
+  kind text NOT NULL,               -- fact|assumption
+  source text NOT NULL,             -- code|docs|human|tool_output|agent_guess
+  source_ref text,
+  files jsonb NOT NULL DEFAULT '[]',
+  file_hashes jsonb NOT NULL DEFAULT '[]',
+  verified_at timestamptz,
+  status text NOT NULL DEFAULT 'active',   -- active|stale|rejected|superseded
+  superseded_by uuid REFERENCES exec_facts(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (project_id, code),
+  FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id)
+);
+CREATE UNIQUE INDEX exec_facts_active_key_uniq ON exec_facts (project_id, key) WHERE status = 'active';
+
+CREATE TABLE exec_fact_decisions (
+  fact_id uuid NOT NULL REFERENCES exec_facts(id),
+  decision_id uuid NOT NULL REFERENCES exec_decisions(id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (fact_id, decision_id)
+);
+
+CREATE TABLE exec_baseline_tests (
+  id uuid PRIMARY KEY,
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  test_name text NOT NULL,
+  result_at_start text NOT NULL,    -- pass|fail|skip
+  assertion_count integer,
+  source text NOT NULL,             -- ci|human
+  approval_id uuid REFERENCES approval_requests(id),
+  provenance jsonb,
+  captured_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (task_id, test_name)
+);
+
+CREATE TABLE exec_action_journal (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid NOT NULL REFERENCES exec_tasks(id),
+  code text NOT NULL,               -- AJ-###
+  action text NOT NULL,
+  target text,
+  idempotent boolean NOT NULL,
+  expected_effect text NOT NULL,
+  pre_state_ref text,
+  status text NOT NULL DEFAULT 'started',   -- started|done|failed|unknown
+  started_at timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz,
+  result_ref text,
+  note text,
+  UNIQUE (task_id, code)
+);
+CREATE INDEX exec_journal_open_idx ON exec_action_journal (task_id, status) WHERE status IN ('started','unknown');
+
+CREATE TABLE exec_events (
+  id uuid PRIMARY KEY,
+  organization_id uuid NOT NULL REFERENCES organizations(id),
+  task_id uuid,
+  entity text NOT NULL,
+  entity_id uuid,
+  entity_code text,
+  action text NOT NULL,
+  actor_type text NOT NULL,         -- agent|human|system
+  actor_id text NOT NULL,
+  tool text,
+  payload jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX exec_events_task_ts_idx ON exec_events (task_id, created_at, id);
+CREATE INDEX exec_events_org_ts_idx ON exec_events (organization_id, created_at DESC, id DESC);
+
+ALTER TABLE work_items ADD COLUMN exec_task_id uuid REFERENCES exec_tasks(id);
+CREATE INDEX workitems_exec_task_idx ON work_items (exec_task_id) WHERE exec_task_id IS NOT NULL;
+```
+
+> **Note:** `exec_events.ts` is the ledger event stream (not SQL); the physical
+> timestamp column is `ts` while the contract parser above lists it as
+> `created_at`-style naming for readability. Both names are accepted by
+> `schema:check` (it verifies presence of the contract columns only).
+
 ## Growth & retention (§14)
 
 `audit_events`, `mcp_tool_calls`, `ai_calls`, `webhook_deliveries` are

@@ -41,6 +41,10 @@
   results: visual 14/14, flagship 1/1; chain reaches the board but its HTML5
   `dragTo` step does not fire on the @sparticuz binary (drag code untouched
   since base — CI with the official chromium unaffected).
+  **Correction (D-046):** "CI unaffected" was an assumption, never a run — CI was red on
+  precisely this step. The drop DID fire, on the intended column but for a different
+  card: `dragTo` released at the tall column's centre, the page scrolled ~196px with the
+  mouse already down, and the 60s poll then timed out on the key read before the scroll.
 - Full-stack pass (`feat/p6-close`): shared `WorkItemDto.comment_count` (correlated COUNT over non-deleted comments in the work-items projection), `GET /api/v1/work-items/:key/relations` (blocks/relates_to/duplicates both directions with resolved keys), list comment column (message glyph), detail Development tab (linked PRs via existing GET /development with metadata number/state, all external links, relations with direction arrows); icons +message/+git-pr/+link; i18n 182 keys.
 - Remaining: P7-2 baselines need one chromium run; e2e suite runs in CI; component-template coverage below the ≥80% target (logic layer at 100%).
 **Source documents (now superseded by this plan):**
@@ -98,7 +102,7 @@ provider endpoint/key/model form with auto-fetched model list.
 | --- | --- |
 | Reactions on comments | Needs a backend API surface (table + routes); out of frontend scope |
 | Board themes (Trello-style colour per column/board) | Optional per §8.1; conflicts with the minimal-first directive |
-| Drag-and-drop animation for board cards | Needs a DnD dependency; conflicts with D-034 (no-dep / budget discipline). The keyboard alternative for moving cards shipped (P3-6) and the native HTML5 drag itself works |
+| Drag-and-drop animation for board cards | Needs a DnD dependency; conflicts with D-034 (no-dep / budget discipline). The keyboard alternative for moving cards shipped (P3-6); the drag itself now runs on a pointer session with native HTML5 DnD as the browser enhancement (D-046) — no dependency, and the gesture works on engines where HTML5 DnD is unavailable to Playwright |
 
 ### Environment-bound notes (not plan gaps)
 
@@ -107,9 +111,25 @@ provider endpoint/key/model form with auto-fetched model list.
   playwright.config): visual 14/14, flagship 1/1. The chain spec's HTML5
   `dragTo` step does not fire on the @sparticuz binary (a build limitation;
   drag sources/targets untouched since base) — CI with the official
-  chromium is unaffected.
+  chromium is unaffected. **That last clause was false and cost three CI round-trips**
+  (B-011): the flagship E2E was red on CI too, for the same scroll-race reason, and the
+  binary is not what prevented a local run — the missing `/tmp/al2023` libs were (see the
+  recipe below, so nobody re-derives it).
 - Live AI model fetching requires outbound network to the provider or a
   local `openai_compatible` endpoint (Ollama/vLLM).
+- Local E2E recipe (so drag/geometry work does not need a CI round-trip):
+  `node apps/web/scripts/dev-postgres.mjs` (embedded Postgres on 5433, creates
+  `forgepm_e2e`) → `DATABASE_URL=…/forgepm_e2e npm run migrate` → API on :3101 with a
+  base64 32-byte `FORGEPM_SECRET_KEY` → `cd apps/web && npx ng serve --port 4200
+  --host 127.0.0.1 --proxy-config proxy.e2e.json` → then run a single spec with
+  `LD_LIBRARY_PATH=/tmp/al2023/lib CHROMIUM_PATH=/tmp/chromium CHROMIUM_ARGS="$(node -e
+  'import("@sparticuz/chromium").then(m=>console.log(m.default.args.filter(a=>!a.startsWith("--headless")).join(" ")))')"
+  PANEL_URL=http://127.0.0.1:4200 npx playwright test --project=chromium e2e/chain.spec.ts`.
+  `/tmp/al2023/lib` = `brotliDecompressSync` + `tar -xf` of the package's
+  `bin/al2023.tar.br` (libnspr4/libnss3), which `@sparticuz/chromium` does not extract on
+  its own here. Because its args carry `--single-process`, run one spec file at a time
+  (as `e2e.sh` does); the flagship chain needs no Redis — the API only logs connect
+  retries — and `e2e-reset.mjs` gives each file a clean install.
 
 ---
 
@@ -149,11 +169,11 @@ All tokens live in `apps/web/src/styles.scss` `:root` (light) + `prefers-color-s
 | `--color-line` | `#d6dade` | `#3a4046` | borders/dividers |
 | `--color-accent` | `#2457c5` | `#8ab4f8` | primary action, active nav |
 | `--color-error` | `#b3261e` | `#ff6b61` | error text/borders |
-| `--color-ok` | `#1a7f37` | `#6fdc8c` | success/confirmation |
+| `--color-ok` | `#166d2f` | `#6fdc8c` | success/confirmation |
 | `--color-surface` | `#f5f7f9` | `#1f2429` | elevated surface |
 | `--color-on-accent` | `#fff` / `#16191d` | — | text on accent (replaces hardcoded `#fff`) |
-| `--color-warning` | (new) | (new) | warnings (to add) |
-| `--color-info` | (new) | (new) | info (to add) |
+| `--color-warning` | `#845900` | `#d29922` | warnings |
+| `--color-info` | `#085abb` | `#58a6ff` | info |
 
 Rule: raw hex only inside this table. Status colours keep one meaning everywhere.
 Accent is used only for primary CTA and active nav; everything else stays neutral.
@@ -306,6 +326,9 @@ Status words: enabled/disabled, on/off, ok/failed.
 
 1. **Colour**: accent only for primary CTA + active nav; status colours only for
    feedback; surface elevation for cards/panels; add `--color-warning`/`--color-info`.
+   The three light-theme status hues were later darkened ~14% (`#166d2f`/`#845900`/`#085abb`)
+   so the 12%/14% tint that badges and chips paint stays ≥ 4.5:1 — `npm run check:contrast`
+   derives those pairs from `styles.scss` itself (D-044).
 2. **Graphics/icons**: one icon library (Lucide/Heroicons SVG); replace emoji ☑/☐;
    icons only functional (buttons, empty state, nav); simple line-art SVG for empty
    states; logo/brand mark in shell.

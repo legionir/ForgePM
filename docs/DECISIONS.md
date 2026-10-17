@@ -419,3 +419,177 @@ Format per plan §2: Context / Decision / Reason.
   the audit gate is `npm audit --omit=dev --audit-level=high`.
 - Reason: single, ubiquitous toolchain with no corepack step; dependency
   versions stay exact-pinned in each `package.json`.
+
+## D-039 — Execution ledger: append-only is "no delete + settle-once" for the journal
+- Context: PE-0.3/I-2 asked for `BEFORE UPDATE OR DELETE` + `REVOKE` on
+  `exec_events`, `exec_evidence` and `exec_action_journal`. A journal row is
+  *born* `started` and must become `done|failed|unknown` (that is the whole resume
+  design, appendix §K), so a blanket UPDATE ban would break the feature.
+- Decision: full append-only (trigger + `REVOKE UPDATE, DELETE`) on
+  `exec_events`, `exec_evidence`, `exec_gate_checks`; `exec_action_journal` gets
+  `exec_journal_settle_only()`, which forbids DELETE outright and allows exactly
+  one UPDATE that changes only `status/finished_at/result_ref/note` from
+  `started`. `REVOKE DELETE` only, for that table.
+- Reason: the invariant that matters is "an agent can never erase or rewrite the
+  record of what it did"; a settled row keeping its outcome columns mutable is
+  still that record, and everything it claims to have done is frozen.
+
+## D-040 — Ledger code counters live in `exec_code_seq`, not on `projects`
+- Context: plan §5 (PE-0 item 2) says "no counter table; use
+  `SELECT max(seq) FOR UPDATE` + retry", while §4 table 16 and PE-0 item 1 define
+  `exec_code_seq(project_id, prefix, seq)` with the same trigger/REVOKE work.
+- Decision: `exec_code_seq` is the counter (as DATA_MODEL §H ships it).
+  `allocateLedgerCode()` inserts the zero row `ON CONFLICT DO NOTHING`, then
+  `UPDATE … FROM (SELECT … FOR UPDATE)` and retries on 40001/40P01. No column is
+  added to `projects`.
+- Reason: a per-prefix counter column on `projects` would serialise every ledger
+  write behind one hot row and would need a new `work_items`-style migration for
+  each prefix; the dedicated table is the only shape that keeps codes contiguous
+  under 20 concurrent allocations (tested).
+## D-041 — No test-execution runner: the baseline comes only from the CI log
+- Context: `docs/EXECUTION_CONTROL_PLAN.md` (D-08) originally specified a
+  three-source baseline: CI log → an ephemeral Docker runner (`exec.runner.*`,
+  `scripts/runner/run-test.sh`, `docker-compose.runner.yml`, a
+  `FORGEPM_TEST_DOCKER=1` test) → fail closed. The gate rule 12 needs
+  "the tests were run and passed" as a *fact*, not as the agent's claim.
+- Decision: the middle source is cancelled by the owner ("وارد docker نشو —
+  docker چرا لازم است؟") and stays cancelled. ForgePM never executes repo
+  code — not on the host, not in a container. `exec_baseline_tests.source` is
+  `('ci','human')`; `exec.baseline_source` is `'auto'|'ci'|'off'`; the five
+  `exec.runner*` settings keys are removed from the registry, and no
+  runner/compose file exists. With no readable CI log for the task's
+  `commit_sha`, rule 12 fails closed (`BASELINE_UNAVAILABLE`) and only an
+  explicit human waiver passes, surfaced prominently in the final report.
+- Reason: the runner existed only to make "untrusted code was executed
+  safely" verifiable; deleting the execution channel satisfies the same
+  OWASP CI/CD risks (CICD-SEC-4/5) with no new attack surface, no extra
+  deployment dependency, and no image supply-chain to pin. Fail-closed
+  behaviour is preserved, so nothing bypassable now rests on the agent's word.
+  It also removed the only "environment-bound" acceptance item in the plan:
+  no criterion is `not-run` because of Docker anymore.
+
+## D-042 — DB-bound gates are verified locally with the repo's own embedded Postgres
+- Context: PE-0's gates (`migrate`, `schema:check`, `test:integration`) and
+  every later exec phase need a real PostgreSQL, and the earlier honest report
+  said `not-run` "no Postgres/Redis/Docker" (B-009, plan OI-8/OI-9) — which
+  conflated Docker with the database and made a fixable gap look structural.
+- Decision: follow D-001 — obtain the database natively, not via containers.
+  `apps/web/scripts/dev-postgres.mjs` (`embedded-postgres`, already a
+  devDependency) boots a real PostgreSQL; with `DATABASE_URL` pointed at it,
+  `npm run migrate` (empty DB + idempotent rerun), `npm run schema:check`
+  (60 contract tables) and the exec integration suite all run. Suites that
+  need a queue still cannot run, so `tests/integration/harness.ts` gained
+  `FORGEPM_TEST_NO_REDIS=1`: `h.queue`/`h.redis` become `undefined` and any
+  queue-touching test fails loudly rather than silently passing.
+- Reason: "we have no Docker" is not a reason to skip a deterministic gate —
+  the DB gates were the whole point of PE-0 and they were green in one command
+  once the sandbox stopped depending on container tooling. The Redis suites
+  stay `not-run` (with the exact reason named) because that dependency is real;
+  the flag makes the split visible in the output instead of hidden in prose.
+
+## D-043 — Committed tooling resolves paths relative to the file, never the author's box
+- Context: `apps/web/scripts/e2e-reset.mjs` (added while Docker-free E2E resets were
+  needed, per D-001) used `createRequire('/home/user/ForgePM/apps/api/package.json')`
+  to reach `pg`. It passed on the machine that wrote it and failed in CI — and CI had
+  been unable to start for a day, so the bug travelled through `main` unnoticed and
+  now blocks every phase's remote gate (B-010).
+- Decision: anchor such resolution to the module itself
+  (`new URL('../../api/package.json', import.meta.url)`). Rule applied repo-wide: no
+  absolute filesystem path of a developer/agent machine may appear in a tracked file;
+  a repo-wide grep for `/home/` in `apps/`, `scripts/`, `packages/`, `.github/` is now
+  part of the check before any script change lands.
+- Reason: the sandbox is an implementation detail of one run. A path that only exists
+  here turns a green local report into a red remote gate, and — as PE-0 showed — the
+  red gate may not be read for hours. Determinism of the *verification harness* is
+  part of the product, so it gets the same "no environment assumptions" treatment as
+  the runtime code.
+
+## D-044 — Status tokens are tuned for the tint they generate, not just for the page
+- Context: the §11 panel E2E (`chain.spec.ts`) runs axe over the major pages and
+  failed on `main` with one serious violation: `.ui-badge--info` painted
+  `color-mix(in srgb, var(--color-info) 12%, transparent)` as its background and the
+  same `--color-info` (`#0969da`) as its text — 4.37:1, below the WCAG AA 4.5:1 the
+  project claims. `npm run check:contrast` did not catch it because it only compared
+  each token against `color-bg`/`color-surface`, where the hue passes at 4.83:1.
+- Decision: darken the three light-theme status hues until every
+  *self-tinted* pair passes — `--color-ok: #166d2f`, `--color-warning: #845900`,
+  `--color-info: #085abb` (`--color-error` already cleared it) — and extend
+  `check:contrast` to derive those pairs from `styles.scss` itself: for every rule
+  whose `background` is a `color-mix(in srgb, var(--color-X) N%, transparent)` and
+  whose `color` is the same token, the token must hit ≥ 4.5:1 over the composite, on
+  both `color-bg` and `color-surface`, in both themes.
+- Reason: the golden rule of this repo is that anything which must not regress is
+  deterministic code, not review. A palette cannot be validated against flat
+  backgrounds only — half of the panel's status surfaces are the tokens mixed with
+  their own background. Reading the rules out of the stylesheet means a future
+  `12% → 20%` change fails the gate instead of shipping a11y debt, and pixel
+  baselines (`VISUAL=1`, opt-in) stay a human concern.
+
+## D-045 — Board drag in headless Chromium: diagnosed, deliberately not patched blind
+- Context: after D-044 the §11 chain E2E had one failure left — `card.dragTo(column)`
+  completed without error but the item's `state_name` never changed (60s poll). The
+  board uses HTML5 DnD (`draggable` + `dragstart`/`dragover`/`drop`, key carried in
+  `dataTransfer`), and a fallback that also remembered the key at `dragstart` was
+  implemented and shipped in the same push — CI then still failed identically, which
+  proves the `drop` handler never runs at all: headless Chromium does not enter a
+  drag session for `dragTo` on this markup, so neither channel carries a key.
+- Decision: the fallback was reverted (it fixed nothing and would have stayed as
+  unverifiable code). The remaining work is a design choice about the interaction, not
+  a bug fix, and it belongs to the panel owner: either (a) drive the board from
+  pointer events (mouse/touch) with HTML5 DnD as an enhancement, which makes real
+  dragging and headless dragging behave the same and is the a11y-honest option, or
+  (b) keep HTML5 DnD and have the spec synthesise `DragEvent`s with a real
+  `DataTransfer` via `page.evaluate` — which tests the wiring but no longer tests a
+  browser drag. Raised as legionir/ForgePM#11 (with B-011) instead of choosing
+  quietly.
+- Reason: PE-0's contract is that nothing bypassable rests on judgement, and the same
+  discipline applies to fixes: code that is not known to fix anything must not ride
+  along inside another phase's PR. The contrast half was kept because CI proved the
+  axe violation gone; this half has no such proof, and both candidate fixes change
+  what the E2E means — a scope decision, which is the owner's.
+- **Correction (same day, D-046).** The premise recorded above — "headless Chromium
+  does not enter a drag session for `dragTo`" — was wrong, and the local real-browser
+  run that D-046 enabled disproved it: `dragstart`/`dragover`/`drop` all fire, on the
+  @sparticuz binary as well as on CI's chromium. What actually happened is that the
+  drop landed on the right column but for the **wrong card** (see D-046/B-011). The
+  revert itself was still correct: the fallback did not fix the failure, and keeping
+  it would have left a "fix" with a false justification in the tree.
+
+## D-046 — Board drag: pointer session + HTML5 enhancement; the E2E race was a scroll race
+- Context: with a local real-browser E2E finally runnable (see the recipe added to
+  FRONTEND_EXECUTION_PLAN), `chain.spec.ts:22` was instrumented instead of guessed.
+  Result: `dragTo` DID start an HTML5 drag, the payload DID carry a key, and the drop
+  DID fire on the intended column — but on `EPRJ-3`, while the spec polled `EPRJ-5`.
+  Cause: `dragTo` releases at the target's centre; with five cards the target column is
+  555px tall, its centre is below the fold, so Playwright scrolled the *page* by
+  ~196px (= two card rows) after the mouse was already down on the source. The app
+  faithfully dragged whatever was under the pointer — the bug was the spec assuming
+  `.first()` still denoted the same card after its own scroll, and the 60s poll then
+  reported it as an app failure. Measured geometry is what settled it: card y 400→204
+  between the two `boundingBox()` reads around one `dragTo`.
+- Decision, in three parts, all shipped together because each is useless alone:
+  1. **Spec** (`apps/web/e2e/chain.spec.ts`): pin `targetPosition: {x:20,y:60}` on the
+     drop and assert the card under the pointer still contains the read key. Coverage
+     strictly increases (a TOCTOU became visible), nothing was weakened, and the
+     assertion "the item's `state_name` changes" is untouched.
+  2. **App** (`apps/web/src/app/ui/board-drag.ts` + the pure reducer in `logic.ts`):
+     the board no longer depends on the browser opening an HTML5 drag session. A
+     pointer session (press → 4px threshold → release over a *foreign* column) carries
+     the same gesture; `dragstart` hands it over to the browser and the pointer path
+     stands down, and one gesture may be applied once (a per-press token in
+     `UiBoardDrag`), so the two paths cannot double-transition. Touch is deliberately
+     left to the native path, and `dataTransfer` keeps working for real users.
+  3. **CI** (`.github/workflows/ci.yml`): `npx ng test --configuration=coverage` now
+     runs inside the panel step, so the panel's unit tests and the ≥80% coverage
+     thresholds are gated remotely and not only in a sandbox — otherwise the 14 new
+     deterministic drag tests (and every panel test before them) would be decorative.
+- Reason: the failure had survived three pushes because each hypothesis was tested
+  against CI alone, where the signal is one annotation per run. A local run gives the
+  event log, the geometry and the request — that is the difference between guessing and
+  measuring, and D-041's "CI is the arbiter" is about *acceptance*, not about diagnosis.
+- Consequences: the drag works identically on binaries with and without HTML5 DnD
+  support (Playwright's `dragTo` does not drive HTML5 DnD on Firefox/WebKit at all),
+  the board gained visible drag affordances (`--drag`, `--over`), and a layout change
+  (viewport-bounded columns with internal scroll) was NOT taken — it would be better
+  ergonomically but invalidates all 14 stored visual baselines, which is a frontend
+  owner call, not a bug-fix smuggled into PE-0.

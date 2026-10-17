@@ -15,7 +15,8 @@ Full text: EXECUTION_PLAN §8 and §13. Implemented in Phase 4.
   and annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`); tools
   call only their module's service.
 - Scopes: `read`, `write`, `plan`, `plan_approve`, `plan_apply`, `review`,
-  `github`, `admin`. A tool is listed only if the key has its scope and its
+  `github`, `admin`, `ledger:read`, `ledger:write`, `ledger:decide`. A tool is
+  listed only if the key has its scope and its
   module is enabled; every call re-checks at runtime.
 - `project_ids` key restriction applies to every tool, even ones without a
   project parameter (e.g. search).

@@ -861,6 +861,31 @@
       }
     },
     "/api/v1/work-items/{key}/relations": {
+      "get": {
+        "summary": "GET /api/v1/work-items/:key/relations",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      },
       "post": {
         "summary": "POST /api/v1/work-items/:key/relations",
         "responses": {
@@ -1546,6 +1571,60 @@
             "description": "OK"
           },
           "201": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/ai-providers/models": {
+      "post": {
+        "summary": "POST /api/v1/ai-providers/models",
+        "responses": {
+          "200": {
+            "_def": {
+              "unknownKeys": "strip",
+              "catchall": {
+                "_def": {
+                  "typeName": "ZodNever"
+                },
+                "~standard": {
+                  "version": 1,
+                  "vendor": "zod"
+                }
+              },
+              "typeName": "ZodObject"
+            },
+            "~standard": {
+              "version": 1,
+              "vendor": "zod"
+            },
+            "_cached": null
+          }
+        }
+      }
+    },
+    "/api/v1/ai-providers/{id}": {
+      "put": {
+        "summary": "PUT /api/v1/ai-providers/:id",
+        "responses": {
+          "200": {
             "_def": {
               "unknownKeys": "strip",
               "catchall": {

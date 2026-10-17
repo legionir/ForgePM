@@ -8,11 +8,16 @@ import { createDb, createRedis, runMigrations, migrations, QUEUES, type Db } fro
  * Integration harness — real Postgres + Redis on localhost (local server or
  * CI service container). Each test FILE gets an isolated database (created
  * and dropped around the file), so files never interfere with each other.
+ *
+ * `FORGEPM_TEST_NO_REDIS=1` runs the DB-only suites against a Postgres with no
+ * Redis present (queue-less files like `exec-ledger-invariants`). Anything that
+ * touches `h.queue` then fails loudly by construction — the flag never makes a
+ * queue test pass silently.
  */
 export interface Harness {
   db: Db;
-  redis: Redis;
-  queue: Queue;
+  redis: Redis | undefined;
+  queue: Queue | undefined;
   queueName: string;
   /** Wipe all data between cases (same file, same DB). */
   reset(): Promise<void>;
@@ -28,17 +33,20 @@ export async function createHarness(): Promise<Harness> {
   const dbName = `${base.pathname.slice(1)}_${process.pid}_${Math.floor(Math.random() * 1e6)}`;
   const adminUrl = new URL(BASE_URL);
   adminUrl.pathname = '/postgres';
-  execSync(`psql ${JSON.stringify(adminUrl.toString())} -c ${JSON.stringify(`CREATE DATABASE ${dbName}`)}`, { stdio: 'pipe' });
+  execSync(`psql ${JSON.stringify(adminUrl.toString())} -c ${JSON.stringify(`CREATE DATABASE ${dbName}`)}`, {
+    stdio: 'pipe',
+  });
   base.pathname = `/${dbName}`;
 
+  const noRedis = process.env.FORGEPM_TEST_NO_REDIS === '1';
   const db = createDb(base.toString());
   await runMigrations(db, migrations);
-  const redis = createRedis(REDIS_URL);
+  const redis = noRedis ? undefined : createRedis(REDIS_URL);
   // Namespace the queue per isolated DB so test files never collide on shared
   // BullMQ keys. Dispatcher/Sweeper/Worker all use this one queue name (passed
   // explicitly), so at-least-once semantics hold within a file.
   const queueName = `${QUEUES.default}-${dbName}`;
-  const queue = new Queue(queueName, { connection: redis });
+  const queue = redis ? new Queue(queueName, { connection: redis }) : undefined;
 
   return {
     db,
@@ -46,8 +54,8 @@ export async function createHarness(): Promise<Harness> {
     queue,
     queueName,
     async reset() {
-      await queue.drain(true);
-      await queue.obliterate({ force: true }).catch(() => undefined);
+      await queue?.drain(true);
+      await queue?.obliterate({ force: true }).catch(() => undefined);
       // Truncate every public table except the Kysely migration bookkeeping,
       // in one CASCADE statement. Dynamic so new phase migrations' tables are
       // covered without editing this list every phase.
@@ -63,12 +71,14 @@ export async function createHarness(): Promise<Harness> {
       }
     },
     async cleanup() {
-      await queue.obliterate({ force: true }).catch(() => undefined);
-      await queue.close();
+      await queue?.obliterate({ force: true }).catch(() => undefined);
+      await queue?.close();
       await db.destroy();
-      redis.disconnect();
+      redis?.disconnect();
       await new Promise((r) => setTimeout(r, 200)); // let pool sockets drain before DROP DATABASE
-      execSync(`psql ${JSON.stringify(adminUrl.toString())} -c ${JSON.stringify(`DROP DATABASE ${dbName}`)}`, { stdio: 'pipe' });
+      execSync(`psql ${JSON.stringify(adminUrl.toString())} -c ${JSON.stringify(`DROP DATABASE ${dbName}`)}`, {
+        stdio: 'pipe',
+      });
     },
   };
 }

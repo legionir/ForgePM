@@ -15,6 +15,7 @@ import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
 import { stateVariant } from '../ui/logic';
+import { UiBoard, UiDrop, UiDropZone, UiDragSource } from '../ui/board-drag';
 
 export { stateVariant };
 
@@ -45,13 +46,14 @@ interface ItemDto {
  * Work Items List + Board (plan §6 panel, §11). Every move goes through
  * `POST /work-items/:key/transition` — never PATCH on the state column —
  * so server-side rules (open blockers => 409 BLOCKED_BY_OPEN_ITEMS) show
- * up in the UI exactly as the API enforces them. Board drag-and-drop uses
- * native HTML5 DnD (no CDK dep — bundle budget, D-034 family).
+ * up in the UI exactly as the API enforces them. Board drag-and-drop runs on
+ * pointer events with native HTML5 DnD as the browser enhancement — no CDK dep
+ * (bundle budget, D-034 family), and no gesture that only works in one of them (#11).
  */
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
       <ui-project-picker />
@@ -85,13 +87,14 @@ interface ItemDto {
           [selectable]="true"
         />
       } @else {
-        <div class="ui-board" data-testid="wi-board">
+        <div class="ui-board" uiBoard (dragDrop)="applyDrop($event)" data-testid="wi-board">
           @for (st of states(); track st.id) {
             <div
               class="ui-board-col"
               [attr.data-state]="st.category"
-              (dragover)="prevent(ev($event))"
-              (drop)="drop(st.id, ev($event))"
+              uiDropZone
+              [uiDropZone]="st.id"
+              (dropped)="applyDrop($event)"
               data-testid="board-col"
             >
               <h2>
@@ -126,7 +129,14 @@ interface ItemDto {
                 />
               }
               @for (it of items().filter((x) => x.state_id === st.id); track it.id) {
-                <div class="ui-board-card" draggable="true" (dragstart)="drag(it, ev($event))" data-testid="board-card">
+                <div
+                  class="ui-board-card"
+                  uiDragSource
+                  [uiDragSource]="it.key"
+                  [uiDragFrom]="it.state_id"
+                  (dragstart)="drag(it, ev($event))"
+                  data-testid="board-card"
+                >
                   <span class="ui-board-card-title">
                     <a [routerLink]="['/work-items', it.key]">{{ it.key }}</a> {{ it.title }}
                   </span>
@@ -360,21 +370,20 @@ export class WorkItemsPage implements OnInit {
   ev(e: Event): Event {
     return e;
   }
-  prevent(e: Event): void {
-    e.preventDefault();
-  }
-
+  /** HTML5 path only: the payload must carry the key (the pointer path never needs it). */
   drag(item: ItemDto, e: Event): void {
     (e as DragEvent).dataTransfer?.setData('text/plain', item.key);
   }
 
-  async drop(stateId: string, e: Event): Promise<void> {
-    e.preventDefault();
-    const key = (e as DragEvent).dataTransfer?.getData('text/plain');
-    if (!key) return;
+  /**
+   * One applied drop from either path (UiBoard for pointer releases, UiDropZone for
+   * HTML5 drops). A no-op when the item already sits in that column, so a gesture can
+   * never double-apply even if both paths somehow report.
+   */
+  async applyDrop({ key, to }: UiDrop): Promise<void> {
     const item = this.items().find((i) => i.key === key);
-    if (!item || item.state_id === stateId) return;
-    await this.transition(key, stateId);
+    if (!item || item.state_id === to) return;
+    await this.transition(key, to);
   }
 
   /** Keyboard alternative to drag-and-drop (STT-009): move ±1 column. */

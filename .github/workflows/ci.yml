@@ -65,6 +65,10 @@ jobs:
       - name: "Panel build (Angular) + Playwright flagship E2E"
         run: |
           (cd apps/web && npm ci && npx playwright install --with-deps chromium)
+          # Panel unit tests + the >=80% coverage thresholds in angular.json run here,
+          # not only in a sandbox: they are the deterministic half of the board-drag
+          # gate (apps/web/src/app/ui/board-drag.spec.ts, issue #11).
+          (cd apps/web && npx ng test --configuration=coverage)
           bash apps/web/e2e.sh
 
       - name: "i18n key parity check (plan §11)"
