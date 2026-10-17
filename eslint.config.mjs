@@ -41,7 +41,10 @@ export default [
     files: ['scripts/**/*.mjs', 'apps/web/scripts/**/*.mjs'],
     languageOptions: {
       sourceType: 'module',
-      globals: { process: 'readonly', console: 'readonly', setInterval: 'readonly', setTimeout: 'readonly', clearInterval: 'readonly', clearTimeout: 'readonly' },
+      // `URL` belongs here for the same reason `process` does: these scripts must
+      // locate files relative to themselves (import.meta.url), never relative to a
+      // hardcoded checkout path — see D-043 / B-010.
+      globals: { process: 'readonly', console: 'readonly', URL: 'readonly', setInterval: 'readonly', setTimeout: 'readonly', clearInterval: 'readonly', clearTimeout: 'readonly' },
     },
   },
 
