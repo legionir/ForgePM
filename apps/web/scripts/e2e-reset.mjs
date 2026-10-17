@@ -6,7 +6,12 @@
 // via the api workspace) — no psql binary required.
 import { createRequire } from 'node:module';
 
-const require = createRequire('/home/user/ForgePM/apps/api/package.json');
+// Anchored to this file, not to a checkout location: the previous version
+// hardcoded an absolute workspace path, so the script resolved `pg` only on the
+// machine it was written on and the E2E gate failed with MODULE_NOT_FOUND
+// everywhere else (CI included). apps/api is where `pg` is a dependency, and
+// resolution then walks up to the workspace root's node_modules.
+const require = createRequire(new URL('../../api/package.json', import.meta.url));
 const { Client } = require('pg');
 
 const BASE_URL = process.env.DATABASE_URL ?? 'postgres://postgres:postgres@localhost:5432/forgepm_e2e';

@@ -70,7 +70,7 @@ jobs:
           RC=$?
           set -e
           enc() { sed -e 's/%/%25/g' -e 's/$/%0A/' | tr -d '\n' | sed -e 's/%0A$//'; }
-          echo "::error::exit=$RC playwright-tail::$(grep -m1 -A10 -E 'Error:|failed, [0-9]+ passed|Timed out' /tmp/e2e.out | enc)"
+          echo "::error::exit=$RC e2e-out-full::$(tail -n 45 /tmp/e2e.out | enc)"
           echo "::error::e2e-stdout-tail::$(tail -n 12 /tmp/e2e.out | enc)"
           echo "::error::web-dev-log-tail::$(tail -n 10 /tmp/forgepm-e2e-web.log 2>/dev/null | enc)"
           echo "::error::api-log-tail::$(tail -n 10 /tmp/forgepm-e2e-api.log 2>/dev/null | enc)"
