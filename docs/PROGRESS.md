@@ -4,30 +4,37 @@ Per plan §2 rule 5. After every phase we record status, last commit, remaining
 gates and the next step so a resumed run knows exactly where to pick up.
 
 ## Phase 0 — v0.0.0
+
 Status: **complete** (local pass, remote pass). See `PHASE0_REPORT.md`.
 
 ## Phase 1 — v0.1.0
+
 Status: **complete** (local pass, remote pass — CI run 37874572807). Panel UI deferred (B-005).
 
 ## Phase 2 — v0.2.0
+
 Status: **complete** (local pass, remote pass — CI run 37877395571; tag v0.2.0 = HEAD 890b743). Panel + Playwright E2E deferred (B-005).
 
 ## Phase 3 — v0.3.0
+
 Status: **complete** (local pass, remote pass — CI run 37879871008; tag v0.3.0 = HEAD 40933f3). Panel deferred (B-005).
 
 ## Phase 4 — v0.4.0 (server side)
+
 Status: **complete** — 4a shipped: Streamable-HTTP `/mcp`, real-SDK-client
 integration test, `npm run mcp:smoke` green against a running server.
 4b (optional MCP client) deferred with B-006. Panel MCP settings deferred
 with the rest of the panel (B-005).
 
 ## Phase 5 — v0.5.0
+
 Status: **in progress** — backend complete (webhook+HMAC, PR/issue/release
 processing shared by api+worker via core, module lifecycle, 5 MCP tools,
 secrets at rest); 14 phase-5 tests + unit tests green; full verify green
 (173 tests). Reconciliation daily job + panel page deferred to Phase 7 (B-005).
 
 ## Phase 6 — v0.6.0
+
 Status: **complete** (local pass, remote pass — CI run 37907130578; tag v0.6.0 = HEAD 5bf5225) — shared review
 engine + Code Review + Refactor Review in core; REST + 8 MCP tools + worker
 webhook auto-run; settings registry incl. 422 redeclaration rule; migration
@@ -38,6 +45,7 @@ selftest) all re-run green. Panel Reviews page + octokit diff/comment writers
 deferred with the panel (B-007/B-008, same family as B-005).
 
 ## Phase 7 — v0.7.0
+
 Status: **complete** (local pass). The panel-completion increment closed every
 open §11 gate B-005 tracked:
 
@@ -68,6 +76,7 @@ all tags (`v0.0.0`..`v0.7.0`, `v1.0.0-rc.1`), watch Remote CI on the pushed
 sha, then write and push `docs/FINAL_REPORT.md`.
 
 ## Final phase — §16 (v1.0.0-rc.1) — DONE
+
 Status: **delivered** (local pass, remote pass — CI run 38022178098 on
 `7711811`). gitleaks clean (history allowlisted one documented placeholder,
 D-037), Local Verification green, clean-clone install green (compose path runs
@@ -81,6 +90,7 @@ reached (plan §2 "اجرای بی‌توقف" item 3a).
 ## Execution control (docs/EXECUTION_CONTROL_PLAN.md)
 
 ### PE-0 — module scaffold, migration, settings, codes
+
 Status: **code complete — local gates green, hosted CI green except the
 (inherited, now fixed) panel E2E step; PE-0 stays open until the job is fully green**.
 
@@ -163,3 +173,49 @@ Status: **code complete — local gates green, hosted CI green except the
 - Next: PE-1/PE-2 (ledger services + the first 4 tools: `exec_task_start`,
   `exec_ledger_status`, `ledger_list_open`, `ledger_add_open_item`,
   `ledger_resolve_item`) on top of `exec_events` + `validateResolution`.
+
+## PE-1 — open-item ledger: the only write path, the shared status projection (A.2–A.8 closed)
+
+- Scope: §6 PE-1 as far as PE-1 can be closed on its own — laws, DB and service. The tool-facing
+  halves of A.1/A.3 and the panel-side A.9 are explicitly deferred with reasons (D-047), not ticked.
+- `packages/core/src/exec/open-items-service.ts`: `parseOpenItemCreate` / `parseOpenItemResolve`
+  (`safeParse` → structured `VALIDATION_ERROR` + `needed_action`, never a throw = A.5),
+  `findTaskByRef` by id **or** `T-NNN` code, `createOpenItem` (shared `BLOCKING_BY_DEFAULT`,
+  C.4 dedup pre-check → `CONFLICT` naming the existing code, `allocateLedgerCode(…, 'OI')`, one
+  `open_item.created` event with `before: null`), `resolveOpenItem` (soft closure by an agent on a
+  blocking item refused **before** any write → `LEDGER_TRANSITION_NOT_ALLOWED` = A.3, then
+  `open_item.closed|reopened` with `payload.before/after` = A.4), `listTaskItems` (active first).
+  Unknown `task_ref` → `NOT_FOUND`, zero rows written = A.8. Callers own the transaction and must
+  write `audit_event` themselves (PE-2 wires that).
+- `packages/core/src/exec/ledger-view.ts`: `buildLedgerStatus` — pure "what blocks submission"
+  (blockers, criteria without passing evidence, unanswered blocking questions, required decisions,
+  unmet `verify_criterion` exits), sorted by code so the output is reproducible; PE-2's tool and
+  PE-12's panel must both consume it instead of re-deciding. One integration test builds the view
+  from real rows to prove the shapes match.
+- `tests/unit/exec-no-delete.test.ts` (A.2 as a gate): three forbidden shapes (`DELETE FROM exec_*`,
+  write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_checks`, any route path
+  containing `/exec`) + a positive control proving the patterns bite + "one `appendEvent(db,` per
+  gesture, only `INSERT INTO/UPDATE exec_open_items`". No new migration was needed (0010 already had
+  the CHECKs); a unique dedup index was deliberately **not** added because C.4 wants skip-not-reject.
+- `local:` unit **268/268** · exec unit **142/142** · `--project integration` on real Postgres:
+  **21/21** for `exec-ledger-invariants` (13 PE-0 + 8 PE-1) and 189 passed / 5 failed / 2 skipped for
+  the whole suite — all five failures `pg_dump`/Redis-bound (B-005, `FORGEPM_TEST_NO_REDIS=1`) ·
+  lint ✅ · typecheck 0 ✅ · build ✅ · docs:check ✅.
+  Panel component gates (`test:web`, `contrast:check`, `raw-value:check`, `ng build`): `not-run` —
+  no panel component file is in this change (they were green at `2edeeb9`); the scripted E2E gate
+  that does cover the panel was run anyway, next bullet.
+- `local (tooling):` the phase became runnable by fixing the machine-dependencies it hit: the
+  integration harness and `e2e.sh` both shelled out to `psql`, which `@embedded-postgres` does not
+  ship, so DDL now goes through `pg` (`scripts/e2e-db.mjs`, `DROP … WITH (FORCE)` + retry) and
+  `dev-postgres.mjs` re-uses an existing cluster (D-048). Consequence: **the scripted panel E2E gate
+  completed here for the first time** — `bash apps/web/e2e.sh` green, chain 3.5s, fa/RTL+axe 5.3s,
+  flagship 1.2s, `visual.spec`'s 14 opt-in skips (`VISUAL=1`) untouched.
+- Lesson kept from this phase: one red assertion was _my test_, not the projection — `open_item_codes`
+  lists active items only, and a resolved item staying in `all` while leaving `open_item_codes` is
+  exactly what "history, not cleanup" (A.2) means. The projection stayed; the expectation moved.
+- `remote:` not-run yet — the PR for this branch is being opened; the CI verdict will be recorded
+  here (and in CHANGELOG's PE-1 gate line) as soon as the run finishes.
+- Next: PE-2 (section B core) — `exec_task_start`, `ledger_list_open`, `ledger_status`,
+  `ledger_add_open_item`, `ledger_resolve_item` as thin wrappers over these service functions, the
+  `unitOfWork` + `audit_event` pairing, the tool-shaped re-assertions of A.1/A.3, then the §7 B.x
+  gates (idempotency, scope, policy refusals).
