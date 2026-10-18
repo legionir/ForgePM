@@ -3,6 +3,73 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Execution control, PE-1 (2026-10-18)
+
+Open-item ledger: the only supported write path, the shared status projection, and the
+first real Postgres run of the phase's gates. No route, no tool, no panel change, and
+**no new migration** (D-047): the "no delete path" and "closure note" laws were already
+`CHECK`s in `0010`.
+
+### Added
+
+- **`@forgepm/core/src/exec/open-items-service.ts`** — `parseOpenItemCreate` /
+
+  `parseOpenItemResolve` (`safeParse` → structured `VALIDATION_ERROR` with `needed_action`,
+  never a throw: A.5), `findTaskByRef` by id **or** `T-NNN` code, `createOpenItem` (defaults
+  from the shared `BLOCKING_BY_DEFAULT`, dedup on the C.4 key → `CONFLICT` naming the existing
+  code, `allocateLedgerCode(..., 'OI')`, one `open_item.created` event with `before: null`),
+  `resolveOpenItem` (refusal **before** the write for soft closures by an agent on a blocking
+  item — A.3 — then one event with `before`/`after` — A.4) and `listTaskItems` (active first,
+  the order the panel and the tools will share). Unknown `task_ref` → `NOT_FOUND`, never an
+  orphan row (A.8).
+
+- **`@forgepm/core/src/exec/ledger-view.ts`** — `buildLedgerStatus`, the pure projection of
+  "what blocks submission": open blockers with a `needed_action` naming who must close them,
+  criteria without passing evidence, unanswered blocking questions, required decisions, and
+  unmet `verify_criterion` exits — deterministically sorted by code. PE-2's status tool and
+  PE-12's panel render this, so there is exactly one notion of "ready".
+- **`tests/unit/exec-no-delete.test.ts`** — A.2 as a gate, not a promise: no `DELETE FROM
+exec_*`, no write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_checks`, no
+  route path containing `/exec`, with a positive control proving the patterns bite, and an
+  assertion that every gesture appends exactly one event and touches only `exec_open_items`.
+
+### Fixed
+
+- **The integration harness needed a database client that exists** (D-048):
+  `tests/integration/harness.ts` shelled out to `psql`, which is not shipped by
+  `@embedded-postgres` (server binaries only) — so the whole `--project integration` suite was
+  unrunnable wherever Postgres came from the repo's own tooling. DDL now goes through `pg`
+  (`DROP DATABASE … WITH (FORCE)` also removes the race with draining pool sockets), and
+  `apps/web/scripts/dev-postgres.mjs` initialises only when the data directory is fresh, so
+  one cluster serves e2e and integration runs. `apps/web/e2e.sh` had the same dependency at
+  its very first step (`psql` to recreate `forgepm_e2e`), so the scripted gate could not start
+  on a bare clone; it now calls `apps/web/scripts/e2e-db.mjs` (`pg`, `DROP … WITH (FORCE)`,
+  refused for a suspicious DB name), and the gate is green in-sandbox: `chain.spec` +
+  `flagship.spec` 3/3, `visual.spec`'s 14 opt-in skips (`VISUAL=1`) unchanged.
+- **A red panel gate now says why (B-012):** the CI step tees `apps/web/e2e.sh` into a file and, on
+  failure, emits the run/api/dev-server log tails as an annotation. Raw Actions logs redirect to a
+  blob host outside this sandbox's allowlist, so "exit code 1" used to be all a failing step said —
+  which is how a 52-second red on the first PE-1 run stayed undiagnosed instead of being measured.
+
+### Gate (honest reporting)
+
+- `local:` build + `tsc --noEmit`: pass · lint: pass · `test:unit`: **268/268** · core exec unit:
+  142/142 · `--project integration` on real Postgres: **21/21** for the ledger file (13 PE-0 +
+  8 PE-1) and 189/196 for the whole suite, the 5 failures and 2 skips all Redis- or
+  `pg_dump`-bound (B-005, `FORGEPM_TEST_NO_REDIS=1`) · `docs:check`: pass.
+- Panel component gates (`test:web`, `contrast:check`, `raw-value:check`, `ng build`): `not-run` —
+  no panel component file is in this change (they were green at the PE-0 close-out commit). The
+  scripted E2E gate was run instead, because this change modifies the script itself: green here for
+  the first time (chain + flagship 3/3, visual's 14 opt-in skips by `VISUAL=1`).
+- `remote:` **pass** — run 39082268502 on the PR head `236af36`, 22/22 steps green (also green on
+  the substantive head `5915afc`, run 39081071740). Three of the five runs on this PR were red at
+  two different steps **on identical code**; none was reproduced and none was explained (B-013), so
+  the panel step and the verify step now report their own failing tests as annotations. Treat
+  `remote: pass` as "a full green run exists for this tree", and two reds on one sha as a defect.
+- Acceptance §6: A.2/A.3/A.4/A.5/A.6/A.7/A.8 ticked with evidence; A.1 is `[~]` (projection done
+  and proven from DB rows; the tool and its session-reset test are PE-2's); A.9 moves to PE-12
+  because no exec panel page renders those labels yet (D-047).
+
 ## [Unreleased] — Execution control, PE-0 (2026-10-17)
 
 Scaffolding phase of `docs/EXECUTION_CONTROL_PLAN.md` (agent execution control:
@@ -63,7 +130,7 @@ existing route are untouched.
 - **Board drag: engine-independent gesture + the §11 E2E race that hid it** (D-046,
   B-011, issue #11). `chain.spec.ts`'s `dragTo` released at a tall column's centre, so
   Playwright scrolled the page with the mouse already down and the drop moved a
-  *different* card than the key the spec had read (app moved `EPRJ-3`, spec polled
+  _different_ card than the key the spec had read (app moved `EPRJ-3`, spec polled
   `EPRJ-5`); the release point is now pinned and the spec asserts the card under the
   pointer still carries that key. The board no longer depends on the browser opening an
   HTML5 drag session: `apps/web/src/app/ui/board-drag.ts` runs a pointer session (pure
@@ -86,7 +153,7 @@ existing route are untouched.
 - `apps/api/openapi.json` + `apps/web/src/api/schema.d.ts` were stale on `main`
   (missing `GET /api/v1/work-items/:key/relations` and
   `POST /api/v1/ai-providers/models` from PR #8), which failed `npm run
-  gen:api:check` on `main` itself — proven by the same probe. Regenerated here.
+gen:api:check` on `main` itself — proven by the same probe. Regenerated here.
 
 ### Gate (honest reporting)
 
@@ -105,7 +172,7 @@ existing route are untouched.
   this sandbox).
 - `remote:` **cannot-run** — PR #9's CI job never started ("recent account
   payments have failed or your spending limit needs to be increased"), so there
-  is no hosted runner to prove the CI-side gates. PE-0 is therefore *not* closed:
+  is no hosted runner to prove the CI-side gates. PE-0 is therefore _not_ closed:
   fix Actions billing, attach a self-hosted runner (Postgres + Redis), or record
   an explicit human waiver in the ledger (docs/BLOCKERS.md B-009).
 
@@ -127,7 +194,7 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
 
 - **System panel REST surface.** `GET /api/v1/jobs`, `POST /api/v1/jobs/:id/retry`
   (DB-only re-queue; the worker sweeper re-enqueues per §3b-3), `GET
-  /api/v1/system/health` (db/redis/module flags), `POST /api/v1/system/backup`
+/api/v1/system/health` (db/redis/module flags), `POST /api/v1/system/backup`
   (admin, runs `scripts/backup.sh` + audits) and `GET /api/v1/mcp/calls` (§8.11
   masked tool-call log) — the endpoints `docs/API_CONTRACTS.md` promised and the
   backend-first phases left for the panel.
@@ -149,12 +216,12 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
   spec; light/dark, logical-property responsive stylesheet.
 - **Performance tooling.** `pnpm seed:perf` (PERFORMANCE_BUDGET dataset: 10k
   projects, a 200k-item project + 300k background items, ANALYZE, seeded login
-  + API key), `pnpm perf` (P-01..P-03 via autocannon, 20 conns / 30s warm-up /
-  60s measure / p95 thresholds; p99 stand-in per D-035) and the P-05 first-paint
-  Playwright gate (`apps/web/e2e-perf.sh`).
+  - API key), `pnpm perf` (P-01..P-03 via autocannon, 20 conns / 30s warm-up /
+    60s measure / p95 thresholds; p99 stand-in per D-035) and the P-05 first-paint
+    Playwright gate (`apps/web/e2e-perf.sh`).
 - **Migration `0009_perf`** (forward-only, contract-synced): partial
   `(project_id|organization_id, created_at DESC, id DESC) WHERE deleted_at IS
-  NULL` cursor indexes the §12 contract requires. The load run found P-02
+NULL` cursor indexes the §12 contract requires. The load run found P-02
   scanning ~310k rows (p95 ~6s); these bring it to ~70ms (D-036).
 
 ### Fixed
@@ -173,7 +240,6 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
   audited backup, MCP call log). Full backend suite 39 files / 269 tests green;
   `pnpm verify`, `gen:api:check`, `schema:check`, `docs:check`, migration-hash
   guard and `pnpm perf` green; flagship E2E + §11 chain + P-05 green locally.
-
 
 ## [0.7.0-rc] — Phase 7 flagship subset (2026-10-09)
 
@@ -281,7 +347,7 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
   (`modules.<name>.enabled`), enabled/disabled at runtime without restart.
 - Settings registry: `review.max_attempts`, `review.max_cost_tokens`,
   `review.github_output`, `review.ignore_globs`, `code_review.{max_diff_bytes
-  (200 KB default), skip_drafts, custom_rules}`,
+(200 KB default), skip_drafts, custom_rules}`,
   `refactor_review.{min_severity, max_files_per_run (5000), categories}`.
   Redeclaring a shared `review.*` key under a module prefix is rejected with
   **422** (§10; `isReviewKeyRedeclaration`).
@@ -317,13 +383,13 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
 - 17 phase-6 integration cases: both modules off ⇒ 503 + no MCP tools + no
   auto jobs; enable without restart; fake-provider run completes with the full
   required finding shape; discarded counter; rerun dedupe + `last_seen_run_id`
-  + line-shift ≠ duplicate; DB UNIQUE enforced; not_seen(1) → fixed(2) with a
-  truncated run NOT counting; truncation + ignore globs never reach the
-  provider; record_only / human_approval (queue once, approve, create exactly
-  one, idempotent replay) / auto_high_severity (floors + cap 10); 422 on
-  redeclaration; github_output summary (one comment, updated) and off (zero
-  calls); MCP tools/list + tools/call through an agent key; cancel; audit on
-  every mutation.
+  - line-shift ≠ duplicate; DB UNIQUE enforced; not_seen(1) → fixed(2) with a
+    truncated run NOT counting; truncation + ignore globs never reach the
+    provider; record_only / human_approval (queue once, approve, create exactly
+    one, idempotent replay) / auto_high_severity (floors + cap 10); 422 on
+    redeclaration; github_output summary (one comment, updated) and off (zero
+    calls); MCP tools/list + tools/call through an agent key; cancel; audit on
+    every mutation.
 - 5 phase-6 worker cases: module off ⇒ no enqueue; auto_run off ⇒ no enqueue;
   module+auto on ⇒ exactly one outbox job; handler runs the shared engine
   offline; gate re-check at run time skips without a run row.
@@ -372,9 +438,9 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
 - AES-256-GCM secret cipher with `key_version` rotation layout; pino logging
   with credential redaction.
 - Fastify app: unified error envelope `{ error: { code, message, details?,
-  request_id } }`, `request_id` on every request, security headers, CORS
+request_id } }`, `request_id` on every request, security headers, CORS
   pinned to `WEB_ORIGIN`, 1 MiB body limit, `GET /health/live`,
-  `GET /health/ready` (503 when Postgres *or* Redis is down; live stays 200 —
+  `GET /health/ready` (503 when Postgres _or_ Redis is down; live stays 200 —
   automated), OpenAPI 3.0 document at `/api/v1/openapi.json`.
 - Worker: BullMQ outbox dispatcher (`FOR UPDATE SKIP LOCKED`, job registry
   row in one transaction, enqueue via BullMQ jobId dedupe, `dispatched_at`
@@ -430,9 +496,9 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
   DATA_MODEL §B exactly and `pnpm schema:check` now verifies §A+§B (14 tables).
 - Auth module: `POST /auth/login` (argon2id verify, httpOnly SameSite=Lax
   session cookie + readable CSRF cookie, per-IP+email rate limit 10/15min →
-  429, 401 AUTH_INVALID_CREDENTIALS on bad password/unknown user), `POST
-  /auth/logout`, `GET /auth/me`, one-time `POST /auth/setup` (409 after first
-  user), `GET /auth/csrf`. `bootstrapAdminFromEnv` honours FORGEPM_ADMIN_*.
+  429, 401 AUTH*INVALID_CREDENTIALS on bad password/unknown user), `POST
+/auth/logout`, `GET /auth/me`, one-time `POST /auth/setup` (409 after first
+  user), `GET /auth/csrf`. `bootstrapAdminFromEnv` honours FORGEPM_ADMIN*\*.
 - API-key auth (`Authorization: Bearer fpm_...`) resolved alongside sessions
   into a single Actor shape (plan §1.2); raw key = `fpm_` + 40 hex, only
   SHA-256 stored, minted once, revoked/expired keys rejected at call time.
@@ -567,7 +633,7 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
   body, auto-transition-on-merge via injected callback reading the project
   setting); `importIssueEvent` (off|import one-way with `sync_conflict` audit
   when local edit > last sync); `recordRelease`; `normalize{PullRequest,Issue}
-  Payload`. `extractItemKeys`/`extractClosingKeys` (2-5 uppercase letters
+Payload`. `extractItemKeys`/`extractClosingKeys` (2-5 uppercase letters
   project-key regex) live here and are re-exported from the api.
 - Webhook receiver `POST /integrations/github/webhook`: module-gated (503 when
   disabled), constant-time HMAC-SHA256 verification of `X-Hub-Signature-256`
@@ -582,9 +648,9 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
   `POST /projects/:id/repositories` (connect),
   `POST /projects/:id/pull-requests` (manual PR link),
   `POST /projects/:id/issues/import` (returns 200/201 with `created|updated|
-  conflict|skipped`), `POST /projects/:id/releases`,
+conflict|skipped`), `POST /projects/:id/releases`,
   `GET /work-items/:key/development` (Development tab), `POST/GET
-  /integrations/github/{config,status}` (secrets:manage, encrypted at rest).
+/integrations/github/{config,status}` (secrets:manage, encrypted at rest).
 - `github.issue_sync_mode` registry allows `off|import|export|two_way` per
   plan §12 (columns present) but v1 rejects `export|two_way` with **422** on
   write — the panel-facing "unavailable in this version" contract (plan §9.5).
@@ -599,11 +665,11 @@ core (4a MCP server, GitHub webhook→outbox→worker proven end to end) shipped
 
 - 9 Phase-5 integration cases: boot with zero github config + core unaffected;
   503 MODULE_DISABLED; bad-signature 401 with no delivery row; valid signature
-  + resend idempotency; PR key extraction from branch + title (2 links);
-  merged+`fixes KEY` moves only that item to completed; secrets not in plaintext
-  dump or audit; two repositories visible per project; issue-import mode off /
-  import (create + no-dup update + local-edit-after-sync conflict path with
-  `github.sync_conflict` audit); release persistence; `export|two_way` → 422.
+  - resend idempotency; PR key extraction from branch + title (2 links);
+    merged+`fixes KEY` moves only that item to completed; secrets not in plaintext
+    dump or audit; two repositories visible per project; issue-import mode off /
+    import (create + no-dup update + local-edit-after-sync conflict path with
+    `github.sync_conflict` audit); release persistence; `export|two_way` → 422.
 - 5 worker-driven integration cases: PR delivery links items via keys;
   at-least-once re-run is a no-op; issues delivery imports (mode=import);
   release delivery records a row; the full **outbox → dispatcher → BullMQ →
@@ -663,4 +729,3 @@ Phases 6–7 and the `v1.0.0-rc.1` release: Code/Refactor reviews, panel
 completion (login/setup, projects, work items, planner, approvals, integrations,
 MCP, settings, users, audit, jobs, backups, health) with Playwright E2E,
 security/perf hardening.
-

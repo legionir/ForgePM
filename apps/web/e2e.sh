@@ -2,7 +2,10 @@
 # apps/web/e2e.sh — reproducible panel E2E gate (plan §11/§15).
 # Resets a throwaway DB, boots the real API + Angular dev-server (which proxies
 # /api to it), runs Playwright chromium, then tears everything down.
-# Requires: Postgres + Redis on localhost, chromium (`npx playwright install`).
+# Requires: a reachable Postgres (or boot one with `node apps/web/scripts/dev-postgres.mjs`),
+# chromium (`npx playwright install`, or CHROMIUM_PATH to an extracted binary), and a Redis only
+# if a spec touches the queue — the API's client just logs connect retries, so the flagship
+# chain runs without one. No `psql` anywhere: the DB work goes through node/pg (D-048).
 set -euo pipefail
 WEB_DIR="$(cd "$(dirname "$0")" && pwd)"   # apps/web
 ROOT="$(cd "$WEB_DIR/../.." && pwd)"        # repo root
@@ -24,8 +27,13 @@ sleep 1
 
 if [[ "$RESET_DB" == "1" ]]; then
   echo "e2e: reset $E2E_DB"
-  psql "$PGURI" -qc "DROP DATABASE IF EXISTS $E2E_DB" >/dev/null
-  psql "$PGURI" -qc "CREATE DATABASE $E2E_DB" >/dev/null
+  # Not silenced: when this fails (permissions, a server that is up but not ready) the
+  # reason is one line deep in the gate's own output, and a red gate whose log says only
+  # "exit 1" gets diagnosed by guessing.
+  if ! DATABASE_URL="$PGURI" E2E_DB="$E2E_DB" node "$WEB_DIR/scripts/e2e-db.mjs"; then
+    echo "e2e: could not recreate $E2E_DB via scripts/e2e-db.mjs (see the error above)" >&2
+    exit 1
+  fi
 fi
 echo "e2e: migrate + build api"
 ( cd "$ROOT" && DATABASE_URL="$API_URL" npm run migrate >/dev/null && npm run build -w @forgepm/shared -w @forgepm/core -w @forgepm/api >/dev/null )

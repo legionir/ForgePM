@@ -4,13 +4,18 @@ import {
   ModuleRegistry,
   allocateLedgerCode,
   appendEvent,
+  buildLedgerStatus,
   countEvents,
+  createOpenItem,
   ensureCodeCounters,
+  listTaskItems,
   migrations,
   newId,
+  resolveOpenItem,
   runMigrations,
   upsertSetting,
   type Db,
+  type LedgerActor,
 } from '@forgepm/core';
 import { execPolicySchema } from '@forgepm/shared';
 import { buildToolRegistry } from '../../apps/api/src/modules/mcp/tools';
@@ -350,5 +355,211 @@ describe('PE-0.4/0.6 module + tool surface', () => {
     await upsertSetting(db, 'system', null, 'exec.policy', { version: 1, rules: [] } as never);
     const parsed = execPolicySchema.safeParse({ version: 1, rules: [] });
     expect(parsed.success).toBe(false); // an empty rule table is not a policy
+  });
+});
+
+describe('PE-1 open-item service (A.3/A.4/A.8)', () => {
+  const actor: LedgerActor = {
+    organizationId: '',
+    projectId: '',
+    actorType: 'agent',
+    actorId: 'agent:pe1-integration',
+    tool: 'ledger_add_open_item',
+  };
+  /** org/project are seeded per test, so build the actor inside each case. */
+  const asActor = (over: Partial<LedgerActor> = {}): LedgerActor => ({
+    ...actor,
+    organizationId: orgId,
+    projectId,
+    ...over,
+  });
+  const NOTE = 'fixed in this commit; chain.spec asserts it';
+
+  it('files an item with a readable code and exactly one created event (A.4)', async () => {
+    const before = await countEvents(db, taskId);
+    const row = await createOpenItem(db, asActor(), taskCode, {
+      title: 'gate counts a waived criterion as covered',
+      type: 'bug',
+      blocks_completion: true,
+    });
+    expect(row.code).toMatch(/^OI-\d{3}$/);
+    expect(row.status).toBe('open');
+    expect(row.source).toBe('agent');
+    expect(row.task_id).toBe(taskId);
+    expect(await countEvents(db, taskId)).toBe(before + 1);
+    const ev = await sql<{ payload: { before: unknown; after: { code: string } } }>`
+      SELECT payload FROM exec_events WHERE task_id = ${taskId} ORDER BY created_at DESC, id DESC LIMIT 1
+    `.execute(db);
+    expect(ev.rows[0]!.payload.after.code).toBe(row.code);
+    expect(ev.rows[0]!.payload.before).toBeNull();
+  });
+
+  it('a resolution appends one event holding before and after (A.4)', async () => {
+    const row = await createOpenItem(db, asActor(), taskCode, {
+      title: 'gate ignores the journal settle rule',
+      type: 'bug',
+      blocks_completion: true,
+    });
+    const before = await countEvents(db, taskId);
+    const after = await resolveOpenItem(db, asActor({ actorType: 'human', actorId: 'user:admin' }), taskCode, {
+      item_ref: row.code,
+      status: 'resolved',
+      note: NOTE,
+    });
+    expect(after.status).toBe('resolved');
+    expect(after.resolved_by).toBe('human');
+    expect(await countEvents(db, taskId)).toBe(before + 1);
+    const ev = await sql<{ payload: { before: { status: string }; after: { status: string } }; action: string }>`
+      SELECT payload, action FROM exec_events WHERE task_id = ${taskId} ORDER BY created_at DESC, id DESC LIMIT 1
+    `.execute(db);
+    expect(ev.rows[0]!.action).toBe('open_item.closed');
+    expect(ev.rows[0]!.payload).toMatchObject({ before: { status: 'open' }, after: { status: 'resolved' } });
+  });
+
+  it('refuses an agent soft-closing a blocking item before touching any row (A.3)', async () => {
+    const row = await createOpenItem(db, asActor(), taskCode, {
+      title: 'baseline is captured from the agent claim',
+      type: 'incomplete_requirement',
+      blocks_completion: true,
+    });
+    const before = await countEvents(db, taskId);
+    await expect(
+      resolveOpenItem(db, asActor(), taskCode, { item_ref: row.code, status: 'deferred', note: NOTE }),
+    ).rejects.toMatchObject({ code: 'LEDGER_TRANSITION_NOT_ALLOWED' });
+    expect(await countEvents(db, taskId)).toBe(before); // no half-written attempt, no event
+    const [still] = await listTaskItems(db, taskId, { activeOnly: true });
+    expect(still!.status).toBe('open');
+    // a human may make the same call — it is their decision, not the agent's
+    const allowed = await resolveOpenItem(db, asActor({ actorType: 'human', actorId: 'user:admin' }), taskCode, {
+      item_ref: row.code,
+      status: 'deferred',
+      note: NOTE,
+    });
+    expect(allowed.status).toBe('deferred');
+    expect(allowed.resolved_by).toBe('human');
+  });
+
+  it('an unknown task_ref is NOT_FOUND and never leaves an orphan row (A.8)', async () => {
+    await expect(
+      createOpenItem(db, asActor(), 'T-424242', { title: 'filed against a task that does not exist', type: 'risk' }),
+    ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    const n = await sql<{ n: string }>`SELECT count(*)::text AS n FROM exec_open_items`.execute(db);
+    expect(Number(n.rows[0]!.n)).toBe(0);
+  });
+
+  it('refuses to file the same problem twice and points at the first one', async () => {
+    const first = await createOpenItem(db, asActor(), taskCode, {
+      title: 'Gate counts a waived criterion as covered!!',
+      type: 'bug',
+      blocks_completion: true,
+    });
+    let err: unknown;
+    try {
+      await createOpenItem(db, asActor(), taskCode, {
+        title: 'gate counts a waived criterion as covered',
+        type: 'bug',
+      });
+    } catch (e) {
+      err = e;
+    }
+    expect((err as { code?: string }).code).toBe('CONFLICT');
+    expect((err as { details?: { existing?: string } }).details?.existing).toBe(first.code);
+  });
+
+  it('a done task without closed_at is not insertable, and the pair is atomic (A.6)', async () => {
+    const workItem = newId();
+    await db
+      .insertInto('work_items')
+      .values({
+        id: workItem,
+        organization_id: orgId,
+        project_id: projectId,
+        number: 77,
+        type: 'task',
+        title: 'done needs a close time',
+        state_id: (
+          await db
+            .selectFrom('workflow_states')
+            .select('id')
+            .where('project_id', '=', projectId)
+            .executeTakeFirstOrThrow()
+        ).id,
+      })
+      .execute();
+    const code = await allocateLedgerCode(db, projectId, 'T');
+    await expect(
+      sql`
+        INSERT INTO exec_tasks (id, organization_id, project_id, work_item_id, code, title, status)
+        VALUES (${newId()}, ${orgId}, ${projectId}, ${workItem}, ${code}, ${'closed too early'}, 'done')
+      `.execute(db),
+    ).rejects.toThrow(/exec_tasks_status_closed_at|check/i);
+    // with closed_at the same row is fine — the rule is the pair, not the status
+    await sql`
+      INSERT INTO exec_tasks (id, organization_id, project_id, work_item_id, code, title, status, closed_at)
+      VALUES (${newId()}, ${orgId}, ${projectId}, ${workItem}, ${code}, ${'closed properly'}, 'done', now())
+    `.execute(db);
+  });
+
+  it('a closing status with a short note is refused by the database, not by the service (A.7)', async () => {
+    await expect(
+      sql`
+        INSERT INTO exec_open_items (id, organization_id, task_id, code, title, type, blocks_completion, source, status, resolution_note, resolved_by)
+        VALUES (${newId()}, ${orgId}, ${taskId}, ${'OI-900'}, ${'a finding here'}, 'bug', true, 'agent', 'resolved', 'short', 'agent')
+      `.execute(db),
+    ).rejects.toThrow(/check|resolution/i);
+    // 20+ characters and a named closer is the documented shape, and it inserts.
+    await createOpenItem(db, asActor(), taskCode, { title: 'a finding worth recording', type: 'bug' });
+    const [row] = await listTaskItems(db, taskId, { activeOnly: true });
+    await expect(
+      resolveOpenItem(db, asActor(), taskCode, { item_ref: row!.code, status: 'resolved', note: 'x'.repeat(19) }),
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
+  it('lists active items before closed ones (the panel and the tools share this order)', async () => {
+    const a = await createOpenItem(db, asActor(), taskCode, { title: 'first finding here', type: 'risk' });
+    const b = await createOpenItem(db, asActor(), taskCode, {
+      title: 'second finding here',
+      type: 'bug',
+      blocks_completion: true,
+    });
+    await resolveOpenItem(db, asActor({ actorType: 'human', actorId: 'user:admin' }), taskCode, {
+      item_ref: a.code,
+      status: 'resolved',
+      note: NOTE,
+    });
+    const active = await listTaskItems(db, taskId, { activeOnly: true });
+    expect(active.map((r) => r.code)).toEqual([b.code]);
+    const all = await listTaskItems(db, taskId);
+    expect(all.map((r) => r.status)).toEqual(['open', 'resolved']);
+    // A.1: the projection the status tool will return, built from real rows
+    const view = buildLedgerStatus({
+      task: {
+        code: taskCode,
+        title: 'ledger scaffold task',
+        status: 'in_progress',
+        closed_at: null,
+        start_ref: 'abc1234',
+        tree_hash_start: 't'.repeat(40),
+        allowed_paths: ['packages/core/src/exec/**'],
+      },
+      criteria: [{ code: 'C-1', text: 'service writes events', requires_evidence: true }],
+      evidence: [{ criterion_code: 'C-1', kind: 'test_output', ref: 'test:exec-ledger-invariants', summary: 'green' }],
+      items: all.map((r) => ({
+        code: r.code,
+        title: r.title,
+        type: r.type,
+        status: r.status,
+        blocks_completion: r.blocks_completion,
+      })),
+      questions: [],
+      decisions: [],
+    });
+    expect(view.ready_to_submit).toBe(false);
+    expect(view.blockers).toEqual([b.code]);
+    // only *active* items are open ones; OI-001 is history now, and history is what
+    // the closed list is for — there is no delete that would have removed it.
+    expect(view.open_item_codes).toEqual([b.code]);
+    expect(all.map((r) => r.code)).toEqual([b.code, a.code]);
+    expect(all.find((r) => r.code === a.code)?.resolution_note).toBe(NOTE);
   });
 });

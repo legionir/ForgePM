@@ -3,6 +3,7 @@
 Format per plan §2: Context / Decision / Reason.
 
 ## D-001 — Sandbox lacks Docker; local services used instead
+
 - Context: Phase 0 requires `docker compose up` and Testcontainers-based
   integration tests. The execution sandbox has no Docker daemon (and no
   nested virtualisation).
@@ -15,6 +16,7 @@ Format per plan §2: Context / Decision / Reason.
   in BLOCKERS.md as B-001.
 
 ## D-002 — PostgreSQL 14 available locally; contract targets 16
+
 - Context: the apt mirror in the sandbox offers only postgresql-14.
 - Decision: write DDL compatible down to PG14: `NULLS NOT DISTINCT` replaced
   by the equivalent partial/expression unique indexes, which §12 explicitly
@@ -23,15 +25,17 @@ Format per plan §2: Context / Decision / Reason.
   single source of truth and `schema:check` passes on both versions.
 
 ## D-003 — `verify` composition
+
 - Context: §2 mandates `npm run verify` = lint, typecheck, unit, integration,
   build. Coverage thresholds are part of Definition of Done.
 - Decision: `verify` runs `lint → typecheck → test (unit+integration with v8
-  coverage thresholds) → build`.
+coverage thresholds) → build`.
 - Reason: matches the plan exactly and fails CI on coverage regressions.
 
 ## D-004 — Shared infrastructure lives in `packages/core`
+
 - Context: §3 places db/queue/outbox/logging/crypto under `apps/api/src/
-  infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
+infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   db code with no duplication, and the ESLint rule forbids modules reaching
   for raw connections.
 - Decision: create `packages/core` for infrastructure; `apps/*` hold only
@@ -43,6 +47,7 @@ Format per plan §2: Context / Decision / Reason.
   in both apps) violates one-responsibility and drifts.
 
 ## D-005 — UUIDv7 implemented in code
+
 - Context: §12 requires app-generated UUIDv7 primary keys. Node 22.23's
   `crypto.randomUUID()` ignores a `version` option (returns v4) — caught by a
   failing unit test.
@@ -51,6 +56,7 @@ Format per plan §2: Context / Decision / Reason.
   dependency-free; tested.
 
 ## D-006 — getEffective matches exact scope_id (bug found by red test)
+
 - Context: initial implementation keyed inheritance on scope only; the
   Phase 0 integration test for two projects with different overrides failed.
 - Decision: resolve project→organization→system by matching the specific
@@ -60,12 +66,14 @@ Format per plan §2: Context / Decision / Reason.
   into the core.
 
 ## D-007 — jsonb scalar encoding helper
+
 - Context: `pg` passes JS strings/numbers as text for jsonb parameters
   ("invalid input syntax for type json"); caught by tests.
 - Decision: one `toJsonb()` helper in core used by every jsonb write.
 - Reason: single point of correctness; services keep passing plain values.
 
 ## D-008 — Sensitive-default posture decisions (plan §2)
+
 - Context: plan mandates safest defaults without asking.
 - Decision applied so far: repository `private` (already true of origin); no
   external service calls at all in Phase 0; soft-delete only (no DELETE on
@@ -74,6 +82,7 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: as required by §2.
 
 ## D-009 — Tests use a per-file isolated database instead of Testcontainers
+
 - Context: §3 pins Testcontainers for integration; D-001 says the sandbox has
   no Docker, so Testcontainers cannot start containers here.
 - Decision: integration harness creates a fresh isolated Postgres database
@@ -83,6 +92,7 @@ Format per plan §2: Context / Decision / Reason.
   swapping to Testcontainers later is a harness-only change.
 
 ## D-010 — Panel: Phase 0 serves a static bilingual placeholder; Angular joins Phase 1
+
 - Context: §4.7 asks for an Angular placeholder with fa/RTL + en, and §4.8
   mandates a five-service compose. A full Angular toolchain (CLI, ngx-translate,
   Playwright) in Phase 0 adds no Phase-0 acceptance gate that actually exercises
@@ -98,6 +108,7 @@ Format per plan §2: Context / Decision / Reason.
   are present at the level Phase 0 can genuinely verify.
 
 ## D-011 — CI audit gate scoped to production dependencies
+
 - Context: the §14 rule "pnpm audit high+ breaks CI unless documented as an
   exception" collided with dev-tree advisories that have no upstream patch
   (e.g. `braces`, a transitive of the eslint-boundaries test parser) and with
@@ -111,6 +122,7 @@ Format per plan §2: Context / Decision / Reason.
   the audit entirely.
 
 ## D-012 — v0.0.0 tag kept as-is (no force-push) after CI-fix follow-up commits
+
 - Context: per the phase loop the squash-merge commit was tagged v0.0.0 and
   pushed. Remote CI then surfaced three real integration issues (YAML step-name
   quoting, tsx scripts needing shared+core built first, empty-string admin env
@@ -124,8 +136,8 @@ Format per plan §2: Context / Decision / Reason.
   phase's acceptance evidence is the green CI run linked in the report, not an
   assumption baked into the tag.
 
-
 ## D-013 — Phase 1 backend-first; panel deferred as a recorded deviation
+
 - Context: plan §2 requires the Angular panel to ship alongside each phase, and
   §5 lists many panel pages. Building a full bilingual Angular panel plus the
   entire backend for all 8 phases in one continuous agent run is not feasible;
@@ -142,13 +154,15 @@ Format per plan §2: Context / Decision / Reason.
   single source of truth for REST/MCP; the panel is a client of it.
 
 ## D-014 — argon2id via native `argon2` package
+
 - Context: §3 pins argon2id for panel password hashing; a pure-JS option would
   drift from the native memory-hard parameters.
 - Decision: use the `argon2@0.45.1` native binding (MIT), pinned; parameters
   m=64MiB, t=3, p=1.
 - Reason: canonical argon2id, matches §3; native build works in sandbox + CI.
 
-## D-015 — API-key raw format fpm_ + 40 hex; prefix = first 12 chars
+## D-015 — API-key raw format fpm\_ + 40 hex; prefix = first 12 chars
+
 - Context: §5.4 requires prefix `fpm_`; §14 redaction greps `fpm_[a-z0-9]{20,}`.
 - Decision: raw = `fpm_` + 40 lowercase hex (20 random bytes); store only
   SHA-256(raw); display prefix = `raw.slice(0,12)` (safe, matches grep length).
@@ -156,6 +170,7 @@ Format per plan §2: Context / Decision / Reason.
   only the 12-char prefix is ever logged/returned after creation.
 
 ## D-016 — In-process login rate limiter (IP+email, 10/15min)
+
 - Context: §5.3 mandates 10 attempts / 15 min per IP+email; a Redis-backed
   limiter couples the API hot path to Redis for auth.
 - Decision: per-process Map limiter keyed `ip|email`, 15-min window, throws
@@ -163,8 +178,8 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: satisfies the acceptance test deterministically; a distributed
   limiter is a scaling concern documented in SCALING.md, not Phase 1.
 
-
 ## D-017 — Planner provider injection via app-level resolver + test fixtures
+
 - Context: §7 requires generation to use the org's configured provider, be
   deterministic with the `fake` provider for tests, and never contact the
   network in the test suite.
@@ -179,6 +194,7 @@ Format per plan §2: Context / Decision / Reason.
   and honours the no-network test rule.
 
 ## D-018 — applyPlan rollback via transaction abort + out-of-tx status write
+
 - Context: §7 requires that an injected mid-apply failure leaves NO partial
   data and lands the plan in `apply_failed`.
 - Decision: applyPlan runs its writes in one `db.transaction()`. A failure is
@@ -189,6 +205,7 @@ Format per plan §2: Context / Decision / Reason.
   the separate status write is what makes the failure observable.
 
 ## D-019 — Approval gate returns 202 pending_approval, not an error
+
 - Context: §7 under `manual` an agent write must create an approval_request and
   NOT create the item; MCP contract says such ops return a pending object.
 - Decision: createWorkItem for an agent under a policy that disallows the op
@@ -197,8 +214,8 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: matches the plan's "returns { status: pending_approval, ... }" shape
   and keeps HTTP semantics (accepted, not an error).
 
-
 ## D-020 — Phase 4b (optional MCP client) deferred; server (4a) complete
+
 - Context: plan §8 marks 4b (MCP client for external servers) optional behind
   `mcp.client.enabled`. The mandatory Phase-4 deliverable is the internal
   Streamable-HTTP MCP Server, exercised with the real SDK client.
@@ -210,8 +227,8 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: honours "MCP Server internal is mandatory in v1" while deferring the
   optional client; honest reporting of what ran (all 4a gates green).
 
-
 ## D-021 — GitHub delivery processing lives in @forgepm/core, not api
+
 - Context: plan §1.2 forbids two writers and §3 forbids cross-app imports.
   The webhook job runs in the worker; the manual PR/issue/release paths live in
   the api. Both must apply identical logic.
@@ -223,6 +240,7 @@ Format per plan §2: Context / Decision / Reason.
   boundary ESLint rules intact while remaining actor-free for the worker.
 
 ## D-022 — One process-wide cipher holder (`setActiveCipher`/`activeCipher`)
+
 - Context: plan §3b-1.5 keeps env as bootstrap only and DB as source of truth.
   The api installed its own cipher singleton; the worker would need to
   duplicate that (or the api's) to decrypt the same values.
@@ -234,7 +252,8 @@ Format per plan §2: Context / Decision / Reason.
   the read helper so a config saved from the panel is picked up automatically.
 
 ## D-023 — Webhook signature verification uses raw bytes captured by a custom
-- Context: §9.1 requires constant-time HMAC over the *exact* received body;
+
+- Context: §9.1 requires constant-time HMAC over the _exact_ received body;
   fastify's default JSON parser already re-serialises, breaking byte equality.
 - Decision: replace the JSON content-type parser with one that parses as string
   first, stores `req.rawBody`, then JSON-parses. The webhook handler verifies
@@ -243,6 +262,7 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: matches GitHub's spec and avoids a real-world timing side-channel.
 
 ## D-024 — github.issue_sync_mode rejects export/two_way at write-time with 422
+
 - Context: plan §9.5 says v1 only supports `off` and `import`; the other values
   are "not available" (columns exist for the future). Zod enum alone would
   return 400; §13 maps "not available in this version" to UNPROCESSABLE (422).
@@ -252,6 +272,7 @@ Format per plan §2: Context / Decision / Reason.
   violation; matches the acceptance text verbatim.
 
 ## D-025 — Review engine lives in @forgepm/core; api and worker share one path
+
 - Context: §10 requires Code Review + Refactor Review to run identical
   semantics (evidence validation, fingerprint upsert, not_seen/fixed sweep,
   issue policy), reachable from REST, MCP and the webhook worker.
@@ -264,6 +285,7 @@ Format per plan §2: Context / Decision / Reason.
   by structure, not discipline.
 
 ## D-026 — Offline review runs use injected slots (StubProvider fixtures)
+
 - Context: plan §10 acceptance runs every review case with a `fake` provider
   and never touches the network; the suite is hermetic (D-009, §15).
 - Decision: core keeps module-level slots — `setReviewProviderResolver`,
@@ -276,6 +298,7 @@ Format per plan §2: Context / Decision / Reason.
   real engine, not a parallel fake engine.
 
 ## D-027 — Helper columns `unseen_streak` + `review_runs.input` (§12 additive rule)
+
 - Context: the not_seen → fixed lifecycle needs a consecutive-complete-run
   counter, and webhook/worker reruns need the validated hunks+snapshot without
   re-fetching code; the contract §G predates both.
@@ -286,6 +309,7 @@ Format per plan §2: Context / Decision / Reason.
   keeps a run self-describing (re-runs and debugging).
 
 ## D-028 — Refactor review accepts a file snapshot in the request body
+
 - Context: the deterministic analyzer + evidence validation need actual file
   contents at a commit; the sandbox cannot clone repos and v1 keeps GitHub
   optional (plan §1.4). Sources are `github` (worker clone) or `local`
@@ -298,6 +322,7 @@ Format per plan §2: Context / Decision / Reason.
   engine; mount-root traversal guarded by `assertUnderRoot`.
 
 ## D-029 — Partition cursor carried on run stats, modulo group count
+
 - Context: §10.6.4 covers big repos in consecutive runs with a cursor in
   `run.stats.partition_cursor`; no extra table exists for it.
 - Decision: the newest refactor run's `stats.partition_cursor` for
@@ -307,6 +332,7 @@ Format per plan §2: Context / Decision / Reason.
   files at cap 5 000 verify as exactly 3 runs [1,2,0].
 
 ## D-030 — github_output posts through an injected writer; off ⇒ zero calls
+
 - Context: §10 requires one marked PR comment updated in place and "with `off`
   no write call to GitHub at all".
 - Decision: the engine calls the injected `ReviewOutputWriter` slot only for
@@ -315,6 +341,7 @@ Format per plan §2: Context / Decision / Reason.
   octokit writer ships with the phase-7 GitHub panel wiring.
 
 ## D-031 — Panel is a standalone npm project (TS 6.x), outside root `verify`
+
 - Context: Phase 7 ships the long-deferred Angular panel (B-005/D-013). Angular
   22's compiler requires TypeScript 6.x; the backend pins TS 5.7.2. A shared
   root workspace would force one TS major on both, breaking either `ng build`
@@ -330,6 +357,7 @@ Format per plan §2: Context / Decision / Reason.
   or `any`-casting to force a shared toolchain.
 
 ## D-032 — E2E proxy to :3101 because the sandbox reserves :3001
+
 - Context: the executing sandbox already runs a system `mcp-server` on :3001,
   the plan/compose default API port.
 - Decision: the Angular dev-server proxy used by E2E points at the API on
@@ -341,6 +369,7 @@ Format per plan §2: Context / Decision / Reason.
   compose contract; recorded so a reviewer sees why two proxy files exist.
 
 ## D-033 — Flagship E2E scoped to the flows the panel renders today
+
 - Context: §11 lists a long E2E chain (setup → project → Feature + 5 items →
   Board → plan → API key → MCP log → GitHub → Code Review). The backend surface
   for every one of those is already covered by integration tests; the panel now
@@ -356,6 +385,7 @@ Format per plan §2: Context / Decision / Reason.
   directly observable in tests.
 
 ## D-034 — Panel i18n: hand-rolled key dictionaries instead of ngx-translate
+
 - Context: plan §3 names ngx-translate for the bilingual fa/en panel and §11
   requires "همه‌ی صفحه‌ها در fa (RTL) و en بدون متن ترجمه‌نشده" plus a
   "اسکریپت بررسی کلیدهای i18n". The initial bundle budget is 500 KB gzip and
@@ -369,6 +399,7 @@ Format per plan §2: Context / Decision / Reason.
   ambiguity resolved to the simplest option per §2 hard rules.
 
 ## D-035 — npm run perf asserts p99 as the p95 stand-in
+
 - Context: §3b-7 fixes the measurement as "p95 زمان پاسخ HTTP سرتاسری با
   autocannon". autocannon 8 exposes latency percentiles p50/p90/p99 — p95 is
   not among them.
@@ -379,6 +410,7 @@ Format per plan §2: Context / Decision / Reason.
   warm-up, 60 s measure) without inventing an off-the-cuff percentile.
 
 ## D-036 — 0009_perf: partial cursor indexes discovered by the load run
+
 - Context: with the seeded dataset, `npm run perf` measured P-02 (filtered list
   on the 200k-item project) at p95 ≈ 6 s: the planner picked
   workitems_org_created_idx and filtered out ~310k rows from other projects.
@@ -393,6 +425,7 @@ Format per plan §2: Context / Decision / Reason.
   layer the contract prescribes; not a tuning hack.
 
 ## D-037 — gitleaks: forward-fix the CI placeholder, narrow-allowlist history
+
 - Context: §16 step 1 requires `gitleaks detect` clean over the full history.
   It flagged one line: `.github/workflows/ci.yml`'s committed
   `FORGEPM_SECRET_KEY: Zm9yZ2VwbS1jaS10aHJvd2F3YXkta2V5LTMyYnl0ZXM=` (base64 of
@@ -403,13 +436,14 @@ Format per plan §2: Context / Decision / Reason.
 - Decision: remove the literal from the branch tip and have CI mint a fresh
   `openssl rand -base64 32` per run (corrective commit); allowlist only the one
   exact base64 string in `.gitleaks.toml` (regex-scoped, not path-wide) so the
-  history scan runs green without hiding any *other* secret. Any new secret in
+  history scan runs green without hiding any _other_ secret. Any new secret in
   ci.yml still trips the default rules.
 - Reason: honest §16 compliance — the immutable historical line is a documented
   placeholder (auditable here), the live tree no longer contains it, and the
   allowlist is the minimal carve-out consistent with "no secret committed".
 
 ## D-038 — Package manager: pnpm → npm workspaces
+
 - Context: the owner asked to drop pnpm and use plain npm.
 - Decision: root `package.json` declares `workspaces` (shared, core, api, worker,
   tests — explicit order so `build`/`typecheck` run dependencies first);
@@ -421,9 +455,10 @@ Format per plan §2: Context / Decision / Reason.
   versions stay exact-pinned in each `package.json`.
 
 ## D-039 — Execution ledger: append-only is "no delete + settle-once" for the journal
+
 - Context: PE-0.3/I-2 asked for `BEFORE UPDATE OR DELETE` + `REVOKE` on
   `exec_events`, `exec_evidence` and `exec_action_journal`. A journal row is
-  *born* `started` and must become `done|failed|unknown` (that is the whole resume
+  _born_ `started` and must become `done|failed|unknown` (that is the whole resume
   design, appendix §K), so a blanket UPDATE ban would break the feature.
 - Decision: full append-only (trigger + `REVOKE UPDATE, DELETE`) on
   `exec_events`, `exec_evidence`, `exec_gate_checks`; `exec_action_journal` gets
@@ -435,6 +470,7 @@ Format per plan §2: Context / Decision / Reason.
   still that record, and everything it claims to have done is frozen.
 
 ## D-040 — Ledger code counters live in `exec_code_seq`, not on `projects`
+
 - Context: plan §5 (PE-0 item 2) says "no counter table; use
   `SELECT max(seq) FOR UPDATE` + retry", while §4 table 16 and PE-0 item 1 define
   `exec_code_seq(project_id, prefix, seq)` with the same trigger/REVOKE work.
@@ -446,12 +482,14 @@ Format per plan §2: Context / Decision / Reason.
   write behind one hot row and would need a new `work_items`-style migration for
   each prefix; the dedicated table is the only shape that keeps codes contiguous
   under 20 concurrent allocations (tested).
+
 ## D-041 — No test-execution runner: the baseline comes only from the CI log
+
 - Context: `docs/EXECUTION_CONTROL_PLAN.md` (D-08) originally specified a
   three-source baseline: CI log → an ephemeral Docker runner (`exec.runner.*`,
   `scripts/runner/run-test.sh`, `docker-compose.runner.yml`, a
   `FORGEPM_TEST_DOCKER=1` test) → fail closed. The gate rule 12 needs
-  "the tests were run and passed" as a *fact*, not as the agent's claim.
+  "the tests were run and passed" as a _fact_, not as the agent's claim.
 - Decision: the middle source is cancelled by the owner ("وارد docker نشو —
   docker چرا لازم است؟") and stays cancelled. ForgePM never executes repo
   code — not on the host, not in a container. `exec_baseline_tests.source` is
@@ -469,6 +507,7 @@ Format per plan §2: Context / Decision / Reason.
   no criterion is `not-run` because of Docker anymore.
 
 ## D-042 — DB-bound gates are verified locally with the repo's own embedded Postgres
+
 - Context: PE-0's gates (`migrate`, `schema:check`, `test:integration`) and
   every later exec phase need a real PostgreSQL, and the earlier honest report
   said `not-run` "no Postgres/Redis/Docker" (B-009, plan OI-8/OI-9) — which
@@ -488,6 +527,7 @@ Format per plan §2: Context / Decision / Reason.
   the flag makes the split visible in the output instead of hidden in prose.
 
 ## D-043 — Committed tooling resolves paths relative to the file, never the author's box
+
 - Context: `apps/web/scripts/e2e-reset.mjs` (added while Docker-free E2E resets were
   needed, per D-001) used `createRequire('/home/user/ForgePM/apps/api/package.json')`
   to reach `pg`. It passed on the machine that wrote it and failed in CI — and CI had
@@ -500,11 +540,12 @@ Format per plan §2: Context / Decision / Reason.
   part of the check before any script change lands.
 - Reason: the sandbox is an implementation detail of one run. A path that only exists
   here turns a green local report into a red remote gate, and — as PE-0 showed — the
-  red gate may not be read for hours. Determinism of the *verification harness* is
+  red gate may not be read for hours. Determinism of the _verification harness_ is
   part of the product, so it gets the same "no environment assumptions" treatment as
   the runtime code.
 
 ## D-044 — Status tokens are tuned for the tint they generate, not just for the page
+
 - Context: the §11 panel E2E (`chain.spec.ts`) runs axe over the major pages and
   failed on `main` with one serious violation: `.ui-badge--info` painted
   `color-mix(in srgb, var(--color-info) 12%, transparent)` as its background and the
@@ -512,7 +553,7 @@ Format per plan §2: Context / Decision / Reason.
   project claims. `npm run check:contrast` did not catch it because it only compared
   each token against `color-bg`/`color-surface`, where the hue passes at 4.83:1.
 - Decision: darken the three light-theme status hues until every
-  *self-tinted* pair passes — `--color-ok: #166d2f`, `--color-warning: #845900`,
+  _self-tinted_ pair passes — `--color-ok: #166d2f`, `--color-warning: #845900`,
   `--color-info: #085abb` (`--color-error` already cleared it) — and extend
   `check:contrast` to derive those pairs from `styles.scss` itself: for every rule
   whose `background` is a `color-mix(in srgb, var(--color-X) N%, transparent)` and
@@ -526,6 +567,7 @@ Format per plan §2: Context / Decision / Reason.
   baselines (`VISUAL=1`, opt-in) stay a human concern.
 
 ## D-045 — Board drag in headless Chromium: diagnosed, deliberately not patched blind
+
 - Context: after D-044 the §11 chain E2E had one failure left — `card.dragTo(column)`
   completed without error but the item's `state_name` never changed (60s poll). The
   board uses HTML5 DnD (`draggable` + `dragstart`/`dragover`/`drop`, key carried in
@@ -556,12 +598,13 @@ Format per plan §2: Context / Decision / Reason.
   it would have left a "fix" with a false justification in the tree.
 
 ## D-046 — Board drag: pointer session + HTML5 enhancement; the E2E race was a scroll race
+
 - Context: with a local real-browser E2E finally runnable (see the recipe added to
-  FRONTEND_EXECUTION_PLAN), `chain.spec.ts:22` was instrumented instead of guessed.
+  FRONTEND*EXECUTION_PLAN), `chain.spec.ts:22` was instrumented instead of guessed.
   Result: `dragTo` DID start an HTML5 drag, the payload DID carry a key, and the drop
   DID fire on the intended column — but on `EPRJ-3`, while the spec polled `EPRJ-5`.
   Cause: `dragTo` releases at the target's centre; with five cards the target column is
-  555px tall, its centre is below the fold, so Playwright scrolled the *page* by
+  555px tall, its centre is below the fold, so Playwright scrolled the \_page* by
   ~196px (= two card rows) after the mouse was already down on the source. The app
   faithfully dragged whatever was under the pointer — the bug was the spec assuming
   `.first()` still denoted the same card after its own scroll, and the 60s poll then
@@ -574,7 +617,7 @@ Format per plan §2: Context / Decision / Reason.
      assertion "the item's `state_name` changes" is untouched.
   2. **App** (`apps/web/src/app/ui/board-drag.ts` + the pure reducer in `logic.ts`):
      the board no longer depends on the browser opening an HTML5 drag session. A
-     pointer session (press → 4px threshold → release over a *foreign* column) carries
+     pointer session (press → 4px threshold → release over a _foreign_ column) carries
      the same gesture; `dragstart` hands it over to the browser and the pointer path
      stands down, and one gesture may be applied once (a per-press token in
      `UiBoardDrag`), so the two paths cannot double-transition. Touch is deliberately
@@ -586,10 +629,66 @@ Format per plan §2: Context / Decision / Reason.
 - Reason: the failure had survived three pushes because each hypothesis was tested
   against CI alone, where the signal is one annotation per run. A local run gives the
   event log, the geometry and the request — that is the difference between guessing and
-  measuring, and D-041's "CI is the arbiter" is about *acceptance*, not about diagnosis.
+  measuring, and D-041's "CI is the arbiter" is about _acceptance_, not about diagnosis.
 - Consequences: the drag works identically on binaries with and without HTML5 DnD
   support (Playwright's `dragTo` does not drive HTML5 DnD on Firefox/WebKit at all),
   the board gained visible drag affordances (`--drag`, `--over`), and a layout change
   (viewport-bounded columns with internal scroll) was NOT taken — it would be better
   ergonomically but invalidates all 14 stored visual baselines, which is a frontend
   owner call, not a bug-fix smuggled into PE-0.
+
+## D-047 — PE‑1 closes at service+DB level; the tool‑facing criteria are proven in PE‑2
+
+- Context: PE‑1's acceptance list (§6, A.1…A.9) is written as if the ledger tools
+  already existed — A.1 asserts what `exec_ledger_status` returns, A.3 what
+  `ledger_resolve_item` rejects, A.9 what the panel renders — while §7 puts all of
+  those tools in PE‑2 and the panel pages in PE‑12. The alternative reading ("build
+  the tools early so PE‑1 can be ticked") would ship the tool surface before the
+  policy/scope plumbing it has to respect, then re-test it twice.
+- Decision: PE‑1 ships and closes the layers it can close on its own — the pure
+  state machine, the single supported write path (`exec/open-items-service.ts`), the
+  DB laws (already in 0010: `done ⇒ closed_at`, closure note ≥ 20 chars + named
+  closer, human-only soft closure, append-only + REVOKE) and the projection
+  (`exec/ledger-view.ts`) that the status tool will return — with A.2/A.4/A.5/A.6/A.7/A.8
+  ticked by tests, and A.3 ticked for the rule itself (service + CHECK) while the
+  tool-shaped assertion is re-run in PE‑2 B.x. A.1 stays `[~]` with the reason (the
+  loader and the tool are PE‑2 work; the projection they will use is here and tested,
+  including a row→view case built from real DB rows) and A.9 moves to PE‑12, where
+  the labels exist. Every one of these is written next to the criterion in
+  docs/EXECUTION_CONTROL_PLAN.md, so nothing is quietly dropped by a tick.
+- Reason: a phase gate is only worth what its weakest tick is worth; a tick that
+  needs code from a later phase is a fiction. Splitting the _layer_ instead — laws
+  now, wrappers later, each proven where it lives — keeps the sequence honest and
+  leaves PE‑2 with thin tools rather than a second implementation.
+- Consequence: no new migration was added for PE‑1. The one ledger rule that was
+  still TypeScript-only — the dedup key for promoting exit-report lines — belongs to
+  C.4, whose semantics are "skip/point at the existing item", not "reject the write",
+  so a unique index would have turned an idempotent promotion into a failure. The
+  service does the dedup pre-check and raises `CONFLICT` with the existing code, and
+  the promotion path in PE‑9 can reuse the same key.
+
+## D-048 — test and dev tooling may not depend on machine binaries (extends D-043)
+
+- Context: running PE‑1's DB gates needed the embedded Postgres path (D-042) and hit
+  two walls that were both about the machine, not the project: `tests/integration/harness.ts`
+  created and dropped its per-file database by shelling out to `psql` (absent here —
+  `@embedded-postgres` ships only server binaries), and `apps/web/scripts/dev-postgres.mjs`
+  called `initialise()` unconditionally, so a second run against a perfectly good
+  existing cluster died with `initdb: directory exists but is not empty`.
+- Decision: the harness talks to the maintenance database over the `pg` client
+  (`CREATE DATABASE` / `DROP DATABASE … WITH (FORCE)`, PG14+ — which also replaces
+  the sleep-and-hope around draining pool sockets), and `dev-postgres.mjs`
+  initialises only when `PG_VERSION` is absent, takes `FORGEPM_PGDATA/PGPORT/PGDBS`
+  and tolerates an existing database. No `child_process` in either.
+- Reason: the same argument as D-043, one layer down: a gate that only runs on the
+  machine that wrote it is not a gate — and an _intermittently_ runnable one is worse,
+  because it trains everyone to write `not-run` for a reason that isn't true. The
+  19 → 21 integration tests in this phase only exist because the DB became reachable.
+- Consequence: the integration suite needs only a reachable Postgres now; the
+  Redis/`pg_dump`-bound files still fail here by design (`FORGEPM_TEST_NO_REDIS=1`
+  makes queue-touching tests fail loudly rather than pass silently). The same line was
+  found in `apps/web/e2e.sh` (it began with two `psql` calls, so the scripted panel E2E
+  had never completed in this sandbox — only the hand-run recipe in
+  docs/FRONTEND_EXECUTION_PLAN.md had); DB creation moved to `scripts/e2e-db.mjs`
+  (`pg`, `DROP … WITH (FORCE)` with a retry), and `bash apps/web/e2e.sh` is now green here:
+  chain + flagship 3/3 with `visual.spec`'s 14 opt-in skips (`VISUAL=1`) untouched.
