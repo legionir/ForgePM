@@ -213,8 +213,14 @@ Status: **code complete — local gates green, hosted CI green except the
 - Lesson kept from this phase: one red assertion was _my test_, not the projection — `open_item_codes`
   lists active items only, and a resolved item staying in `all` while leaving `open_item_codes` is
   exactly what "history, not cleanup" (A.2) means. The projection stayed; the expectation moved.
-- `remote:` not-run yet — the PR for this branch is being opened; the CI verdict will be recorded
-  here (and in CHANGELOG's PE-1 gate line) as soon as the run finishes.
+- `remote:` **pass** (run 39081071740 on `5915afc`, all 22 steps green — verify with a real Redis,
+  panel build + flagship E2E, perf, schema:check, docs:check, docker-compose smoke, npm audit).
+  History, kept because it is the interesting part: the first run on this PR (39080689060) was
+  **red at the panel E2E step after 52 s** and unreadable from here (B-012: raw logs redirect to a
+  blob host outside the allowlist, so the annotation only said "exit code 1"). Instead of guessing
+  among three plausible causes, the step was instrumented to emit its own failure tails as an
+  annotation; the next run — same substantive diff — is green, so the single red is recorded as
+  **cause unknown, not reproduced** (B-012), not as a bug that was fixed.
 - Next: PE-2 (section B core) — `exec_task_start`, `ledger_list_open`, `ledger_status`,
   `ledger_add_open_item`, `ledger_resolve_item` as thin wrappers over these service functions, the
   `unitOfWork` + `audit_event` pairing, the tool-shaped re-assertions of A.1/A.3, then the §7 B.x

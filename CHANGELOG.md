@@ -46,6 +46,10 @@ exec_*`, no write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_che
   on a bare clone; it now calls `apps/web/scripts/e2e-db.mjs` (`pg`, `DROP … WITH (FORCE)`,
   refused for a suspicious DB name), and the gate is green in-sandbox: `chain.spec` +
   `flagship.spec` 3/3, `visual.spec`'s 14 opt-in skips (`VISUAL=1`) unchanged.
+- **A red panel gate now says why (B-012):** the CI step tees `apps/web/e2e.sh` into a file and, on
+  failure, emits the run/api/dev-server log tails as an annotation. Raw Actions logs redirect to a
+  blob host outside this sandbox's allowlist, so "exit code 1" used to be all a failing step said —
+  which is how a 52-second red on the first PE-1 run stayed undiagnosed instead of being measured.
 
 ### Gate (honest reporting)
 
@@ -57,7 +61,10 @@ exec_*`, no write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_che
   no panel component file is in this change (they were green at the PE-0 close-out commit). The
   scripted E2E gate was run instead, because this change modifies the script itself: green here for
   the first time (chain + flagship 3/3, visual's 14 opt-in skips by `VISUAL=1`).
-- `remote:` will be recorded from the CI run of this PR.
+- `remote:` **pass** — run 39081071740 on `5915afc`, 22/22 steps green. The run before it
+  (39080689060) was red at the panel E2E step with an unreadable log; the step now reports its own
+  tails as an annotation and the failure did not reproduce — recorded as `cause unknown` (B-012),
+  not as a fix.
 - Acceptance §6: A.2/A.3/A.4/A.5/A.6/A.7/A.8 ticked with evidence; A.1 is `[~]` (projection done
   and proven from DB rows; the tool and its session-reset test are PE-2's); A.9 moves to PE-12
   because no exec panel page renders those labels yet (D-047).
