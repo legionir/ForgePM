@@ -292,16 +292,19 @@ Status: **code complete — local gates green, hosted CI green except the
   slices instead: unit-only `task-start.ts` 38.8% / `json-schema.ts` 96.6%, integration-only
   `task-start.ts` 86.4%, `ledger-status.ts` 84.6%, `apps/api/src/modules/exec` 82.9% — every new file
   clears 80% lines on the union, so the risk is in branch details, not in an untested surface.
-- `remote:` **cannot-run — this session's branch is closed to GitHub** (PR #12 was merged, so pushes
-  and new PRs from `arena/c216c536-forgepm` are refused). PE-2 is committed locally on this branch and
-  must be pushed from a fresh session; CI has not seen it. Not a waiver: `npm run verify`'s integration
-  half here runs without Redis, which CI does have, so the remote gate still owes a verdict.
+- `remote:` **pass** — PR #13 (`arena/e737b1f8-forgepm`, the fresh session the PE-2 handoff asked
+  for), run 39120040693: all 22 steps green, including the full `npm run verify` with its coverage
+  thresholds, the gen:api drift check, the Angular build + Playwright flagship E2E, the performance
+  budget and the docker-compose health smoke. The earlier `cannot-run` verdict — this session's
+  branch was closed to GitHub, so CI had never seen the tree — is superseded: CI has seen it now, and
+  it saw the integration half with Redis, which the local half could not run.
 - Recorded on `arena/c216c536-forgepm` as `caa59db` — 79 files, the re-materialised PE-0 + PE-1 +
   PE-2 tree (the sandbox was reset twice and rewound git to `bc6f28b`, deleting the earlier local
   commit). The sha is written down here precisely because a reset can take it out of git again.
-  `docs/PHASENaN_REPORT.md` was deliberately left untracked: it is a stale `report:phase` artifact
-  titled "Phase NaN" with a `local: fail` verdict that belongs to no phase, and committing it would
-  pass off a leftover as evidence.
+  That tree is now on GitHub as PR #13 (`arena/e737b1f8-forgepm`), so the work is no longer only
+  local. `docs/PHASENaN_REPORT.md` was deliberately left untracked: it is a stale `report:phase`
+  artifact titled "Phase NaN" with a `local: fail` verdict that belongs to no phase, and committing
+  it would pass off a leftover as evidence.
 - A fresh session starts at `docs/HANDOFF-PE-3.md`: where the work lives (only 2 local commits are
   ahead of GitHub), what to restore first, the PE-3 step list, and the traps that cost time here.
 - Next: PE-3 (plan §8) — `exec_submit_exit_report` with the strict `exitReportSchema` and the

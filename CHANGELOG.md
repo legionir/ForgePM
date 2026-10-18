@@ -128,9 +128,10 @@ idempotency and the approval gate are the api's business, every ledger rule stay
   (vitest suppresses the report on failure); per-file slices — `task-start.ts` 86.4% lines via
   integration and 38.8% via unit, `ledger-status.ts` 84.6%, `apps/api/src/modules/exec` 82.87%,
   `json-schema.ts` 96.6% — clear the 80% floor on the union, with the residual risk in branch detail.
-- `remote:` **cannot-run from this session** — PR #12 was merged, which closed `arena/c216c536-forgepm`
-  to GitHub operations; PE-2 is committed locally and needs a fresh session to push and get CI's
-  verdict. This is recorded as an unfinished gate, not as a pass.
+- `remote:` **pass** — PR #13, run 39120040693: 22/22 steps green, from a fresh session, because the
+  branch PE-2 was committed on (`arena/c216c536-forgepm`) was closed to GitHub operations once its PR
+  was merged. CI has now seen the tree, including the coverage-threshold run that the local half
+  could not reproduce while the Redis-bound files failed.
 - Acceptance §7: B.1–B.8 ticked with their tests; §6 A.1 closed here (the tool over real rows plus the
   empty-project case).
 
