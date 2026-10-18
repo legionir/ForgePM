@@ -213,8 +213,13 @@ Status: **code complete — local gates green, hosted CI green except the
 - Lesson kept from this phase: one red assertion was _my test_, not the projection — `open_item_codes`
   lists active items only, and a resolved item staying in `all` while leaving `open_item_codes` is
   exactly what "history, not cleanup" (A.2) means. The projection stayed; the expectation moved.
-- `remote:` **pass** (run 39081071740 on `5915afc`, all 22 steps green — verify with a real Redis,
-  panel build + flagship E2E, perf, schema:check, docs:check, docker-compose smoke, npm audit).
+- `remote:` **pass** on the PR head `236af36` (run 39082268502, 22/22 steps) and on the substantive
+  head `5915afc` (run 39081071740, 22/22 steps): verify with real Redis, panel build + flagship E2E,
+  perf, schema:check, docs:check, docker-compose smoke, npm audit. The head `d859c37`/`61ca4a7`
+  (docs-only and ci.yml-only) were red at step 10 — same code as a green run, cause unreadable at the
+  time. That intermittency is B‑013, opened on purpose instead of smoothed over: `remote: pass` here
+  means "a full green run exists for this code", and two consecutive reds on one sha must be treated
+  as a defect. panel build + flagship E2E, perf, schema:check, docs:check, docker-compose smoke, npm audit).
   History, kept because it is the interesting part: the first run on this PR (39080689060) was
   **red at the panel E2E step after 52 s** and unreadable from here (B-012: raw logs redirect to a
   blob host outside the allowlist, so the annotation only said "exit code 1"). Instead of guessing

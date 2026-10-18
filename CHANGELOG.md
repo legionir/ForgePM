@@ -61,10 +61,11 @@ exec_*`, no write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_che
   no panel component file is in this change (they were green at the PE-0 close-out commit). The
   scripted E2E gate was run instead, because this change modifies the script itself: green here for
   the first time (chain + flagship 3/3, visual's 14 opt-in skips by `VISUAL=1`).
-- `remote:` **pass** — run 39081071740 on `5915afc`, 22/22 steps green. The run before it
-  (39080689060) was red at the panel E2E step with an unreadable log; the step now reports its own
-  tails as an annotation and the failure did not reproduce — recorded as `cause unknown` (B-012),
-  not as a fix.
+- `remote:` **pass** — run 39082268502 on the PR head `236af36`, 22/22 steps green (also green on
+  the substantive head `5915afc`, run 39081071740). Three of the five runs on this PR were red at
+  two different steps **on identical code**; none was reproduced and none was explained (B-013), so
+  the panel step and the verify step now report their own failing tests as annotations. Treat
+  `remote: pass` as "a full green run exists for this tree", and two reds on one sha as a defect.
 - Acceptance §6: A.2/A.3/A.4/A.5/A.6/A.7/A.8 ticked with evidence; A.1 is `[~]` (projection done
   and proven from DB rows; the tool and its session-reset test are PE-2's); A.9 moves to PE-12
   because no exec panel page renders those labels yet (D-047).

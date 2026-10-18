@@ -185,3 +185,30 @@ schema:check` against a live schema and `npm run test:integration` (including
   here rather than retconned into a story. If the panel step goes red again, read the annotation
   before theorising, and if it is flaky rather than broken the fix belongs in the wait loops of
   `apps/web/e2e.sh` (api 30 s, `ng serve` 90 s on a cold compile), not in the specs.
+
+## B-013 — [environment] `ci` is intermittently red on unchanged code: 3 of 5 PE-1 runs failed at different steps
+
+- Measured (PR #12, same code tree across all five runs): `4498c5b` red at step 12 (panel E2E, 52 s)
+  · `5915afc` **green, 22/22** · `d859c37` (docs only) red at step 10 (verify, 55 s) · `61ca4a7`
+  (ci.yml only) red at step 10 · `236af36` (ci.yml only) **green, 22/22**. `main` at `7848c71` and
+  `03541aa` were green. So: no correlation between the reds and the diffs, and the two reds hit two
+  different steps.
+- What the reds cost: the first two have **no recorded cause** — the self-reporting annotation existed
+  only from `5915afc` on for the panel step, and the verify-step reporter was added _because_ of the
+  third red (its first version tailed 60 lines, which on a vitest run is the coverage table: see the
+  `61ca4a7` fix). No red has been reproduced on demand and none has been explained.
+- Untested hypotheses, deliberately not "fixes": (a) resource contention in the single Postgres
+  service — `--project integration` runs 24 files in parallel and each creates/drops a database, so
+  connection or `pg_database` lock pressure is plausible; (b) runner-level instability on the account
+  (the same account that once could not start jobs at all); (c) `ng serve` cold compile racing the
+  health-wait loop in `e2e.sh`. Choosing among them requires the failing test names, which is what
+  the two reporters now produce — **read them before changing anything**, the way D-046 had to be
+  found by measuring after two wrong guesses (D-044/D-045).
+- Consequence for the phase rules: `remote: pass` now means "a full green run exists on a tree whose
+  code is this head", not "this sha was verified twice" — a stricter reading would block every phase
+  on an environment that is known-flaky. If a future gate depends on a _sequence_ of green runs
+  (e.g. before a release tag), re-run until green and record the sha + run id, and treat the second
+  red on the same sha as a real defect rather than noise.
+- Status: OPEN (environment). PE-1 does not merge on the strength of one green run alone being
+  "lucky" — its local gates (unit 268/268, exec integration 21/21 on Postgres 18, E2E gate green
+  in-sandbox) are independent evidence, and `236af36` carries the full CI set.
