@@ -57,7 +57,19 @@ jobs:
         run: npm run migrate
 
       - name: Verify (lint, typecheck, unit+integration+coverage, build)
-        run: npm run verify
+        # Same reasoning as the panel step below: the raw job log redirects to a blob host
+        # outside this sandbox's allowlist (B-012), so a red verify has to report which tests
+        # failed through the annotation channel — the vitest summary is the last thing printed.
+        run: |
+          set +e
+          npm run verify 2>&1 | tee /tmp/verify.out
+          VERIFY_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$VERIFY_STATUS" -ne 0 ]; then
+            MSG=$(tail -n 60 /tmp/verify.out | tr -d '\r' | sed 's/%/%25/g; s/:/%3A/g' | awk '{printf "%s%s", sep, $0; sep="%0A"}')
+            echo "::error::npm run verify failed (exit $VERIFY_STATUS) — $MSG"
+            exit "$VERIFY_STATUS"
+          fi
 
       - name: "gen:api drift check (OpenAPI spec + typed client are committed)"
         run: npm run gen:api:check
