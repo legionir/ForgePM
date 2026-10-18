@@ -70,6 +70,70 @@ exec_*`, no write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_che
   and proven from DB rows; the tool and its session-reset test are PE-2's); A.9 moves to PE-12
   because no exec panel page renders those labels yet (D-047).
 
+## [Unreleased] — Execution control, PE-2 (2026-10-18)
+
+The five mandatory ledger tools, on the real dispatch path: scope checks, call logging,
+idempotency and the approval gate are the api's business, every ledger rule stays in
+`@forgepm/core/src/exec`, and no rule got a second owner.
+
+### Added
+
+- **Five MCP tools** (`apps/api/src/modules/exec/mcp-tools.ts`, all gated on `module: 'exec'`):
+  `exec_task_start` (work item + `exec_tasks` + one `exec_criteria` per criterion + audit + event in
+  one transaction), `ledger_add_open_item`, `ledger_resolve_item` (agent soft-closure of a blocking
+  item refused with `LEDGER_TRANSITION_NOT_ALLOWED`; a human's is written and logged),
+  `ledger_list_open` (active first, history after), `exec_ledger_status` (the shared projection; an
+  empty project answers `{empty:true, needed_action}` and names `exec_task_start`).
+- **`packages/core/src/exec/task-start.ts`** — `parseTaskStart` for shape, `checkCriteria` for the
+  law: a criterion must be observable and referenced, and every refusal in a batch is reported at
+  once, with the shared good/bad examples. Vague wording is refused before the approval gate opens,
+  so an unexecutable payload never costs a human an approval request.
+- **`packages/core/src/exec/ledger-status.ts`** — `loadLedgerStatus`, the loader PE-2's tool and the
+  panel both read from: six queries for a whole task set, `NOT_FOUND` for an unknown ref.
+- **`apps/api/src/modules/mcp/json-schema.ts`** — `tools/list` now advertises the enforced shape
+  (types, bounds, enums, uuid format, array limits) and `additionalProperties: false` only where the
+  schema is a `strictObject`. Previously every tool was advertised as permissive while the handler
+  rejected unknown keys (D-049).
+
+### Fixed
+
+- **A `text` ref compared against a `uuid` column** surfaced as `INTERNAL` rather than `NOT_FOUND`
+  on the project/task lookups the tools share; the queries now cast the id side, which is also what
+  lets a PRJ-key or a `T-NNN` code be passed anywhere a ref is accepted.
+- **Defaulted tool fields were advertised as required** (`ZodDefault` was not treated as optional),
+  so a client following the advertisement would have sent keys it could have omitted.
+- **`apps/web/e2e.sh` could not run its own specs in a fresh container**: with an extracted
+  `@sparticuz/chromium` binary the browser died at `eglInitialize SwANGLE failed … EGL_NOT_INITIALIZED`,
+  and after the first fix it survived exactly one launch, so every spec after the first failed on
+  "browser has been closed" — which is why D-046 had settled for one spec per invocation. The script
+  now derives the launch flags itself when `CHROMIUM_PATH` is set and the caller passed no
+  `CHROMIUM_ARGS`: drop `--single-process`/`--no-zygote` (the one-launch limit) and the ANGLE/SwANGLE
+  GL flags in favour of `--disable-gpu --disable-software-rasterizer --disable-gpu-compositing`. A
+  caller-supplied `CHROMIUM_ARGS` still wins, so a machine with a GPU changes nothing.
+
+### Gate (honest reporting)
+
+- `local:` unit **297/297** · exec integration **21/21** and tools integration **12/12** on real
+  PostgreSQL 18 (the 12th case is `req_ids` declaring a requirement without ever covering it, D-049
+  #2) · whole integration suite 202/5/2 (Redis and `pg_dump` bounds, unchanged) · lint ·
+  typecheck · build · docs:check · `gen:api:check` (the committed OpenAPI spec and generated client
+  are still up to date — PE-2 adds no REST route) : all pass.
+- `local (panel):` **ran here, and passed** — `bash apps/web/e2e.sh` exits 0 against a real API on
+  :3101, the dev-server on :4200 and Postgres: `chain.spec.ts` **2/2** (the §11 full chain including
+  the board drag, then fa/RTL + axe with no serious/critical violation on six pages) and
+  `flagship.spec.ts` **1/1**; `visual.spec.ts`'s 14 cases stay opt-in skips, which is what the plan
+  prescribes (baselines are a human concern). Running it needed one harness fix, described next; no
+  panel _application_ file is in this change.
+- `local (coverage):` the CI threshold run cannot be reproduced while the Redis-bound files fail
+  (vitest suppresses the report on failure); per-file slices — `task-start.ts` 86.4% lines via
+  integration and 38.8% via unit, `ledger-status.ts` 84.6%, `apps/api/src/modules/exec` 82.87%,
+  `json-schema.ts` 96.6% — clear the 80% floor on the union, with the residual risk in branch detail.
+- `remote:` **cannot-run from this session** — PR #12 was merged, which closed `arena/c216c536-forgepm`
+  to GitHub operations; PE-2 is committed locally and needs a fresh session to push and get CI's
+  verdict. This is recorded as an unfinished gate, not as a pass.
+- Acceptance §7: B.1–B.8 ticked with their tests; §6 A.1 closed here (the tool over real rows plus the
+  empty-project case).
+
 ## [Unreleased] — Execution control, PE-0 (2026-10-17)
 
 Scaffolding phase of `docs/EXECUTION_CONTROL_PLAN.md` (agent execution control:

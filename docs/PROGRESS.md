@@ -230,3 +230,97 @@ Status: **code complete — local gates green, hosted CI green except the
   `ledger_add_open_item`, `ledger_resolve_item` as thin wrappers over these service functions, the
   `unitOfWork` + `audit_event` pairing, the tool-shaped re-assertions of A.1/A.3, then the §7 B.x
   gates (idempotency, scope, policy refusals).
+
+## PE-2 — the five ledger tools over the real dispatch path (B.1–B.8 closed)
+
+- Scope: `exec_task_start`, `ledger_add_open_item`, `ledger_resolve_item`, `ledger_list_open`,
+  `exec_ledger_status` — registered, `module: 'exec'` gated, and each a thin wrapper over PE-1's
+  service so no rule has two owners. §6 A.1 closed here too (the tool + the empty-project answer).
+- `packages/core/src/exec/task-start.ts`: `parseTaskStart` (shape) and `checkCriteria` (the law,
+  mapping `assessCheckable` onto `CRITERION_NOT_CHECKABLE` and reporting **every** bad criterion in
+  one answer), `createTask` (T-code via `allocateLedgerCode`, the `exec_tasks` row, one `exec_criteria`
+  row per criterion with C-codes, unknown `req_ids` → `NOT_FOUND`, one `task.created` event).
+- `packages/core/src/exec/ledger-status.ts`: `loadLedgerStatus` — six queries for the whole task set,
+  feeding `buildLedgerStatus`; `{empty:true, needed_action}` when the project has no task (B.5),
+  `NOT_FOUND` for an unknown `task_ref` rather than a misleading empty answer (A.8).
+- `apps/api/src/modules/exec/service.ts` + `mcp-tools.ts`: project resolution (explicit `project_ref`
+  → the key's single bound project → refusal naming both), the agent path inheriting
+  `work_item.create`'s approval gate with **checkability evaluated first** (so an unexecutable
+  payload never spends an approval slot), `recordAudit` inside the same `unitOfWork`, idempotency via
+  `beginIdempotency`/`storeIdempotencyResult`/`abandonIdempotency`, and `FORBIDDEN_SCOPE`/
+  `mcp_tool_calls` masking left to dispatch where they already lived. `gateAgentOperation` is now
+  exported rather than re-implemented (D-049).
+- `apps/api/src/modules/mcp/json-schema.ts`: `tools/list` advertises the enforced shape — real types
+  and bounds, and `additionalProperties: false` exactly when the schema is a `strictObject`. The old
+  mapper told every client that extra keys were welcome while the handler refused them (B.1).
+- Tests: 18 unit on the task-start parser/laws (incl. the 10-row checkable/vague table with a Persian
+  row) · 11 unit on the advertisement (per tool, plus "every advertised type is valid JSON Schema") ·
+  12 integration through `callTool`: one-shot task creation with its event + audit row, the
+  `pending_approval` path writing nothing, masking of `api_key` in a refused call, read-only scope,
+  idempotent replay, and A.3 at the tool boundary (refusal leaves the event count alone; the human
+  closes it; `ledger_list_open` still shows it as history — A.2). The 12th case is D-049 #2: a task
+  that declares `req_ids` gets the echo and **not** the coverage, and the requirement stays in
+  `requirements_uncovered` (seeded in its own project, because that list is read project-wide).
+- PE-0's registry expectation was updated, not weakened: it used to assert that no `exec_*` tool
+  exists at all; now it asserts the exact five, that all five are `module: 'exec'`, and that no tool
+  name looks like a ledger delete path. "Dark" now means gated, which is the real invariant.
+- Two bugs the gates caught (both mine, both real): comparing a `text` ref against a `uuid` column
+  surfaced as `INTERNAL` instead of `NOT_FOUND` on three call paths, and the `default(...)` fields
+  were advertised as required. Fixed with tests attached to each.
+- `local:` unit **297/297** · `--project unit packages/core/src/exec apps/api/test/unit` 142+29 ✅ ·
+  integration on PostgreSQL 18: `exec-tools` **12/12** + `exec-ledger-invariants` **21/21** (33/33) ✅,
+  whole suite 202 passed / 5 failed / 2 skipped — the same five Redis/`pg_dump`-bound files
+  (B-005/B-009) · lint 0 ✅ · typecheck 0 ✅ · build ✅ · docs:check ✅ · `gen:api:check` ✅ (no REST
+  route was added, so the committed spec and client are still the truth). Panel component gates: see
+  the next line — the tools touch no panel file.
+- `local (panel):` `bash apps/web/e2e.sh` **exit 0** — `chain.spec.ts` 2/2 (the §11 full chain with the
+  board drag; then fa/RTL + axe, no serious/critical violation on `/projects`, `/work-items`,
+  `/features`, `/planner`, `/api-keys`, `/system`) and `flagship.spec.ts` 1/1; `visual.spec.ts` = 14
+  opt-in skips, which is the documented default. A `VISUAL=1` probe in the reinstalled container came
+  out 9/14: the five diffs are _height_ differences (1280×569 vs 1280×503 …) because the per-file
+  `e2e-reset` truncates to an empty install while the committed baselines were captured on a populated
+  one — D-046's standing judgment that baselines are a human concern, and not a PE-2 regression.
+  Getting the suite to launch at all took the harness fix in `apps/web/e2e.sh` (see the changelog):
+  `--single-process --no-zygote` survived one launch only, and ANGLE/SwANGLE cannot init without a GPU.
+- `local (B.3 at the CLI):` the plan's CLI-level under-40-character case is **not** a PE-2 gap:
+  `scripts/ledger-cli.ts` (D-11) does not exist yet and is PE-3's work item; the floor itself is
+  enforced and tested where it lives — `openItemInputSchema.why_not_blocking.min(40)` and the
+  `ledger_add_open_item` tool.
+
+- `local (coverage):` the CI gate is `vitest run --coverage` over **both** projects, which cannot be
+  measured here while the Redis-bound files fail (vitest suppresses the report on failure). The two
+  slices instead: unit-only `task-start.ts` 38.8% / `json-schema.ts` 96.6%, integration-only
+  `task-start.ts` 86.4%, `ledger-status.ts` 84.6%, `apps/api/src/modules/exec` 82.9% — every new file
+  clears 80% lines on the union, so the risk is in branch details, not in an untested surface.
+- `remote:` **cannot-run — this session's branch is closed to GitHub** (PR #12 was merged, so pushes
+  and new PRs from `arena/c216c536-forgepm` are refused). PE-2 is committed locally on this branch and
+  must be pushed from a fresh session; CI has not seen it. Not a waiver: `npm run verify`'s integration
+  half here runs without Redis, which CI does have, so the remote gate still owes a verdict.
+- Recorded on `arena/c216c536-forgepm` as `caa59db` — 79 files, the re-materialised PE-0 + PE-1 +
+  PE-2 tree (the sandbox was reset twice and rewound git to `bc6f28b`, deleting the earlier local
+  commit). The sha is written down here precisely because a reset can take it out of git again.
+  `docs/PHASENaN_REPORT.md` was deliberately left untracked: it is a stale `report:phase` artifact
+  titled "Phase NaN" with a `local: fail` verdict that belongs to no phase, and committing it would
+  pass off a leftover as evidence.
+- A fresh session starts at `docs/HANDOFF-PE-3.md`: where the work lives (only 2 local commits are
+  ahead of GitHub), what to restore first, the PE-3 step list, and the traps that cost time here.
+- Next: PE-3 (plan §8) — `exec_submit_exit_report` with the strict `exitReportSchema` and the
+  explicit-"none" rule, `exec_task_complete` as the single gate over the 13 rules that PE-0 already
+  shipped in `packages/core/src/exec/gate.ts`, the Gate stamp into `exec_gate_checks`, `deriveStatus`,
+  `buildFinalReport`, and the WorkItem linkage (§8.3 / I-1) — plus acceptance C.1–C.11 and C.9b. Two
+  sequencing corrections to the plan-following notes, both checked against the plan rather than
+  guessed: `ledger_add_evidence`, `ledger_record_decision` and `ledger_ask_human` are **PE-4** (§9, table
+  row `ledger_ask_human … PE-4`), so PE-3 only _reads_ `exec_evidence` — for rule 3 and for the
+  `tests_executed[].evidence_id` references; and there is **no** `ledger_answer_human` tool anywhere
+  in the plan — answering a blocking question is the human path (`ledger:decide` scope over
+  REST/panel/CLI), because an agent must not be able to answer its own question. The CLI
+  (`scripts/ledger-cli.ts`, D-11) is PE-4's deliverable too, so the CLI-level floor for a short
+  `why_not_blocking` belongs there; it must reuse the core services instead of speaking the tools'
+  HTTP shapes.
+- Two debts PE-3 inherits that are worth naming before anyone starts: `packages/core/src/exec/gate.ts`
+  is **590 lines**, which already violates the plan's own C.11 bound (`gate.ts` ≤ 400 lines, each rule
+  ≤ 60) — split it into per-rule modules _before_ adding wiring, keeping `rule01…rule13` numbering and
+  order frozen; and the plan's §19 bootstrap (steps 2–9: one REQ per §, `record_decision` for D-01…D-13,
+  `task_split` for PE-0…PE-12, `fact_record` + `baseline_capture`) has never run, because the CLI it is
+  written against does not exist yet — so PE-0…PE-2 are recorded in git and in these docs, not in
+  `exec_*` rows. Back-filling those rows is legitimate PE-4+ work, not something to fake now.

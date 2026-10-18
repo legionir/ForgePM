@@ -40,19 +40,23 @@ export function registerMcpCallsRoutes(app: FastifyInstance, deps: AppDeps): voi
     },
     async (req) => {
       const actor = requireActor(req);
-      let q = db
-        .selectFrom('mcp_tool_calls')
-        .selectAll()
-        .where('organization_id', '=', actor.organizationId);
+      let q = db.selectFrom('mcp_tool_calls').selectAll().where('organization_id', '=', actor.organizationId);
       if (req.query.tool) q = q.where('tool', '=', req.query.tool);
       if (req.query.outcome) q = q.where('outcome', '=', req.query.outcome);
       if (req.query.cursor) {
         const { createdAt, id } = decodeCursor(req.query.cursor);
         q = q.where((eb) =>
-          eb.or([eb('created_at', '<', new Date(createdAt)), eb.and([eb('created_at', '=', new Date(createdAt)), eb('id', '<', id)])]),
+          eb.or([
+            eb('created_at', '<', new Date(createdAt)),
+            eb.and([eb('created_at', '=', new Date(createdAt)), eb('id', '<', id)]),
+          ]),
         );
       }
-      const rows = await q.orderBy('created_at', 'desc').orderBy('id', 'desc').limit(req.query.limit + 1).execute();
+      const rows = await q
+        .orderBy('created_at', 'desc')
+        .orderBy('id', 'desc')
+        .limit(req.query.limit + 1)
+        .execute();
       const hasMore = rows.length > req.query.limit;
       const slice = hasMore ? rows.slice(0, req.query.limit) : rows;
       return {
@@ -66,7 +70,9 @@ export function registerMcpCallsRoutes(app: FastifyInstance, deps: AppDeps): voi
           request_id: r.request_id,
           created_at: r.created_at.toISOString(),
         })),
-        next_cursor: hasMore ? encodeCursor(slice[slice.length - 1].created_at.toISOString(), slice[slice.length - 1].id) : null,
+        next_cursor: hasMore
+          ? encodeCursor(slice[slice.length - 1].created_at.toISOString(), slice[slice.length - 1].id)
+          : null,
       };
     },
   );

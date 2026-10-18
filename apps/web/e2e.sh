@@ -51,6 +51,21 @@ for i in $(seq 1 90); do curl -sf "http://127.0.0.1:$WEB_PORT/" >/dev/null && br
 # first real browser navigation is not billed the cold compile (slower CI).
 for path in /auth /projects /api-keys /work-items /features /planner /ai-providers /approvals /reviews /github /mcp /settings /system /admin; do curl -sf "http://127.0.0.1:$WEB_PORT$path" -o /dev/null || true; done
 
+# A sandboxed browser (CHROMIUM_PATH pointing at an extracted @sparticuz/chromium headless
+# shell) needs three launch corrections, each of them measured here rather than guessed:
+#   * `--single-process --no-zygote` serve exactly one launch and then kill the next one, so
+#     every spec after the first died on "browser has been closed" — the same symptom D-046
+#     worked around by running one spec per invocation;
+#   * ANGLE/SwANGLE never initialises without a GPU ("eglInitialize SwANGLE failed with error
+#     EGL_NOT_INITIALIZED"), so GL is turned off instead of being faked with swiftshader;
+#   * the shipped `--headless=…` value belongs to Playwright to set.
+# A caller-provided CHROMIUM_ARGS always wins, so a machine with a real GPU can override it.
+if [[ -n "${CHROMIUM_PATH:-}" && -z "${CHROMIUM_ARGS:-}" ]]; then
+  CHROMIUM_ARGS="$(cd "$WEB_DIR" && node -e 'import("@sparticuz/chromium").then(m=>process.stdout.write(m.default.args.filter(a=>!/^--(headless|single-process|no-zygote|disk-cache-size)/.test(a)).join(" ")+" --disable-gpu --disable-software-rasterizer --disable-gpu-compositing"))')"
+  export CHROMIUM_ARGS
+  echo "e2e: derived CHROMIUM_ARGS for the sandbox binary"
+fi
+
 echo "e2e: Playwright (per-file DB reset: every spec starts on a brand-new install)"
 STATUS=0
 # perf.spec.ts (P-05) needs the seeded dataset, not a clean install — it is

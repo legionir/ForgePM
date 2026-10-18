@@ -343,7 +343,9 @@ export async function bulkCreate(db: Db, actor: Actor, projectId: string, items:
 }
 
 /** Gate agent mutations under the approval policy; returns { pending } if approval is needed. */
-async function gateAgentOperation(db: DbLike, actor: Actor, projectId: string, operation: string, desc: Omit<OperationDesc, 'operation'>): Promise<{ pending: true; approval_request_id: string } | null> {
+/** Shared with the exec module (PE-2): an agent ledger write must pass the same gate a
+ *  work-item write passes, so `exec_task_start` cannot be a way around approvals. */
+export async function gateAgentOperation(db: DbLike, actor: Actor, projectId: string, operation: string, desc: Omit<OperationDesc, 'operation'>): Promise<{ pending: true; approval_request_id: string } | null> {
   if (actor.type !== 'agent') return null;
   const allowed = new Set(((await getEffective(db as Db, 'approval.auto_operations', actor.organizationId, projectId))?.value as string[]) ?? ['work_item.create', 'work_item.update_content', 'work_item.comment', 'work_item.link']);
   const rateOk = await autoRateOk(db, actor.id);
