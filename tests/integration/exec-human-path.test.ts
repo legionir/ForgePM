@@ -63,7 +63,8 @@ beforeAll(async () => {
   projectId = seeded.projectId;
   userId = seeded.userId;
   // The human's key may decide; the agent's key may not (D-040: `ledger:decide`
-  // is human-only, and B.15 says an agent's key gets FORBIDDEN_SCOPE).  agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
+  // is human-only, and B.15 says an agent's key gets FORBIDDEN_SCOPE).
+  agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
   const registry = buildRegistry();
   await upsertSetting(db, 'system', null, 'modules.exec.enabled', true);
   registry.invalidate();
