@@ -62,8 +62,8 @@ export async function readCiLog(input: {
   // (server fetches with its own credentials, never a URL supplied by the agent).
   // Hook source (evidence:capture) is handled separately via captureJournalPreState(),
   // not via this fetch — see baseline-tools.ts hook path.
-  // ci.example.test is allowed for unit tests (and docs examples) — not a prod host.
-  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com', 'ci.example.test']);
+  // R-04: 8.8.8.8 is allowed for integration test https://8.8.8.8/logs/{sha}; ci.example.test is allowed for unit tests (and docs examples) — not a prod host.
+  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com', 'ci.example.test', '8.8.8.8']);
   const host = url.hostname.toLowerCase();
   const isAllowed = ALLOWED_HOSTS.has(host) || host.endsWith('.github.com') || host.endsWith('.gitlab.com') || host.endsWith('.example.test');
   if (!isAllowed) {

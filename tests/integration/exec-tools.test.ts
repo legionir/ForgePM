@@ -577,7 +577,7 @@ describe('PE-3 — the exit report (plan §8.1)', () => {
     const blocking = await sql<{ title: string; blocks_completion: boolean }>`
       SELECT title, blocks_completion FROM exec_open_items WHERE task_id = ${task.task_id}::uuid
     `.execute(db as never);
-    expect(blocking.rows.filter((r) => r.blocks_completion).length).toBe(1);
+    expect(blocking.rows.filter((r) => r.blocks_completion).length).toBe(2); // R-07: both incomplete_requirement + out_of_scope block
   });
 
   it('a declared scope deviation is filed as an out_of_scope item', async () => {
