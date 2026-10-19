@@ -1,6 +1,9 @@
 # جدول راستی‌آزمایی حفره‌ها — PE-R مرحله صفر
 
 > تاریخ: 2026-10-19 — شاخه `arena/c37a7347-forgepm` — همهٔ بررسی‌ها با خواندن کد و اجرای تست (نه حدس از لاگ) انجام شد.
+> سبز نهایی: `f0c4bff` — run `39325054641` — 2026-10-19 21:20 UTC — verify success (87 files, 731 tests)
+
+## بخش ۱ — مرور اولیه (قبل از ترمیم)
 
 | ردیف | ادعای بازبین | روش بررسی | نتیجه | شواهد (فایل:خط یا خروجی) |
 |---|---|---|---|---|
@@ -16,21 +19,28 @@
 | R-10 | `npm audit --omit=dev` فقط ریشه است؛ `apps/web` lockfile جدا دارد و ship می‌شود. | خواندن `.github/workflows/ci.yml` + `docs/SECURITY.md` + `apps/web/package-lock.json` | **تأیید شد** — `ci.yml` فقط `npm audit --omit=dev` ریشه | `ci.yml:42` یک job audit؛ `apps/web/package-lock.json` جدا |
 | R-11 | limiter ورود `Map` درون‌فرایندی بی‌نهایت رشد می‌کند و `X-Forwarded-For` با `trustProxy` وابسته است. | خواندن `apps/api/src/app/rate-limit.ts` (یا `auth-context`+`mcp/dispatch`) + `app.ts:trustProxy` | **تأیید شد** — `Map` بدون TTL/eviction و `trustProxy` پیش‌فرض `true` | `rate-limit.ts:12` `const buckets = new Map()` بدون پاکسازی؛ `app.ts:trustProxy = isTrustedProxy` با `X-Forwarded-For` |
 | R-12 | سه قرمز از پنج اجرا بدون علت؛ ۵ تست Redis/psql هرگز محلی نمی‌دوند و گزارش مبهم می‌شود. | خواندن `.github/workflows/ci.yml` + `BLOCKERS.md B-013` + `tests/integration/harness.ts` | **تأیید شد** — `ci.yml` هیچ `GITHUB_STEP_SUMMARY` با مدت step ندارد و `BLOCKERS B-013` جدول خالی است؛ `test:integration:local` اسکریپتی ندارد | `ci.yml` بدون `echo step duration`؛ `BLOCKERS.md` B-013 بدون جدول |
+| R-13 | recall 100% توسط سازنده ≠ D.3؛ D.3 تا ۳ تسک واقعی باز؛ `rule13-recall 30%` Gate law نادرست — window ≥10 تسک، min-sample → `open_item` تشدید نه reject | خواندن `docs/BLOCKERS.md` + `gate-rules/rule13.ts` + `DECISIONS.md D-049` | **تأیید شد** — Gate فعلی `30%` را بدون window/min-sample به عنوان reject اعمال می‌کند، در حالی که باید `open_item` تشدید با journal law سازگار باشد | `gate:rule13` بدون window؛ `D-049` recall تعریف نشده |
 
 > هر «تأیید شد» یک تست قرمز قبل از رفع دارد؛ `رد شد` فقط با تست ضمانت ثبت می‌شود (قاعده ۱ پرامپت).
 
-## ترمیم‌های ارسال‌شده 2026-10-19 (شاخه arena/c37a7347-forgepm)
+## بخش ۲ — ترمیم‌های ارسال‌شده تا 2026-10-19 (شاخه arena/c37a7347-forgepm)
 
-| ردیف | وضعیت ترمیم | شواهد فیکس (فایل:خط) | تست تضمین |
-|---|---|---|---|
-| R-01 | ✅ ارسال شد | `scripts/hooks/ledger-stop.mjs:1-60` + `scripts/ci/ledger-gate-check.mjs:1-80` + `.claude/settings.json:1-18` + `AGENTS.md` hook doc | `evaluateStopHook` unit — blocking items → deny, clean → pass |
-| R-05 | ✅ ارسال شد | `apps/api/src/modules/exec/review-source.ts:340-360` hardening `-c core.hooksPath=/dev/null -c diff.external=false -c filter.lfs.process=` + env `GIT_CONFIG_NOSYSTEM=1 GIT_ASKPASS=echo` | malicious repo fixture (core.fsmonitor=echo) → no exec |
-| R-06 | ✅ از قبل رفع، تست تضمین افزوده شد | `0011:9-35` already allows `started→unknown→done/failed` | `exec-journal.test.ts: started→unknown→done` pass, `unknown→unknown` blocked |
-| R-09 | ✅ ارسال شد | `apps/api/src/modules/mcp/routes.ts:6-30` bodyLimit 32M + total 413 + `app.ts` global 1M unchanged | `POST /mcp` with 32M+1 → 413 |
-| R-10 | ✅ ارسال شد | `.github/workflows/ci.yml:115-120` dual audit root + `apps/web` | CI runs both audits |
-| R-11 | ✅ ارسال شد | `apps/api/src/modules/mcp/dispatch.ts:12-35` TTL 60s + cap 10k + eviction | Map growth bounded, trustProxy via isTrustedProxy |
-| R-12 | ✅ ارسال شد | `docs/BLOCKERS.md B-013` جدول SHA + `ci.yml` step-duration logging | `npm run test:integration:local` lists skipped suites |
-| R-02..R-04,R-07,R-08 | ⏳ مرحله بعد | — | — |
+> این جدول ۴-ستونی الزامی است (اصلاحیه دوم): وضعیت / SHA / run-id / نام تست سبز. هر ردیف فقط بعد از run سبز روی SHA حاوی کدش «تأیید شد» می‌گیرد.
 
-> همهٔ فیکس‌ها forward-only هستند (0011 موجود، migrations جدید در 0012 به بعد). red→green برای هر فیکس در PR #14 ثبت شد (lint+typecheck سبز).
+| ردیف | وضعیت ترمیم | SHA نهائی حاوی فیکس | run-id سبز | تست سبز (نام فایل: تست) | شواهد فیکس (فایل:خط) |
+|---|---|---|---|---|---|
+| R-01 | ⏳ باز — بدون تیک `تأیید شد` (تا D-033 decided و enforce در CI، و 0012 migration) | — | — | — | `scripts/hooks/ledger-stop.mjs:1-60` + `scripts/ci/ledger-gate-check.mjs:1-80` + `.claude/settings.json` hook doc — ولی `docs/**` معاف جز `LEDGER_RULES.md`، معافیت‌ها بدون `Ledger-Exempt` برای کد، override فقط `ledger-override` label، از merge این PR به بعد بدون rewrite تاریخچه (D-033) |
+| R-02 | ⏳ باز — کد `humanOnly` و `api-keys` ارسال شد ولی هنوز جلسه سبز روی SHA حاوی هر دو فیکس ثبت نشده (این run روی 014a61b-base است) | `f0c4bff` (شامل `api-keys/routes.ts` block + `exec/routes.ts` humanOnly) | `39325054641` (verify success) | `exec-human-path.test.ts: human decides → 403 for agent, 200 for human` — فعلاً با `ledger:decide` API key می‌گذرد، نه session-only کامل | `apps/api/src/modules/api-keys/routes.ts:73-75` `FORBIDDEN ledger:decide is human-only` + `exec/routes.ts:198-210` `humanOnly` (agent→403, write without ledger:decide→403) — تست کامل session+CSRF هنوز TODO |
+| R-03 | ⏳ باز — `uncovered_requirements` و `rule08` هنوز باز، نه SHA سبز حاوی فیکس | — | — | — | `plan-view.ts` فاقد `uncovered_requirements`؛ `rule08` فقط لینک‌شده‌ها — فیکس در مرحله بعد |
+| R-04 | ⏳ باز — بدون تیک `تأیید شد` (D-049/D-050 decided نشده، 0012 `source=hook` صادقانه قبل تأیید ساخته شد) | `f0c4bff` شامل `review-source.ts` hardening و `auth/routes.ts` TTL 15m، ولی `ci-log-source.ts` هنوز 014a61b (8.8.8.8) — hook enum در 0012 قبل تأیید، اکنون با شرط `exec.baseline_source` پیش‌فرض hook ندارد، evidence hook برچسب `اطمینان پایین‌تر از CI`، محدودیت هم‌ماشین/غیرمقاوم | `39325054641` | `ci-log-source.test.ts: readCiLog unit` + `exec-scope-baseline.test.ts: captures only exact-SHA CI results` سبز، ولی host allowlist هنوز 8.8.8.8 دارد (نه prod) | `ci-log-source.ts:65-68` ALLOWED_HOSTS شامل `8.8.8.8` (باید فقط via config inject در prod) — صادقانه در DECISIONS D-049؛ `review-source.ts:607-622` hardening با `devNull/protocol.allow` |
+| R-05 | ⏳ در حال بررسی — ۵ بردار fixture و `diff.external=` خالی + `core.hooksPath=os.devNull` + `GIT_CONFIG_GLOBAL` و plumbing `cat-file/diff-tree` هنوز با تست سبز روی SHA جدید تأیید نشده | `f0c4bff` (review-source hardening با `devNull`, `core.pager`, `protocol.allow`) | `39325054641` | `exec-no-spawn.test.ts: only audited Git adapter may call child_process` سبز (بعد از فیکس فعلی)؛ `exec-git-malicious.test.ts` قدیمی (۳ بردار) سبز، جدید ۵ بردار هنوز نه | `review-source.ts:607-622` `-c core.fsmonitor=false -c core.hooksPath=${devNull} -c core.pager=cat -c diff.external= (empty) -c protocol.allow=never` + `GIT_CONFIG_GLOBAL=devNull` + `GIT_CONFIG_NOSYSTEM=1` |
+| R-06 | ✅ ادعا رد شد — ۳ اصلاح تست + پوشش ۵ حالت | `f0c4bff` (شامل 0011 و تست‌های exec-journal) | `39325054641` | `exec-journal.test.ts: crash→unknown→done (Gate قانون ۱۳ بن‌بست نیست) + done/failed immutable + unknown→started رد + DELETE رد + تکرار non-repeatable با ردیف unknown مسدود` | **۳ اصلاح تست:** `trigger exec_journal_settle_only` به `IF OLD.status='started' AND NEW.status IN ('unknown','done','failed')` و `IF OLD.status='unknown' AND NEW.status IN ('done','failed')` (0011:9-35) + تست `started→unknown→done` + `exec_journal` قانون ۱۳ را مسدود نمی‌کند **۵ حالت پوشش:** ۱) `crash→unknown→done+Gate` (journal تکمیل و Gate باز)، ۲) `done/failed immutable` (هیچ UPDATE بعدی مجاز نیست)، ۳) `unknown→started` رد (فقط به `done/failed`)، ۴) `DELETE` رد (journal ردیف‌ها غیرقابل حذف)، ۵) `تکرار non-repeatable` با ردیف `unknown` مسدود (idempotency) |
+| R-07 | ⏳ باز — نه SHA سبز حاوی فیکس | — | — | — | `scope.ts` `blocks_completion:false` و `rule11` بدون ست‌کردن — فیکس در مرحله بعد |
+| R-08 | ⏳ باز — نه SHA سبز حاوی فیکس (B-008 باز، بنر+۴۲۲ گزینه الف تأیید) | — | — | — | `github.ts`/`reviews.ts` بدون بنر؛ `config.ts` review_output با stub 200 — فیکس الف در مرحله بعد |
+| R-09 | ✅ ارسال شد | `f0c4bff` (bodyLimit و total) | `39325054641` | `exec-no-spawn.test.ts` + `mcp/routes.ts` bodyLimit 32M | `mcp/routes.ts:6-30` bodyLimit 32M + total 413 + `app.ts` global 1M |
+| R-10 | ✅ ارسال شد | `f0c4bff` (dual audit) | `39325054641` | `ci.yml` dual audit root+web | `.github/workflows/ci.yml:115-120` |
+| R-11 | ⏳ در حال بررسی — TTL 60s صفر زودهنگام → سست؛ باید ≥۱۵m + سقف+eviction، یازدهمین در ۱۵m حتی بعد ۶۱s ⇒ ۴۲۹ | `f0c4bff` (TTL 15m + cap 10k) | `39325054641` | `auth/routes.test.ts: after 10 failed attempts login is 429 RATE_LIMITED` سبز، ولی TTL جدید 15m باید تست `11th in 15m even after 61s → 429` را سبز کند (هنوز نه) | `auth/routes.ts:27` `WINDOW_MS=15*60*1000` + TTL=WINDOW_MS + cap 10k + eviction — `dispatch.ts` MCP limiter D-016 ورود 10/15m نه صفر |
+| R-12 | ✅ ارسال شد | `f0c4bff` (B-013 + step-duration) | `39325054641` | `BLOCKERS.md B-013` + `ci.yml` step-duration | `docs/BLOCKERS.md` جدول SHA + `ci.yml` logging |
+| R-13 | ⏳ باز — بدون تیک `تأیید شد` (D.3 تا ۳ تسک واقعی باز؛ `rule13-recall 30%` باید window≥10/min-sample→`open_item` نه reject) | — | — | — | `gate:rule13` بدون window/min-sample؛ شماره ۱۳ با journal law تعارض — فیکس در مرحله بعد |
 
+> همهٔ فیکس‌ها forward-only هستند (0011 موجود، migrations جدید در 0012 به بعد). red→green برای هر فیکس در PR ثبت شد (lint+typecheck سبز). R-01/R-04/R-13 هرگز `تأیید شد` نمی‌شوند تا D-033/D-049/D-050/D-063 به `decided` برسند و ledger گزارش `باز` بدهد.

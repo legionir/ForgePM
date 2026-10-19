@@ -1,6 +1,6 @@
 # Scaling
 
-**R-11 limiter (D-016) — current in-process Map, TTL 60s, cap 10k, trustProxy explicit (`isTrustedProxy`), key = `req.ip` when `trustProxy=false` so `X-Forwarded-For` cannot bypass. Multi-instance: each process has its own Map, so a 120/min limit becomes N×120 across N replicas — documented, not hidden. Redis-backed limiter is the future path.**
+**R-11 limiter (D-016) — current in-process Map, TTL 15m (WINDOW_MS 15min), cap 10k, eviction of oldest + expired sweep, trustProxy explicit (`isTrustedProxy`), key = `req.ip` when `trustProxy=false` so `X-Forwarded-For` cannot bypass. TTL 60s was too short (zero early) → 15m with cap+eviction; 11th request in 15m even after 61s ⇒ 429. Multi-instance: each process has its own Map, so a 120/min limit becomes N×120 across N replicas — documented, not hidden. Redis-backed limiter is the future path.**
 
 Path of growth (documented, not implemented in v1 — plan §14):
 
