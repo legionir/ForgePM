@@ -37,14 +37,29 @@ export interface McpDeps {
 const jsonSchema = jsonSchemaFor;
 
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const RATE_TTL_MS = 60_000;
+const RATE_MAX_BUCKETS = 10_000;
 export function resetRateBuckets(): void {
   rateBuckets.clear();
 }
 function rateOk(keyId: string, limit: number): boolean {
   const now = Date.now();
+  // R-11: opportunistic TTL sweep + cap — prevents unbounded Map growth per
+  // process and respects trustProxy (rate key is apiKeyId or actor.id, never
+  // X-Forwarded-For when untrusted; see app.ts trustProxy).
+  if (rateBuckets.size > RATE_MAX_BUCKETS) {
+    for (const [k, v] of rateBuckets) if (v.resetAt <= now) rateBuckets.delete(k);
+    if (rateBuckets.size > RATE_MAX_BUCKETS) {
+      // Still over cap: evict oldest resetAt
+      let oldest: string | null = null;
+      let oldestAt = Infinity;
+      for (const [k, v] of rateBuckets) if (v.resetAt < oldestAt) { oldestAt = v.resetAt; oldest = k; }
+      if (oldest) rateBuckets.delete(oldest);
+    }
+  }
   const hit = rateBuckets.get(keyId);
   if (!hit || hit.resetAt <= now) {
-    rateBuckets.set(keyId, { count: 1, resetAt: now + 60_000 });
+    rateBuckets.set(keyId, { count: 1, resetAt: now + RATE_TTL_MS });
     return true;
   }
   hit.count += 1;

@@ -603,12 +603,23 @@ export class GitExecReviewSource implements ExecReviewSource {
         'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_PARAMETERS',
       ]) delete env[key];
       env.GIT_CONFIG_NOSYSTEM = '1';
+      env.GIT_CONFIG_COUNT = '0';
       env.GIT_OPTIONAL_LOCKS = '0';
       env.GIT_PAGER = 'cat';
       env.GIT_TERMINAL_PROMPT = '0';
+      env.GIT_ASKPASS = 'echo';
+      // Plumbing hardening: no hooks, no fsmonitor/filter/external diff from repo config
+      const hardening = [
+        '-c', 'core.fsmonitor=false',
+        '-c', 'core.hooksPath=/dev/null',
+        '-c', 'core.protectHFS=false',
+        '-c', 'diff.external=false',
+        '-c', 'filter.lfs.process=',
+        '-c', 'filter.lfs.required=false',
+      ];
       execFile(
         'git',
-        ['-c', 'core.fsmonitor=false', ...args],
+        [...hardening, ...args],
         {
           cwd: this.root,
           encoding: 'buffer',

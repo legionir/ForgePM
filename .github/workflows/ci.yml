@@ -145,8 +145,11 @@ jobs:
           docker compose ps
           docker compose down -v
 
-      - name: npm audit (production deps; high+ fails)
-        # The shipped surface is the production dependency tree. Dev-only
-        # advisories with no upstream patch (see docs/SECURITY.md "Audit
-        # exceptions") are reviewed, not silently ignored, via --prod.
-        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit (root + apps/web production deps; high+ fails) — R-10 dual audit
+        # R-10: apps/web ships its own lockfile; auditing only the root misses web vulns.
+        run: |
+          npm audit --omit=dev --audit-level=high
+          (cd apps/web && npm audit --omit=dev --audit-level=high)
+
+      - name: ledger-gate — Ledger-Task trailer + Gate stamp (R-01)
+        run: node scripts/ci/ledger-gate-check.mjs

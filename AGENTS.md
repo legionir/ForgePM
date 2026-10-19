@@ -77,6 +77,8 @@ allowed stop is missing GitHub credentials for push (EXECUTION_PLAN §16).
 
 ## Execution control (exec_control)
 
+- **Stop hook (R-01):** `.claude/settings.json` registers `Stop` → `scripts/hooks/ledger-stop.mjs`. It calls `GET /api/v1/exec/status` with `FORGEPM_API_KEY` and blocks exit when `blocked_by`/`pending_approvals`/`journal` (`started`/`unknown`) or `trigger_without_registration` remain. `stop_hook_active` is respected to avoid loops. No chat-only "done" bypasses the ledger.
+- **CI gate (R-01):** `scripts/ci/ledger-gate-check.mjs` checks every product-code commit for a `Ledger-Task:` (or `Ledger-Exempt:` with allowlisted paths) trailer and that the Gate stamp (`gate.json`) was produced via `dryRunGate`. See `.github/workflows/ci.yml` `ledger-gate` job.
 - At the start of a task and after every interruption, call `exec_ledger_status` before making changes; start new work with `exec_task_start`. Follow the trigger map and exit sequence in `docs/LEDGER_RULES.md`.
 - Record observed evidence, decisions, assumptions, questions, and later work in the ledger as they arise. A tool failure is a stop condition: report it; never substitute chat memory, a local file, direct database writes, or another unlogged path for the ledger.
 - **Never invent or choose a risk level**: the policy engine computes it from the recorded decision, so a guessed level would bypass policy.
