@@ -70,6 +70,12 @@ export function registerApiKeysRoutes(app: FastifyInstance, deps: AppDeps): void
       const id = newId();
       const ownerId = req.body.agent_id ? null : actor.id;
 
+      // R-02: ledger:decide is human-only and can never be granted to an API key, even by admin
+      if (req.body.scopes.includes('ledger:decide' as never)) {
+        throw new AppError('FORBIDDEN', 'ledger:decide is human-only and cannot be granted to an API key', {
+          needed_action: 'use a human session (panel/CLI) for ledger decisions',
+        });
+      }
       // POU-12 escalation guard: a key can never mint more power than it holds.
       // Agents may not mint keys at all; a key-authenticated caller may only
       // mint scopes it already has (an `admin` key may mint any scope).

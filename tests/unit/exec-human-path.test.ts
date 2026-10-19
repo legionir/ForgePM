@@ -4,11 +4,11 @@ import { AppError } from '@forgepm/shared';
 // Extract the humanOnly logic as tested in routes.ts (mirrored here for unit isolation)
 // The real function is in apps/api/src/modules/exec/routes.ts; this test documents the R-02 table
 function humanOnly(actor: { type: string; apiKeyId?: string; scopes: string[] }): void {
+  if (actor.apiKeyId) {
+    throw new AppError('FORBIDDEN', 'this is the human path — API keys cannot decide');
+  }
   if (actor.type === 'agent') {
     throw new AppError('FORBIDDEN', 'this is the human path');
-  }
-  if (actor.apiKeyId && !actor.scopes.includes('ledger:decide')) {
-    throw new AppError('FORBIDDEN', 'this is the human path — your API key lacks ledger:decide');
   }
 }
 
@@ -30,8 +30,9 @@ describe('R-02 human-only decision table (apps/api/src/modules/exec/routes.ts hu
     expect(() => humanOnly(userWithWrite)).toThrow(AppError);
     try { humanOnly(userWithWrite); } catch (e) { expect((e as AppError).code).toBe('FORBIDDEN'); }
   });
-  it('user API key with ledger:decide → pass (CLI with human key)', () => {
-    expect(() => humanOnly(userWithDecide)).not.toThrow();
+  it('user API key with ledger:decide → 403 (R-02: API keys cannot decide, even with scope)', () => {
+    expect(() => humanOnly(userWithDecide)).toThrow(AppError);
+    try { humanOnly(userWithDecide); } catch (e) { expect((e as AppError).code).toBe('FORBIDDEN'); }
   });
   it('user session (no apiKeyId) → pass (CSRF checked separately)', () => {
     expect(() => humanOnly(userSession)).not.toThrow();

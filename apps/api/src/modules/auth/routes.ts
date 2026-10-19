@@ -19,15 +19,39 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AppDeps): void {
 
   // POU-18: Login rate limit — both IP-bounded AND account-bounded.
   // In-memory fallback (no Redis). Cross-instance requires Redis-backed store.
+  // R-11: TTL = WINDOW_MS (15min), cap 10k, eviction of oldest + expired sweep.
+  // trustProxy is explicit (default false, see app.ts): req.ip is used, X-Forwarded-For
+  // is ignored when untrusted, so forged headers cannot bypass.
   const loginAttempts = new Map<string, { count: number; resetAt: number }>();
   const accountAttempts = new Map<string, { count: number; resetAt: number }>();
   const WINDOW_MS = 15 * 60 * 1000;
   const MAX_ATTEMPTS = 10;
+  const LOGIN_MAX_BUCKETS = 10_000;
+
+  function sweepExpired(map: Map<string, { count: number; resetAt: number }>): void {
+    const now = Date.now();
+    for (const [k, v] of map) if (v.resetAt <= now) map.delete(k);
+  }
+  function evictIfNeeded(map: Map<string, { count: number; resetAt: number }>): void {
+    if (map.size > LOGIN_MAX_BUCKETS) {
+      // sweep first, then evict oldest if still over
+      sweepExpired(map);
+      if (map.size > LOGIN_MAX_BUCKETS) {
+        let oldest: string | null = null;
+        let oldestAt = Infinity;
+        for (const [k, v] of map) if (v.resetAt < oldestAt) { oldestAt = v.resetAt; oldest = k; }
+        if (oldest) map.delete(oldest);
+      }
+    }
+  }
 
   function recordAttempt(map: Map<string, { count: number; resetAt: number }>, key: string): boolean {
     const now = Date.now();
+    // opportunistic sweep on access (R-11)
+    if (map.size > 100) sweepExpired(map);
     const hit = map.get(key);
     if (!hit || hit.resetAt <= now) {
+      evictIfNeeded(map);
       map.set(key, { count: 1, resetAt: now + WINDOW_MS });
       return false;
     }

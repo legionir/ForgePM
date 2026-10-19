@@ -54,15 +54,20 @@ describe('exec surfaces cannot spawn processes (D-041 / J.7c)', () => {
         if (file === READ_ONLY_GIT_SOURCE) {
           expect(src).toContain("import { execFile } from 'node:child_process'");
           expect(src).toContain("core.fsmonitor=false");
-          expect(src).toContain("core.hooksPath=/dev/null");
-          expect(src).toContain("diff.external=false");
+          expect(src).toContain("core.hooksPath=");
+          expect(src).toContain("core.pager=cat");
+          expect(src).toContain("diff.external=");
+          expect(src).toContain("protocol.allow=never");
+          expect(src).not.toContain("diff.external=false");
           expect(src).toContain("['rev-parse'");
           expect(src).toContain("['ls-files'");
           expect(src).toContain("'diff'");
           expect(src).toContain("['status'");
           expect(src).toContain("'show'");
           expect(src).toContain("GIT_CONFIG_NOSYSTEM");
+          expect(src).toContain("GIT_CONFIG_GLOBAL");
           expect(src).toContain("GIT_OPTIONAL_LOCKS = '0'");
+          expect(src).toContain("devNull");
           expect(src).not.toMatch(/\bshell\s*:\s*true|\b(execSync|spawnSync|execFileSync|spawn)\s*\(/);
           expect(src).not.toMatch(/\[['"](?:add|commit|checkout|reset|clean|restore|rm|push|fetch|pull|merge|rebase|switch|stash)['"]/);
           expect(src).not.toMatch(/\b(writeFile|appendFile|mkdir|unlink|truncate)\s*\(/);

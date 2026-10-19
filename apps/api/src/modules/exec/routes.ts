@@ -196,16 +196,17 @@ export function registerExecRoutes(app: FastifyInstance, deps: { db: Db; registr
    * | GET  /exec/status, /plan, /approvals, POST /gate | yes | ledger:read | 200 | 200 | 200 | 200 |
    */
   const humanOnly = (actor: { type: string; apiKeyId?: string; scopes: string[] }) => {
+    // R-02: ANY API key is forbidden on human-only verbs — even ledger:decide cannot be granted to a key
+    // (scope creation is blocked in api-keys/routes.ts). Only a human session+CSRF may decide.
+    if (actor.apiKeyId) {
+      throw new AppError('FORBIDDEN', 'this is the human path — API keys cannot decide', {
+        needed_action: 'use a human session (panel/CLI) with CSRF, not an API key',
+      });
+    }
     if (actor.type === 'agent') {
       throw new AppError('FORBIDDEN', 'this is the human path', {
         needed_action:
           'an agent may not answer, approve or close on a human behalf — the ledger records who decided, and that is you',
-      });
-    }
-    // R-02: a user API key that lacks ledger:decide (e.g. generic write) must also 403
-    if (actor.apiKeyId && !actor.scopes.includes('ledger:decide')) {
-      throw new AppError('FORBIDDEN', 'this is the human path — your API key lacks ledger:decide', {
-        needed_action: 'use a human session (panel/CLI with ledger:decide) or ask an owner for the scope',
       });
     }
   };
