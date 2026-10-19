@@ -26,8 +26,12 @@ function isStrict(schema: z.ZodTypeAny): boolean {
 }
 
 function describe(schema: z.ZodTypeAny, depth = 0): Json {
-  const inner = (schema as unknown as { _def?: { innerType?: z.ZodTypeAny; type?: z.ZodTypeAny } })._def;
+  const inner = (schema as unknown as { _def?: { innerType?: z.ZodTypeAny; type?: z.ZodTypeAny; schema?: z.ZodTypeAny } })._def;
   const name = typeName(schema);
+  // A `preprocess`/`transform` wrapper does not change the shape it wraps — it
+  // only changes what happens before it. Advertising the inner shape is the
+  // truth; advertising `{type:'object'}` would be a lie.
+  if (name === 'ZodEffects' && inner?.schema) return describe(inner.schema, depth);
   if (name === 'ZodOptional' && inner?.innerType) return describe(inner.innerType, depth);
   if (name === 'ZodNullable' && inner?.innerType) {
     return { anyOf: [describe(inner.innerType, depth), { type: 'null' }] };

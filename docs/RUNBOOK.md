@@ -18,6 +18,15 @@
    new version), then roll env and restart. Rows carry `key_version` so
    mid-rotation reads never fail.
 
+## CI baseline for execution tasks
+
+- ForgePM does not run repository tests, builds, or scripts. To enable Rule 12, configure `exec.ci_log_endpoint` and `exec.ci_log_secret_name` at the system, organization or project scope; store the read-only CI token in the encrypted `secrets` store under that name and never paste it into task data or logs.
+- The endpoint must be HTTPS and return a JSON envelope for the requested commit: `{ "sha": "<full commit SHA>", "run_id": "…", "job": "…", "provider": "…", "log": "<bounded test log>" }`. Put `{sha}` in the endpoint URL to substitute the measured SHA; otherwise ForgePM adds a `sha` query parameter. The endpoint must return named per-test result markers and a compatible summary, not totals alone.
+- Redirects are rejected; timeout is 8 seconds and the entire response is capped at 1 MiB. The SSRF guard blocks private/reserved/link-local targets unless `network.allow_private_targets` is explicitly enabled. The raw log and token are not persisted or returned; the ledger stores parsed outcomes plus run/job/SHA and the log SHA-256.
+- Call MCP `baseline_capture` for a task. It fetches only the server-measured start and current clean commit SHAs. A missing/unparseable/mismatched log returns `BASELINE_UNAVAILABLE` and Rule 12 blocks; only a human may use `POST /api/v1/exec/tasks/:taskId/baseline/waive`, with a reason and an approval/event trail. The waiver does not excuse red CI results or measured test weakening.
+- If the service has no Git commit, task start attempts a bounded, two-pass server-side hash-only scope manifest. A successful manifest keeps scope measurable; if capture is unavailable or unstable, Rule 11 fails closed and only then can a human use the scope waiver. Baseline still requires a commit SHA and therefore needs CI evidence or an explicit human baseline waiver.
+- Scope measurement can be waived only when the server cannot measure it, via human-only `POST /api/v1/exec/tasks/:taskId/scope/waive`; the API refuses waivers while measurement is available. Measured out-of-scope changes must be fixed or explicitly covered by a human scope expansion (`POST /api/v1/exec/scope/:taskId/expand`); a deletion still needs separate approval or restoration.
+
 ## Upgrade
 
 1. `npm run schema:check` on the current DB (must pass).

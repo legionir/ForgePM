@@ -32,7 +32,11 @@ interface StatusDto {
   imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
   template: `
     <ui-page data-testid="github" [title]="i18n.instant('github.title')">
-
+      @if (!status()?.enabled) {
+        <p class="ui-banner ui-banner--warning" data-testid="gh-stub-banner" role="alert">
+          GitHub integration not configured — stub active (B-008). Review output returns 422 until configured.
+        </p>
+      }
       <form (ngSubmit)="save()" data-testid="gh-config">
         <label>{{ i18n.instant('github.app_id') }}<input name="appId" [(ngModel)]="appId" data-testid="gh-app-id" /></label>
         <label>{{ i18n.instant('github.private_key') }}

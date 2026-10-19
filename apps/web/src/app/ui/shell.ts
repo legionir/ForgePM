@@ -97,6 +97,8 @@ export class UiShell {
     { link: '/features', labelKey: 'nav.features', testid: 'nav-features' },
     { link: '/planner', labelKey: 'nav.planner', testid: 'nav-planner' },
     { link: '/ai-providers', labelKey: 'nav.ai_providers', testid: 'nav-ai-providers' },
+    { link: '/exec-tasks', labelKey: 'exec.tasks', testid: 'nav-exec-tasks' },
+    { link: '/exec-policy', labelKey: 'exec.policy_title', testid: 'nav-exec-policy' },
     { link: '/approvals', labelKey: 'nav.approvals', testid: 'nav-approvals' },
     { link: '/reviews', labelKey: 'nav.reviews', testid: 'nav-reviews' },
     { link: '/github', labelKey: 'nav.github', testid: 'nav-github' },

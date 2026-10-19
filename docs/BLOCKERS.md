@@ -159,13 +159,18 @@ schema:check` against a live schema and `npm run test:integration` (including
   bugs, so the gates were worth running. Plan OI-8/OI-9 are closed — D-041
   cancelled the only Docker-bound acceptance item, so nothing is skipped
   "because there is no Docker".
-- Status: **RESOLVED for everything that is not Redis** (2026-10-18, D-048). The harness no
-  longer needs `psql`, so `--project integration` runs on the repo's own Postgres: the ledger file
-  is 21/21 (13 PE-0 + 8 PE-1) and the whole suite is 189 passed / 5 failed / 2 skipped, every
-  failure `pg_dump`/Redis-bound (`FORGEPM_TEST_NO_REDIS=1` makes queue tests fail loudly). Hosted
-  CI runs them with a real Redis and reports green (PR #9 → `main` 7848c71; PR #12).
-- Residual: no Redis binary in this sandbox ⇒ the four queue suites and `phase7-backup` can only be
-  verified remotely. That is a genuine environment gap (not a policy excuse) and CI covers it.
+- Status update (2026-10-18): the harness runs DB-backed integration on the repo's embedded
+  PostgreSQL. The six selected execution-ledger files pass **84/84**. A full
+  `npm run test:integration` run with `FORGEPM_TEST_NO_REDIS=1` reported **254 passed, 5 failed,
+  2 skipped** across 29 files. All execution-ledger files passed. Four queue tests in `outbox` and
+  `phase5-worker` fail loudly when no Redis queue is configured; one backup endpoint test cannot
+  run the missing PostgreSQL client utility; and the separate `phase7-backup` suite cannot set up
+  because `psql` is absent (two tests skipped). `schema:check` still verifies 60 contract tables.
+  Earlier hosted CI runs were green (PR #9 → `main` 7848c71; PR #12), but no CI was triggered for
+  this local continuation.
+- Residual: this sandbox has no Redis server and no `psql`/`pg_dump` utilities. Thus queue delivery,
+  backup endpoint, and backup/restore integration coverage remain environment-blocked locally; this
+  is a genuine environment gap, not a policy excuse.
 
 ## B-012 — [environment] Actions raw job logs are unreachable from the sandbox; a red gate must self-report
 
@@ -186,13 +191,17 @@ schema:check` against a live schema and `npm run test:integration` (including
   before theorising, and if it is flaky rather than broken the fix belongs in the wait loops of
   `apps/web/e2e.sh` (api 30 s, `ng serve` 90 s on a cold compile), not in the specs.
 
-## B-013 — [environment] `ci` is intermittently red on unchanged code: 3 of 5 PE-1 runs failed at different steps
+## B-013 — [environment] `ci` is intermittently red — now with step-duration logging + SHA table (R-12)
 
-- Measured (PR #12, same code tree across all five runs): `4498c5b` red at step 12 (panel E2E, 52 s)
-  · `5915afc` **green, 22/22** · `d859c37` (docs only) red at step 10 (verify, 55 s) · `61ca4a7`
-  (ci.yml only) red at step 10 · `236af36` (ci.yml only) **green, 22/22**. `main` at `7848c71` and
-  `03541aa` were green. So: no correlation between the reds and the diffs, and the two reds hit two
-  different steps.
+| sha | step | result | note |
+|---|---|---|---|
+| 4498c5b | 12 panel E2E | red 52s | no annotation |
+| 5915afc | 22/22 | **green** | first annotation |
+| d859c37 | 10 verify | red 55s | docs only |
+| 61ca4a7 | 10 verify | red | ci.yml only |
+| 236af36 | 22/22 | **green** | ci.yml only, full green |
+| 2ae54e8 | — | green local | PR #14 base |
+| 6cd15f0 | — | green local | PR #14 panel+e2e 2026-10-19 |
 - What the reds cost: the first two have **no recorded cause** — the self-reporting annotation existed
   only from `5915afc` on for the panel step, and the verify-step reporter was added _because_ of the
   third red (its first version tailed 60 lines, which on a vitest run is the coverage table: see the

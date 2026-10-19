@@ -1,10 +1,13 @@
+import { AppError, type ApprovalPolicy, type WorkItemType, type Priority } from '@forgepm/shared';
 import {
-  AppError,
-  type ApprovalPolicy,
-  type WorkItemType,
-  type Priority,
-} from '@forgepm/shared';
-import { getEffective, type DbLike, type Db, newId, recordAudit, unitOfWork } from '@forgepm/core';
+  applyExecApprovalDecision,
+  getEffective,
+  type DbLike,
+  type Db,
+  newId,
+  recordAudit,
+  unitOfWork,
+} from '@forgepm/core';
 
 /**
  * Approval policy engine (plan §7). `auto_low_risk` permits an agent to apply
@@ -76,7 +79,19 @@ export interface ApprovalRow {
   created_at: Date;
 }
 
-const COLS = ['id', 'organization_id', 'project_id', 'requested_by', 'action', 'payload', 'risk', 'status', 'decided_by', 'reason', 'created_at'] as const;
+const COLS = [
+  'id',
+  'organization_id',
+  'project_id',
+  'requested_by',
+  'action',
+  'payload',
+  'risk',
+  'status',
+  'decided_by',
+  'reason',
+  'created_at',
+] as const;
 
 export async function createApproval(
   db: DbLike,
@@ -90,7 +105,16 @@ export async function createApproval(
   const id = newId();
   await db
     .insertInto('approval_requests')
-    .values({ id, organization_id: orgId, project_id: projectId, requested_by: requestedBy, action, payload: JSON.parse(JSON.stringify(payload ?? null)), risk, status: 'pending' })
+    .values({
+      id,
+      organization_id: orgId,
+      project_id: projectId,
+      requested_by: requestedBy,
+      action,
+      payload: JSON.parse(JSON.stringify(payload ?? null)),
+      risk,
+      status: 'pending',
+    })
     .execute();
   return id;
 }
@@ -110,9 +134,20 @@ export async function listPending(db: DbLike, orgId: string): Promise<ApprovalRo
  * Decide an approval. Only a human with plan:approve-or-admin may decide;
  * an agent may never approve its own request (FORBIDDEN_SELF_APPROVAL).
  */
-export async function decide(db: Db, actor: { id: string; organizationId: string; type: 'user' | 'agent'; orgRole: string | null; requestId: string }, id: string, decision: 'approved' | 'rejected', reason?: string): Promise<ApprovalRow> {
+export async function decide(
+  db: Db,
+  actor: { id: string; organizationId: string; type: 'user' | 'agent'; orgRole: string | null; requestId: string },
+  id: string,
+  decision: 'approved' | 'rejected',
+  reason?: string,
+): Promise<ApprovalRow> {
   if (actor.type === 'agent') throw new AppError('FORBIDDEN_SELF_APPROVAL', 'agents cannot decide approval requests');
-  const existing = await db.selectFrom('approval_requests').select(COLS).where('id', '=', id).where('organization_id', '=', actor.organizationId).executeTakeFirst();
+  const existing = await db
+    .selectFrom('approval_requests')
+    .select(COLS)
+    .where('id', '=', id)
+    .where('organization_id', '=', actor.organizationId)
+    .executeTakeFirst();
   if (!existing) throw new AppError('NOT_FOUND', 'approval request not found');
   const row = existing as unknown as ApprovalRow;
   if (row.status !== 'pending') throw new AppError('CONFLICT', `already ${row.status}`);
@@ -122,6 +157,19 @@ export async function decide(db: Db, actor: { id: string; organizationId: string
       .set({ status: decision, decided_by: actor.id, decided_at: new Date(), reason: reason ?? null })
       .where('id', '=', id)
       .execute();
+    // The ledger's own reading of "the human approved" (a decision's
+    // approval_state, and the event that says so) happens in the SAME
+    // transaction: an approval that was decided but did not reach the ledger
+    // would keep the gate refusing with nothing left to fix.
+    await applyExecApprovalDecision(tx, {
+      action: row.action,
+      payload: row.payload,
+      decision,
+      reason,
+      actorId: actor.id,
+      organizationId: actor.organizationId,
+      tool: 'approvals.decide',
+    });
     await recordAudit(tx, {
       organization_id: actor.organizationId,
       actor_type: 'user',

@@ -340,6 +340,9 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   (2 runs summary ⇒ 2 publishes updating one comment; `off` ⇒ 0). The real
   octokit writer ships with the phase-7 GitHub panel wiring.
 
+- Reason: keeps core GitHub-free (§1.4) while making the acceptance property
+  directly observable in tests.
+
 ## D-031 — Panel is a standalone npm project (TS 6.x), outside root `verify`
 
 - Context: Phase 7 ships the long-deferred Angular panel (B-005/D-013). Angular
@@ -381,8 +384,6 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   remaining B-005 work tracked there, not silently claimed green here.
 - Reason: never declare a gate green that did not run; ship a real, reproducible
   E2E for what the panel actually renders now.
-- Reason: keeps core GitHub-free (§1.4) while making the acceptance property
-  directly observable in tests.
 
 ## D-034 — Panel i18n: hand-rolled key dictionaries instead of ngx-translate
 
@@ -729,3 +730,301 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   and `createTask` (core) the only writer of `exec_tasks`+`exec_criteria`; the api layer
   adds scope/gate/audit/idempotency and nothing else. `scripts/ledger-cli.ts` (D‑11) is
   still PE‑later work: it must reuse these services rather than the tools' HTTP shapes.
+
+## D-050 — PE-5: the gate's two unmeasurable rules are provisional (was PE-3, harmonized per PE-R), and say so
+
+- Context: plan §8.2's rule 11 compares the work against `allowed_paths` and rule 12
+  compares the tests against the recorded baseline — but the machinery that measures
+  either (the real diff, the CI job's numbers) is PE‑5's deliverable, and PE‑3 has to
+  ship a gate that can actually close a task. The only signal PE‑3 has is the exit
+  report, i.e. the agent's own word.
+- Decision:
+  1. **Rule 11 measures the report's `changed_files`** against the task's
+     `allowed_paths`, and **rule 12 compares the recorded baseline against the
+     report's `tests_executed`**. Both loaders say in their own comments that they are
+     reading the agent's claim, not the truth, and PE‑5 replaces the left-hand side
+     with a code-computed measurement. The alternative — refusing to close anything
+     until PE‑5 exists — would have shipped a gate that can only ever say no, and a
+     gate nobody can pass is a gate nobody trusts.
+  2. **A missing report is rule 1's business alone.** Rules 6, 11 and 12 return
+     nothing when there is no report, so the agent gets one answer ("submit the
+     report"), not three that all say the same thing in different words.
+  3. **The completion guard refuses with `GATE_FAILED`**, and it is consulted in the
+     PATCH path as well as the transition path — the PATCH can carry a `state_id`,
+     so guarding only the transition would leave a second door to `completed`.
+  4. **The guard is registered at import time as well as on enable.** `modules.exec.enabled`
+     can be written directly into the settings table, and a guard that only exists on
+     one enable path is a guard with a hole in it; the guard is inert for work items
+     that have no ledger task behind them.
+- Reason: the honest thing is to make the provisional part _visible_ — in the code, in
+  the plan's status note and in this ledger — rather than to let a green gate imply a
+  measurement that was never taken. PE‑5 swaps the two loaders; nothing else has to
+  change, because the rules already read "what was measured", not "how it was measured".
+
+## D-051 — PE‑3: the exit report's two field names, and the report's own spelling
+
+- Context: the plan (§8.1) and the acceptance criteria call the test's proof reference
+  `tests_executed[].evidence_id` and the task reference `task_id`, while the shared
+  schema in the repository (written in PE‑0) says `evidence_ref` and `task_ref`. Two
+  names for one field is exactly the kind of drift the schema layer exists to stop.
+- Decision:
+  1. **The canonical names are `task_ref` and `evidence_id`** — the task reference
+     accepts an id _or_ a code (`T-014`), which is more useful than `task_id`, and
+     `evidence_id` is the name the plan and the acceptance criteria use.
+  2. **The service accepts the other spelling as an alias** (`task_id`, `evidence_ref`)
+     and normalises it before validation, so a caller that read either document is not
+     broken by the rename.
+  3. **The stored report payload is the payload as sent** (canonical field names), not
+     the parsed value: the gate reads the report back out of that column, and a report
+     the gate cannot read is a report the gate cannot judge.
+- Reason: one spelling in the schema, tolerance at the boundary, and the stored row in
+  the shape the reader expects. A rename that breaks the agents already reading the
+  plan is a rename nobody asked for; a rename that leaves two live spellings in the
+  schema is a rule with two answers.
+
+## D-052 — PE‑3: `exec_task_complete` does not touch the work item
+
+- Context: the gate closes the ledger task; the board has its own lifecycle. The
+  obvious "and then move the card" would have been convenient — and wrong twice over:
+  `work_item.transition` is not in the agent's auto-approved operations, so an agent's
+  completion would have died in the approval queue, and the work item would have had
+  two owners for its state.
+- Decision: **`exec_task_complete` closes the task and nothing else.** The work item
+  is completed by a human (or by whoever holds the approval), and the completion guard
+  is what makes that safe: the board may only follow the ledger, never lead it.
+- Reason: the plan's I‑1 is a guard, not an automation. Letting the gate own both
+  states would have made the board a mirror of a mirror, and the approval queue would
+  have decided when a task counts as done — which is precisely what the gate exists to
+  replace.
+
+## D-053 — The ledger tools take the ledger's scope OR the generic one
+
+- Context: the plan's tool table (§4.0) gives every execution-control tool
+  the ledger's own scopes — `ledger:read` / `ledger:write` — and the enum
+  (PE-0) carries them with the comment "these are the agent's scopes". But
+  PE-2's five tools were implemented with the generic `read` / `write`, so the
+  two ledger scopes were used by nothing and the comment was false. The plan
+  also says (in §7's B.7 acceptance) that a **read-only key must not write**,
+  which only holds for the generic scopes.
+- Decision: **a key needs either the generic scope or the ledger's own.**
+  `exec_task_start`, `ledger_add_open_item`, `ledger_resolve_item`,
+  `exec_submit_exit_report` and `exec_task_complete` accept
+  `write` _or_ `ledger:write`; `ledger_list_open` and `exec_ledger_status`
+  accept `read` _or_ `ledger:read`. The panel's API-key form now offers the
+  two ledger scopes, so a key can be granted the ledger alone.
+- Reason: neither reading of the plan can be satisfied alone — §4.0 wants a
+  ledger-only grant, B.7 wants the generic read-only key to be refused — and
+  the check is "any of the tool's scopes" (`some`), so accepting both is
+  additive rather than a fork. Nothing that works today stops working, a key
+  that drives the ledger no longer needs the product's general `write`, and
+  the enum stops lying about what the ledger scopes are for. The refusal
+  message now says "requires one of" when a tool has more than one scope, so
+  the answer stays readable.
+
+## D-054 — A declared scope deviation is filed, and the diff will judge it
+
+- Context: the exit report carries two different things about scope.
+  `changed_files` is the list the gate **measures** (rule 11 compares it with
+  `allowed_paths`), and `scope_deviations` is the part the agent
+  **volunteers** — "I went further than the plan said". C.4's promotion list
+  names `incomplete` / `assumption` / `risks_found` / `tests_not_run` /
+  `out_of_scope_findings`, and not `scope_deviations`.
+- Decision: **`scope_deviations` is promoted to an `exec_open_items` row of
+  type `out_of_scope` with `source='exit_report'`**, like the other findings.
+  Rule 11 still measures `changed_files`; the deviation is filed, not
+  silently dropped, and the completion report names it (the report lists the
+  task's out-of-scope items).
+- Reason: the plan's own mechanism for a scope violation is the **comparison**
+  with the real diff (PE-5: "the difference is a `SCOPE_VIOLATION` item"), and
+  until that diff exists, a declared deviation is the only signal the ledger
+  has that the agent left the plan. Filing it costs one row and keeps the
+  promise that the ledger, not the message, is the record. Making it
+  _blocking_ is deliberately not done here: the plan's rule 2 blocks only on
+  `blocks_completion` items, `out_of_scope` is not blocking by default, and a
+  block with no waiver route would be a task that can never close.
+
+## D-055 — A closed task stays closed; a fake `done` is taken back
+
+- Context: `exec_task_complete` is the only door to `done` (C.5), but the
+  database is also writable by hand — a task can be UPDATEd to `done` without
+  a gate stamp. That is drift (C.9b), and the tool has to answer it honestly.
+- Decision: **the stamp decides what a `done` means.**
+  - A task that is `done` **with a passing stamp** is closed: `exec_task_complete`
+    refuses it with `LEDGER_STATE_INVALID` ("a closed task keeps the report it
+    was closed with"). Calling the door again must not be a way to re-open it.
+  - A task that is `done` **without a passing stamp** is drift: the gate runs,
+    reports the drift (rule 0) and the missing report (rule 1), and the task
+    goes back to the status the gate implies — with `closed_at` cleared,
+    because a task that is not closed must not keep a closing date.
+- Reason: the alternative — letting the tool re-open a legitimately closed
+  task because a later gate run found something new — would make `done`
+  meaningless. The stamp is the difference between "the gate closed this" and
+  "somebody typed `done`", so it is the only thing allowed to decide.
+
+## D-056 — The inline evidence text is stored once, in the payload column
+
+- Context: the plan (§9.1) says the inline output is kept in
+  `exec_evidence.meta.inline` with `exec_evidence.meta.inline_sha256`, and
+  0010's table also has a `payload` column, a `sha256` column and a
+  `size_bytes` column. Storing the same bytes twice would double the size of
+  the largest thing the ledger holds.
+- Decision: **the masked text lives in `exec_evidence.payload`** (one copy),
+  `meta.inline_sha256` carries its hash and `meta.inline_bytes` its size, and
+  `sha256`/`size_bytes` carry the same two facts in the columns the schema
+  checks. `meta.inline` is not populated.
+- Reason: the payload column is what the gate actually reads — the evidence is
+  "verifiable" when the row carries a payload or a hash (`evidenceIsVerifiable`)
+  — and the plan's own acceptance (B.10, B.16) only cares that the text is
+  real, bounded and masked. One copy, in the place the gate looks, is the
+  honest version of the plan's rule.
+
+## D-057 — A path that is not there is `EVIDENCE_INVALID`, not "unavailable"
+
+- Context: the plan (§9.1 and acceptance B.10) says a missing file is
+  `EVIDENCE_INVALID`, while a ref that cannot be reached right now is
+  `EVIDENCE_UNAVAILABLE`. PE‑0's checker returned the second code for both.
+- Decision: **a path that does not exist is `EVIDENCE_INVALID`** (it is a
+  wrong pointer, not an outage); a file that exists but cannot be read is
+  `EVIDENCE_UNAVAILABLE` (that one may pass later).
+- Reason: the two answers mean different things to the agent — "you pointed at
+  the wrong place" versus "come back later" — and the plan says so twice.
+
+## D-058 — The requirement↔task link is the criterion, not a table of its own
+
+- Context: the plan's data model (§4, row 10) lists `exec_req_tasks`
+  (`req_id, task_id, criterion_ids`) and calls it a placeholder, and the
+  gate's snapshot loader read from it. **No migration ever created that
+  table** — D‑049 #2 had already decided that a requirement↔task table was out
+  of scope ("`req_ids` declares; it does not cover"), and the loader was left
+  querying it anyway. Every gate run would have failed with a Postgres
+  "relation does not exist" error, and the phantom table also sat in the DB
+  interface (`packages/core/src/db/types.ts`), where a type says a table
+  exists.
+- Decision: **the link is `exec_criteria.req_id`** — a criterion names the
+  requirement it covers, and that is the only link the gate needs (rule 8
+  asks for a _linked, verified_ criterion). The loader derives the links from
+  the criteria it has already read, and the phantom table is gone from the
+  code and from the DB interface. The plan's §4 row 10 is superseded by
+  D‑049 #2 and is kept in the plan as the record of the deviation.
+- Reason: a table that does not exist is not a slow query, it is a crash, and
+  a type that names it teaches the next reader that it does. The coverage
+  rule does not need a table of its own: the criterion already says which
+  requirement it answers.
+
+## D-059 — A human's decision leaves a decided row in the queue
+
+- Context: the plan's §4.0 forbids the agent from having any direct edit
+  tool — no `criterion_waive`, no `req_drop`, no `policy_set` — and names the
+  human path (REST/panel/CLI) as the only way to do them. The first two of
+  those verbs (waiving a criterion, dropping a requirement) are forced by the
+  schema itself: `exec_criteria.waiver_approval_id` is NOT NULL for a waived
+  criterion, and a dropped requirement needs `dropped_by` and a reason. The
+  scope expansion and the fact promotion have no such column.
+- Decision: **every human verb writes an approval row that is already
+  decided** (`status='approved'`, `decided_by` = the human, the reason in
+  `reason`). The ledger's own tables point at it (the waiver's
+  `waiver_approval_id`), and the queue lists the exec rows with their ledger
+  code and their task — so B.18's six kinds (`exec.decision`, `exec.question`,
+  `exec.scope_expansion`, `exec.waive_criterion`, `exec.drop_requirement`,
+  `exec.fact_promotion`) are one list, and an auditor can walk from any of
+  them back to the person who decided.
+- Reason: a human's decision is a decision like any other; if it leaves no
+  row behind, the ledger can prove what was done but not who authorised it.
+  Writing the row at the moment of the decision (rather than through a second
+  approval request and a second click) also keeps the "silence is not
+  approval" rule intact: the agent's requests stay `pending`, and only the
+  human's own act closes them.
+
+## D-060 — Ledger rules are the agent's operational policy
+
+- Context: PE-6 adds an explicit start/resume procedure and trigger map for
+  the execution ledger. The agent must hand work off across sessions without
+  treating conversation history, guesses, or local notes as the source of
+  truth; risk classification and human approval remain server- and human-
+  controlled.
+- Decision: `docs/LEDGER_RULES.md` is the concise trigger-to-tool guide, and
+  `AGENTS.md` requires `exec_ledger_status` before starting/resuming (the
+  currently shipped MCP read tool; `session_start` is planned for PE-10),
+  records observations in the ledger, and stops if ledger tools are unavailable.
+  It explicitly forbids inventing risk levels, applying approval-level changes
+  before human approval, agent-side soft closure/waiver/drop/scope expansion/
+  fact promotion, and unlogged fallback paths. Each prohibition includes its
+  reason. The generic mock/fake rule in `AGENTS.md` and `docs/EXECUTION_PLAN.md`
+  now explicitly yields to this fail-closed rule for real ledger operations.
+  A denied policy check records only the blocked-attempt event; it is not a
+  decision or an approval.
+- Reason: the ledger and server gate are the auditable state. A guessed policy
+  level, silent approval, or alternate write path would bypass that record and
+  make an exit decision impossible to verify. D.3 remains open until real-task
+  observations exist; these rules do not claim a behavioral result.
+
+## D-061 — Document only the inbound MCP transport that is shipped
+
+- Context: `apps/api/src/modules/mcp/routes.ts` registers only Streamable HTTP
+  on `POST /mcp`; `dispatch.ts` reports `serverInfo.name = 'forgepm-mcp'`.
+  Repository/package searches found no inbound `forgepm-mcp` stdio executable.
+  The old MCP docs nevertheless provided a `command: "forgepm-mcp"` sample.
+  The API-key page also selects one scope at a time, while an execution agent
+  needs both read and write ledger scopes for the full tool set.
+- Decision: `docs/MCP.md` and `docs/MCP_CONTRACTS.md` describe Streamable HTTP
+  only, clarify that `forgepm-mcp` is a server name rather than a binary, and
+  document a project-restricted `ledger:read` + `ledger:write` key. The
+  authenticated API supports the combined scope array; the current single-
+  scope UI limitation is stated plainly. The inbound transport references in
+  `docs/EXECUTION_PLAN.md` §8 and `docs/EXECUTION_CONTROL_PLAN.md` are aligned
+  to the same fact. No stdio bridge is added. The outbound Phase 4b MCP client
+  remains a separate feature.
+- Reason: a configuration example must name a transport users can actually
+  run. Adding a proxy would contradict the approved single-server/no-new-
+  bridge constraint (D-002); documenting HTTP avoids both a dead command and
+  an unapproved second transport.
+
+## D-062 — Adversarial review reads a bounded Git snapshot; it never runs repository code
+
+- Context: PE‑7 needs the reviewer to inspect the task's actual diff and bind its verdict to the
+  current worktree, while D‑041 forbids executing untrusted repository code. A claimed diff or hash
+  supplied by the agent would not be an independent freshness witness.
+- Decision: `apps/api/src/modules/exec/review-source.ts` is the only execution-control module
+  allowed to use `node:child_process`, and only through `execFile` with an exact read-only Git
+  command allowlist. It resolves the repository root, validates `exec.allowed_repo_roots`, bounds
+  output, disables Git external diff/text conversion and optional locks, and hashes file paths,
+  content and modes. It does not invoke hooks, shell commands, project scripts, or repository code.
+  The human-arbitration item's `related_ref` binds it to the task, failed review round and tree hash;
+  Rule 7 accepts only that reviewer-sourced item after a human closes it. `tests/unit/exec-no-spawn.test.ts`
+  rejects every other process boundary and checks the permitted command shapes.
+- Reason: the reviewer needs facts from the source tree, not an execution channel. A single
+  read-only adapter supplies an independently measured diff/hash while preserving D‑041's rule
+  that no repository code runs. Rule 7 separately fails stale or unmeasurable hashes.
+
+## D-063 — PE-8 scope and test evidence are server-measured
+
+- Context: Rule 11 previously consumed `changed_files` from the agent's exit report, while Rule 12
+  accepted report test claims. Both inputs could omit the very change the gate must detect. D-08
+  separately prohibits ForgePM from executing repository code on host or in a container.
+- Decision: capture `start_ref` from the API's read-only Git adapter; without Git, record a bounded,
+  hash-only start manifest from the server filesystem and diff it at gate time. Rule 11 never reads
+  report claims; measured out-of-scope changes and deletions create hook findings, a human scope
+  expansion is audited, and a measurement waiver is accepted only while measurement is unavailable.
+  Rule 12 accepts only named per-test outcomes parsed from an HTTPS CI-log
+  envelope whose SHA exactly matches the server-measured start/current commit; the log hash, run,
+  job and SHA are provenance. Missing/malformed/mismatched evidence is `BASELINE_UNAVAILABLE` and
+  blocks until a human records an explicit baseline waiver. No test command or repository code is
+  run by ForgePM.
+- Reason: agent-authored claims are not independent evidence. Git/manifest measurement and
+  exact-SHA CI provenance keep the decision auditable while honoring the owner's no-runner
+  correction; a hash-only manifest preserves scope measurement on Git-less installs without
+  pretending that it can supply a commit SHA for CI baseline evidence.
+
+## D-064 — PE-11 uses idempotent periodic fact reconciliation
+
+- Context: Appendix I requires facts to be checked on session start and before task completion,
+  plus a periodic worker check. This is a project-wide reconciliation of current file hashes, not
+  an event caused by one individual fact write.
+- Decision: the worker runs `FactVerificationJob` immediately at startup and every 15 minutes,
+  with a non-overlap guard. Each project is verified and its stale transitions/audit rows commit in
+  one unit of work; a failed project check is logged and retried on the next tick. The verifier
+  reads only from the configured repository mount and never runs project code. Lifecycle checks
+  remain in the API; `exec.stale_check_on_start` controls only the session-start check.
+- Reason: periodic state reconciliation is idempotent and bounded per project; it needs no repeated
+  per-fact outbox messages or unbounded queue buildup. A subsequent tick safely retries transient
+  failures, while the two API lifecycle checks provide immediate detection at decision boundaries.

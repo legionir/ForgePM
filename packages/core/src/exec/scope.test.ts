@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diffManifest, evaluateScope, isTransient, manifestOf } from './scope';
+import { diffManifest, diffScopeManifest, evaluateScope, isTransient, makeScopeManifest, manifestOf, restrictScopeManifest, scopeIssueRef } from './scope';
 
 describe('scope enforcement (appendix §J, acceptance J.5)', () => {
   it('J.5a a change outside allowed_paths is reported as an offender needing approval', () => {
@@ -55,6 +55,42 @@ describe('scope enforcement (appendix §J, acceptance J.5)', () => {
     const v = evaluateScope(['packages/**'], [{ path: 'package-lock.json', status: 'M' }], true);
     expect(v.outside).toEqual([]);
     expect(v.needs_human).toBe(false);
+  });
+
+  it('scope issue references bind the exact path and measured status', () => {
+    const ref = scopeIssueRef('infra/main.tf', 'M');
+    expect(ref).toMatch(/^scope:[0-9a-f]{64}$/);
+    expect(scopeIssueRef('infra/main.tf', 'M')).toBe(ref);
+    expect(scopeIssueRef('infra/main.tf', 'D')).not.toBe(ref);
+    expect(scopeIssueRef('infra/other.tf', 'M')).not.toBe(ref);
+  });
+
+  it('hash-only start manifests are deterministic and report additions, changes and deletions', () => {
+    const before = makeScopeManifest([
+      { path: 'src/change.ts', sha256: 'a'.repeat(64) },
+      { path: 'src/delete.ts', sha256: 'b'.repeat(64) },
+    ]);
+    const after = makeScopeManifest([
+      { path: 'src/change.ts', sha256: 'c'.repeat(64) },
+      { path: 'src/add.ts', sha256: 'd'.repeat(64) },
+    ]);
+    expect(before.hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(makeScopeManifest([...before.files].reverse()).hash).toBe(before.hash);
+    expect(diffScopeManifest(before, after)).toEqual([
+      { path: 'src/add.ts', status: 'A' },
+      { path: 'src/change.ts', status: 'M' },
+      { path: 'src/delete.ts', status: 'D' },
+    ]);
+    expect(() => makeScopeManifest([{ path: '../outside', sha256: 'a'.repeat(64) }])).toThrow();
+  });
+
+  it('post-close hash snapshots only contain files matched by the task allowed_paths', () => {
+    const current = makeScopeManifest([
+      { path: 'packages/core/src/exec/journal.ts', sha256: 'a'.repeat(64) },
+      { path: 'README.md', sha256: 'b'.repeat(64) },
+    ]);
+    const scoped = restrictScopeManifest(current, ['packages/core/src/exec/**']);
+    expect(scoped.files.map((file) => file.path)).toEqual(['packages/core/src/exec/journal.ts']);
   });
 
   it('manifestOf is order-insensitive and content-sensitive', () => {

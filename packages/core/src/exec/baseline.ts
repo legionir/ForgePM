@@ -29,11 +29,7 @@ export function baselineFromLog(
   const p = parseTestLog(log, parser);
   const rows: BaselineRow[] = p.names.map((n) => ({
     name: n,
-    result: p.failures.some((f) => f.includes(n.slice(0, 40)))
-      ? 'fail'
-      : p.skipped.some((k) => k.includes(n.slice(0, 40)))
-        ? 'skip'
-        : 'pass',
+    result: p.results[n] ?? 'fail',
     source,
   }));
   return { rows, totals: p.totals, complete: p.complete };

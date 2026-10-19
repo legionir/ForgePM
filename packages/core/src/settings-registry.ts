@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { DEFAULT_PROTECTED_TEST_GLOBS, DEFAULT_TEST_PARSER, execPolicySchema } from '@forgepm/shared';
+import { DEFAULT_PROTECTED_TEST_GLOBS, DEFAULT_TEST_PARSER, execPolicySchema, type ExecPolicy } from '@forgepm/shared';
 
 /**
  * Settings registry (plan §5.7): every settable key has a schema, default and
@@ -7,7 +7,7 @@ import { DEFAULT_PROTECTED_TEST_GLOBS, DEFAULT_TEST_PARSER, execPolicySchema } f
  * Later phases append their keys here; `modules.<name>.enabled` keys are
  * pattern-registered and always boolean.
  */
-import { EXEC_POLICY_DEFAULT } from './exec/policy';
+import { EXEC_POLICY_DEFAULT, validatePolicyShape } from './exec/policy';
 
 export interface SettingDefinition {
   key: string;
@@ -164,7 +164,7 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
     default: 16_384,
     category: 'execution',
   },
-  { key: 'exec.max_review_rounds', schema: z.number().int().min(1).max(5), default: 2, category: 'execution' },
+  { key: 'exec.max_review_rounds', schema: z.number().int().min(1).max(2), default: 2, category: 'execution' },
   { key: 'exec.require_review_for_done', schema: z.boolean(), default: true, category: 'execution' },
   { key: 'exec.block_transition_when_gate_fails', schema: z.boolean(), default: true, category: 'execution' },
   { key: 'exec.stale_check_on_start', schema: z.boolean(), default: true, category: 'execution' },
@@ -209,9 +209,14 @@ export function validateSettingValue(
   const def = BY_KEY.get(key);
   if (!def) return { ok: false, message: `unknown setting key '${key}'` };
   const r = def.schema.safeParse(value);
-  return r.success
-    ? { ok: true, value: r.data }
-    : { ok: false, message: r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') };
+  if (!r.success) {
+    return { ok: false, message: r.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') };
+  }
+  if (key === 'exec.policy') {
+    const problems = validatePolicyShape(r.data as ExecPolicy);
+    if (problems.length) return { ok: false, message: problems.join('; ') };
+  }
+  return { ok: true, value: r.data };
 }
 
 export function settingDefault(key: string): unknown {

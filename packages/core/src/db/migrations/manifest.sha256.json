@@ -7,5 +7,7 @@
   "0007_github.migration.ts": "c1295a4a151b3283321328160ad7cb22a42cb5cc9eebf6ec1cde8e0286b59d96",
   "0008_reviews.migration.ts": "3ff7e3d326cc796b6e455c275db044e2907829b8fbc588526a01712b352686a1",
   "0009_perf.migration.ts": "3111ddb794ba604e5216ca8bf342c6dde922d0011b642b687f736361ccf8c1c5",
-  "0010_exec.migration.ts": "69ba092efc506714d39d6a5edf16c4adc08f37cbedcc6ad749078e98fee1988e"
+  "0010_exec.migration.ts": "69ba092efc506714d39d6a5edf16c4adc08f37cbedcc6ad749078e98fee1988e",
+  "0011_exec_journal_reconcile.migration.ts": "83945f78a423648d7298ca82c8147f637c789117684947d4da14cad1a311e65f",
+  "0012_exec_remediation.migration.ts": "d4466f0f7aab3e95aebd11d4ced2c2b5ac48e172f0df38b9d380c9da85f4e2b3"
 }

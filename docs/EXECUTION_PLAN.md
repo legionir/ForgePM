@@ -77,7 +77,7 @@ ForgePM یک پلتفرم self-hosted برای برنامه‌ریزی و مدی
 
 ### اگر چیزی مسدود شد
 
-اگر وابستگی بیرونی در دسترس نبود (مثلاً دسترسی شبکه به یک registry)، ایجنت با نسخه‌ی mock/fake ادامه می‌دهد، مورد را در `docs/BLOCKERS.md` ثبت می‌کند و در گزارش نهایی می‌آورد. تنها توقف مجاز، نبودن credential GitHub برای push است (بخش ۱۶).
+اگر وابستگی بیرونی در دسترس نبود (مثلاً دسترسی شبکه به یک registry)، ایجنت با نسخه‌ی mock/fake ادامه می‌دهد، مورد را در `docs/BLOCKERS.md` ثبت می‌کند و در گزارش نهایی می‌آورد. **استثنای fail-closed:** در اجرای یک کار واقعی، اگر ابزار/ماژول Ledger در دسترس نیست، ایجنت باید نوشتن را متوقف و علت را گزارش کند؛ حافظه، فایل محلی، mock یا مسیر مستقیم DB جای Ledger را نمی‌گیرد (PE‑6، D‑060). این استثنا برای اجرای واقعی است و مجوز جعل نتیجهٔ پذیرش نیست. برای توقف‌های دیگر، قاعدهٔ موجود برقرار است: نبودن credential GitHub برای push (بخش ۱۶).
 
 ## ۳. استک فنی نهایی و ساختار مخزن
 
@@ -93,7 +93,7 @@ ForgePM یک پلتفرم self-hosted برای برنامه‌ریزی و مدی
 | دسترسی به DB | Kysely + migrator خودش | SQL تایپ‌شده؛ بدون ORM سنگین |
 | صف | Redis 7 + BullMQ | فقط صف و قفل؛ داده‌ی دائمی در Redis نیست |
 | Frontend | Angular (آخرین major پایدار)، Standalone + Signals | Bootstrap 5 با RTL، ngx-translate برای i18n |
-| MCP | `@modelcontextprotocol/sdk` | transport: Streamable HTTP و stdio |
+| MCP | `@modelcontextprotocol/sdk` | inbound ForgePM: Streamable HTTP؛ stdio فقط برای کلاینت خروجیِ سرورهای خارجی در فاز ۴ب |
 | GitHub | `@octokit/app`، `@octokit/webhooks` | GitHub App، نه PAT |
 | Auth پنل | Session کوکی httpOnly + argon2id | CSRF token برای مسیرهای mutating |
 | Auth ماشینی | API key هش‌شده (SHA-256) با scope | برای MCP و REST |
@@ -414,7 +414,7 @@ owner و admin به همه‌ی پروژه‌های سازمان دسترسی ض
 
 ### وظایف (۴الف: Server)
 
-1. **Transport:** Streamable HTTP روی `/mcp` با هدر `Authorization: Bearer fpm_...`؛ و باینری `forgepm-mcp` (stdio) که با `FORGEPM_URL` و `FORGEPM_API_KEY` به همان سرور وصل می‌شود.
+1. **Transport:** Streamable HTTP روی `POST /mcp` با هدر `Authorization: Bearer fpm_...` است. در کد مخزن باینری inbound با نام `forgepm-mcp` وجود ندارد؛ این نام فقط `serverInfo.name` است. کلاینت MCP خروجیِ فاز ۴ب (اتصال ForgePM به سرورهای خارجی) مسیر ورود stdio به ForgePM نیست (D-061).
 2. **نام‌گذاری ابزارها:** چون برخی clientها نقطه در نام ابزار را نمی‌پذیرند، نام‌ها با underscore تعریف می‌شوند (`work_item_create` به‌جای `work_item.create`)؛ فهرست کامل در بخش قراردادها.
 3. **ثبت ابزار از ماژول‌ها:** هر ماژول در `mcp-tools.ts` ابزارهایش را با Zod schema ورودی/خروجی و annotations (`readOnlyHint`، `destructiveHint`، `idempotentHint`) ثبت می‌کند؛ ابزار فقط service ماژول را صدا می‌زند.
 4. **Scopeها:** `read`، `write`، `plan`، `review`، `github`، `admin`؛ هر ابزار حداقل یک scope لازم دارد؛ ابزار فقط وقتی در `tools/list` دیده می‌شود که کلید scope آن را داشته باشد و ماژول مربوط فعال باشد (مثلاً بدون GitHub، ابزارهای `github_*` اصلاً لیست نمی‌شوند).

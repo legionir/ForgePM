@@ -1,4 +1,5 @@
 import type { ExecOpenItemStatus } from '@forgepm/shared';
+import { detectGateStampDrift } from './drift';
 import { blockingOpen, isActiveOpenItem } from './open-items';
 
 /**
@@ -72,6 +73,8 @@ export interface LedgerStatusInput {
   questions: LedgerQuestionLite[];
   decisions: LedgerDecisionLite[];
   requirements?: LedgerRequirementCoverageLite[];
+  /** The newest gate stamp for the task, if the gate has ever run on it. */
+  gate_stamp?: { ok: boolean; stamp_id: string | null } | null;
 }
 
 export interface LedgerStatusView {
@@ -95,6 +98,8 @@ export interface LedgerStatusView {
   blocking_questions: string[];
   decisions_pending: string[];
   requirements_uncovered: string[];
+  /** C.9b: the task says done but the gate never stamped it. */
+  drift: string | null;
   /** A single answer for whoever asked: can this task be finished right now? */
   ready_to_submit: boolean;
   reasons_not_ready: string[];
@@ -142,6 +147,8 @@ export function buildLedgerStatus(input: LedgerStatusInput): LedgerStatusView {
     );
   if (pendingDecisions.length) reasons.push(`decision(s) awaiting approval: ${pendingDecisions.join(', ')}`);
   if (uncovered.length) reasons.push(`requirement(s) no task covers: ${uncovered.join(', ')}`);
+  const drift = detectGateStampDrift({ status: input.task.status, stamp: input.gate_stamp ?? null });
+  if (drift) reasons.push(drift);
 
   return {
     task: {
@@ -176,6 +183,7 @@ export function buildLedgerStatus(input: LedgerStatusInput): LedgerStatusView {
     blocking_questions: unanswered.filter((q) => q.blocking).map((q) => q.code),
     decisions_pending: pendingDecisions,
     requirements_uncovered: uncovered,
+    drift,
     ready_to_submit: reasons.length === 0,
     reasons_not_ready: reasons,
   };

@@ -29,14 +29,19 @@ const DELETE_ROUTES = /\.(delete|del)\s*\(\s*['"][^'"]*exec/;
 
 function sources(dir: string): { file: string; text: string }[] {
   const root = join(ROOT, dir);
-  const out: { file: string; text: string }[] = [];
-  for (const entry of readdirSync(root, { recursive: true, withFileTypes: true })) {
-    if (entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) {
-      const file = join(root, entry.name);
-      out.push({ file: file.slice(ROOT.length + 1), text: readFileSync(file, 'utf8') });
+  const walk = (current: string): { file: string; text: string }[] => {
+    const out: { file: string; text: string }[] = [];
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      const file = join(current, entry.name);
+      if (entry.isDirectory()) {
+        out.push(...walk(file));
+      } else if (entry.isFile() && file.endsWith('.ts') && !file.endsWith('.test.ts')) {
+        out.push({ file: file.slice(ROOT.length + 1), text: readFileSync(file, 'utf8') });
+      }
     }
-  }
-  return out;
+    return out;
+  };
+  return walk(root);
 }
 
 describe('the ledger has no delete path (A.2)', () => {
@@ -46,6 +51,7 @@ describe('the ledger has no delete path (A.2)', () => {
     expect(files.length).toBeGreaterThan(10);
     expect(files.some((f) => f.file.endsWith('open-items-service.ts'))).toBe(true);
     expect(files.some((f) => f.file.includes('exec'))).toBe(true);
+    expect(files.some((f) => f.file.endsWith('gate-rules/rule01-exit-report.ts'))).toBe(true);
   });
 
   it('no exec source deletes a ledger row in any SQL style', () => {

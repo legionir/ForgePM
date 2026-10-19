@@ -87,14 +87,24 @@ describe('evidence verification (acceptance B.10)', () => {
       summary: 'trying to walk out of the root with a dot-dot',
     });
     expect(sneaky.code).toBe('SCOPE_VIOLATION');
-    const gone = checkEvidence({
+    const unreadable = checkEvidence({
       ...base,
       kind: 'file',
       ref: 'file:docs/missing.png',
       summary: 'a file that is not readable at all',
       fs: { exists: () => true, read: () => null },
     });
-    expect(gone.code).toBe('EVIDENCE_UNAVAILABLE');
+    expect(unreadable.code).toBe('EVIDENCE_UNAVAILABLE');
+    // A path that is not there at all is a wrong pointer, not a temporary
+    // outage: the plan's acceptance B.10 says EVIDENCE_INVALID.
+    const missing = checkEvidence({
+      ...base,
+      kind: 'file',
+      ref: 'file:packages/core/src/does-not-exist.ts',
+      summary: 'a file that was never there to begin with',
+      fs: { exists: () => false, read: () => null },
+    });
+    expect(missing.code).toBe('EVIDENCE_INVALID');
   });
 
   it('B.10e an unreadable ref grammar is refused with the exact alternatives', () => {

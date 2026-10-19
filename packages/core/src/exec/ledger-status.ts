@@ -60,7 +60,7 @@ async function readTasks(db: DbLike, actor: Pick<LedgerActor, 'organizationId' |
 
 /** Children are read for the whole task set at once: six queries, not six per task. */
 async function readChildren(db: DbLike, actor: Pick<LedgerActor, 'organizationId' | 'projectId'>, ids: string[]) {
-  const [criteria, evidence, items, questions, decisions, requirements] = await Promise.all([
+  const [criteria, evidence, items, questions, decisions, requirements, stamps] = await Promise.all([
     sql<{ task_id: string; code: string; text: string }>`
       SELECT task_id::text AS task_id, code, text FROM exec_criteria
       WHERE task_id = ANY(${ids}::uuid[]) ORDER BY code
@@ -95,6 +95,14 @@ async function readChildren(db: DbLike, actor: Pick<LedgerActor, 'organizationId
       GROUP BY r.code, r.status
       ORDER BY r.code
     `.execute(db as never),
+    // The newest gate stamp per task: C.9b needs to know whether a task that
+    // says "done" was ever stamped by the gate.
+    sql<{ task_id: string; id: string; ok: boolean; created_at: string }>`
+      SELECT DISTINCT ON (task_id) task_id::text AS task_id, id::text AS id, ok, created_at::text AS created_at
+      FROM exec_gate_checks
+      WHERE task_id = ANY(${ids}::uuid[])
+      ORDER BY task_id, created_at DESC, id DESC
+    `.execute(db as never),
   ]);
   return {
     criteria: criteria.rows,
@@ -103,6 +111,7 @@ async function readChildren(db: DbLike, actor: Pick<LedgerActor, 'organizationId
     questions: questions.rows,
     decisions: decisions.rows,
     requirements: requirements.rows,
+    stamps: stamps.rows,
   };
 }
 
@@ -150,6 +159,7 @@ export async function loadLedgerStatus(
     questions: group(kids.questions),
     decisions: group(kids.decisions),
   };
+  const stampByTask = new Map(kids.stamps.map((s) => [s.task_id, { ok: s.ok, stamp_id: s.id }]));
 
   const views: LedgerStatusView[] = rows.map((row) => {
     const task: LedgerTaskLite = {
@@ -201,7 +211,16 @@ export async function loadLedgerStatus(
       status: r.status,
       covered_by_tasks: textArray(r.covered_by_tasks),
     }));
-    return buildLedgerStatus({ task, criteria, evidence, items, questions, decisions, requirements });
+    return buildLedgerStatus({
+      task,
+      criteria,
+      evidence,
+      items,
+      questions,
+      decisions,
+      requirements,
+      gate_stamp: stampByTask.get(row.id) ?? null,
+    });
   });
 
   return { empty: false, tasks: views };

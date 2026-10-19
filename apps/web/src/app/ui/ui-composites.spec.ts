@@ -255,7 +255,7 @@ describe('UiShell', () => {
     const f = TestBed.createComponent(ShellHost);
     await flush(f);
     const el = f.nativeElement as HTMLElement;
-    expect(el.querySelectorAll('[data-testid="nav"] a').length).toBe(13);
+    expect(el.querySelectorAll('[data-testid="nav"] a').length).toBe(15);
     expect(el.querySelector('[data-testid="nav-projects"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="who"]')?.textContent).toContain('Ada');
     const header = el.querySelector('header')!;

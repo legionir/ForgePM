@@ -15,24 +15,25 @@ Source of truth: EXECUTION_PLAN §13. Implemented phase by phase.
 
 ## Endpoint groups (added in the phase named)
 
-| Group | Endpoints | Phase |
-| --- | --- | --- |
-| Health | `GET /health/live`, `GET /health/ready` | 0 |
-| Modules | `GET /api/v1/modules`, `PUT /api/v1/modules/:name/enabled` | 0 |
-| Auth | `POST /auth/login`, `/auth/logout`, `GET /auth/me`, `POST /auth/setup` | 1 |
-| Users & Org | `GET/POST /users`, `PATCH /users/:id`, `GET/PATCH /organization`, `GET/POST /memberships` | 1 |
-| API Keys | `GET/POST /api-keys`, `DELETE /api-keys/:id` | 1 |
-| Projects | `GET/POST /projects`, `GET/PATCH /projects/:id`, `POST /projects/:id/archive`, `GET/PUT /projects/:id/members` | 1 |
-| Settings | `GET /settings/effective?scope=&scope_id=`, `PUT/DELETE /settings/:scope/:scope_id/:key` | 1 |
-| Work Items | `GET/POST /projects/:id/work-items`, `GET/PATCH/DELETE /work-items/:key`, `POST /work-items/:key/transition`, `POST /work-items/bulk`, comments, relations | 2 |
-| Features / Milestones | CRUD + `GET /features/:key/progress` | 2 |
-| Views / Search | `GET/POST /saved-views`, `GET /search` | 2 |
-| Planner | `POST /projects/:id/plans`, `GET /plans/:id`, revisions/approve/apply/apply-status/diff | 3 |
-| Approvals | `GET /approvals`, `POST /approvals/:id/decide` | 3 |
-| AI Providers | `GET/POST /ai-providers`, `PATCH/DELETE /:id`, `POST /:id/test` | 3 |
-| GitHub | webhook, status, repositories, project link, development tab | 5 |
-| Reviews | code/refactor runs, findings, work-item creation | 6 |
-| System | `GET /audit`, `GET /jobs`, `POST /jobs/:id/retry`, `GET /system/health`, `POST /system/backup` | 1/7 |
+| Group                         | Endpoints                                                                                                                                                                                                                                                                                                                                                         | Phase |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- |
+| Health                        | `GET /health/live`, `GET /health/ready`                                                                                                                                                                                                                                                                                                                           | 0     |
+| Modules                       | `GET /api/v1/modules`, `PUT /api/v1/modules/:name/enabled`                                                                                                                                                                                                                                                                                                        | 0     |
+| Auth                          | `POST /auth/login`, `/auth/logout`, `GET /auth/me`, `POST /auth/setup`                                                                                                                                                                                                                                                                                            | 1     |
+| Users & Org                   | `GET/POST /users`, `PATCH /users/:id`, `GET/PATCH /organization`, `GET/POST /memberships`                                                                                                                                                                                                                                                                         | 1     |
+| API Keys                      | `GET/POST /api-keys`, `DELETE /api-keys/:id`                                                                                                                                                                                                                                                                                                                      | 1     |
+| Projects                      | `GET/POST /projects`, `GET/PATCH /projects/:id`, `POST /projects/:id/archive`, `GET/PUT /projects/:id/members`                                                                                                                                                                                                                                                    | 1     |
+| Settings                      | `GET /settings/effective?scope=&scope_id=`, `PUT/DELETE /settings/:scope/:scope_id/:key`                                                                                                                                                                                                                                                                          | 1     |
+| Work Items                    | `GET/POST /projects/:id/work-items`, `GET/PATCH/DELETE /work-items/:key`, `POST /work-items/:key/transition`, `POST /work-items/bulk`, comments, relations                                                                                                                                                                                                        | 2     |
+| Features / Milestones         | CRUD + `GET /features/:key/progress`                                                                                                                                                                                                                                                                                                                              | 2     |
+| Views / Search                | `GET/POST /saved-views`, `GET /search`                                                                                                                                                                                                                                                                                                                            | 2     |
+| Planner                       | `POST /projects/:id/plans`, `GET /plans/:id`, revisions/approve/apply/apply-status/diff                                                                                                                                                                                                                                                                           | 3     |
+| Approvals                     | `GET /approvals`, `POST /approvals/:id/decide`                                                                                                                                                                                                                                                                                                                    | 3     |
+| AI Providers                  | `GET/POST /ai-providers`, `PATCH/DELETE /:id`, `POST /:id/test`                                                                                                                                                                                                                                                                                                   | 3     |
+| GitHub                        | webhook, status, repositories, project link, development tab                                                                                                                                                                                                                                                                                                      | 5     |
+| Reviews                       | code/refactor runs, findings, work-item creation                                                                                                                                                                                                                                                                                                                  | 6     |
+| Execution ledger (human path) | `GET /exec/status`, `GET /exec/approvals`, `POST /exec/items/:code/resolve`, `POST /exec/questions/:code/answer`, `POST /exec/decisions/:code/decide`, `POST /exec/approvals/:id/decide`, `POST /exec/criteria/:code/waive`, `POST /exec/requirements/:code/drop`, `POST /exec/scope/:taskId/expand`, `POST /exec/facts/:code/promote`, `POST /exec/gate/:taskId` | PE‑4  |
+| System                        | `GET /audit`, `GET /jobs`, `POST /jobs/:id/retry`, `GET /system/health`, `POST /system/backup`                                                                                                                                                                                                                                                                    | 1/7   |
 
 ## Error codes
 
@@ -43,3 +44,8 @@ Source of truth: EXECUTION_PLAN §13. Implemented phase by phase.
 `PLAN_GENERATION_INVALID`/`SSRF_BLOCKED`/`TOOL_NOT_ALLOWED` 422,
 `RATE_LIMITED`/`AI_BUDGET_EXCEEDED` 429, `PROVIDER_ERROR` 502,
 `MODULE_DISABLED` 503, `INTERNAL` 500.
+
+The execution-ledger routes are the HUMAN path: the mutating ones need the
+`ledger:decide` scope, which is human-only (D‑040) — an agent's key gets
+`FORBIDDEN_SCOPE`. They are also behind the module gate: with the exec module
+off the answer is `503 MODULE_DISABLED`.

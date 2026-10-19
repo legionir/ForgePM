@@ -43,6 +43,7 @@ scripts/         seed, backup, restore, doctor, publish
 ## Docs
 
 - [Execution control plan (agent gate system)](docs/EXECUTION_CONTROL_PLAN.md) — phases PE‑0…PE‑12
+- [Agent ledger rules](docs/LEDGER_RULES.md) · [Execution-control field report](docs/EXECUTION_CONTROL.md)
 - [Product](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) ·
   [Data model (schema contract)](docs/DATA_MODEL.md) ·
   [Security](docs/SECURITY.md) · [REST contracts](docs/API_CONTRACTS.md) ·
@@ -52,6 +53,18 @@ scripts/         seed, backup, restore, doctor, publish
   [Reviews guide](docs/REVIEWS.md) · [Runbook](docs/RUNBOOK.md) ·
   [Scaling](docs/SCALING.md) · [Decisions](docs/DECISIONS.md) ·
   [Blockers](docs/BLOCKERS.md)
+
+## Execution control
+
+The execution ledger is the only source of truth for agent work. Every task has
+server-measured scope (`allowed_paths` + Git/manifest), CI-verified baseline
+(`exec.ci_log_endpoint`), and a 13-rule finalization gate. Agents use the
+MCP server over Streamable HTTP (`POST /mcp`, `forgepm-mcp` as `serverInfo.name`);
+humans use the panel (`/exec-tasks`, `/exec-policy`, Work Item “Execution
+control”, Approvals) or the CLI (`npm run ledger -- …`) with `ledger:decide`.
+No repo code is ever executed by ForgePM (D-041/D-063). See
+`docs/EXECUTION_CONTROL_PLAN.md` for the full gate and `MCP_CONTRACTS.md` for
+the 28 tools. E2E proof: `npm run exec:e2e` (13 scenes).
 
 ## Agent rules
 

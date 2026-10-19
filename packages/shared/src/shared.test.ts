@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { decodeCursor, encodeCursor, listQuerySchema, PAGINATION_MAX_LIMIT } from './pagination';
 import { AppError } from './errors';
 import { ERROR_CODES } from './error-codes';
+import { factInputSchema, factPromotionInputSchema } from './schemas-exec';
 
 describe('pagination cursor', () => {
   it('round-trips createdAt and id', () => {
@@ -24,6 +25,27 @@ describe('listQuerySchema', () => {
 
   it('caps limit at the maximum', () => {
     expect(() => listQuerySchema.parse({ limit: PAGINATION_MAX_LIMIT + 1 })).toThrowError();
+  });
+});
+
+describe('PE-11 fact schemas', () => {
+  const fact = {
+    key: 'runtime.version',
+    value: 'the runtime uses the stable version setting',
+    kind: 'fact',
+    source: 'agent_guess',
+  };
+
+  it('refuses guess-as-fact with an actionable assumption instruction', () => {
+    const parsed = factInputSchema.safeParse(fact);
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) expect(parsed.error.issues[0]?.message).toContain("use kind='assumption'");
+  });
+
+  it('accepts an assumption and requires a reason for human promotion', () => {
+    expect(factInputSchema.safeParse({ ...fact, kind: 'assumption' }).success).toBe(true);
+    expect(factPromotionInputSchema.safeParse({ source: 'human' }).success).toBe(false);
+    expect(factPromotionInputSchema.safeParse({ reason: 'a human checked and confirms the fact' }).success).toBe(true);
   });
 });
 

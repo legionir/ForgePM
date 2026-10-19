@@ -7,6 +7,7 @@ import {
   detectWeakening,
   parseTestLog,
 } from '@forgepm/shared';
+import { validateSettingValue } from '../settings-registry';
 import {
   EXEC_POLICY_DEFAULT,
   HARD_DENY_CATEGORIES,
@@ -19,8 +20,48 @@ import {
 
 const policy = EXEC_POLICY_DEFAULT;
 
+/** Golden snapshot: categories, levels and operator-facing notes are policy data. */
+const POLICY_DEFAULT_RULE_SNAPSHOT = [
+  ['internal_edit', 'auto', 'edit inside one function/file; rename an internal symbol'],
+  ['add_test', 'auto', 'adding or extending tests'],
+  ['add_module', 'review', 'new function/module in the existing contract'],
+  ['local_bugfix', 'review', 'local bug fix'],
+  ['default_change', 'review', 'changing an internal default value'],
+  ['deps_upgrade', 'review', 'dependency upgrade'],
+  ['deps_add', 'review', 'dependency add (irreversible ⇒ approval)'],
+  ['cancel_subtask', 'review', 'cancelling a subtask'],
+  ['public_api', 'approval', 'public API contract / exported signature change'],
+  ['db_schema', 'approval', 'database schema / migration'],
+  ['auth', 'approval', 'authentication, authorization, secret handling'],
+  ['delete_data', 'approval', 'deleting data'],
+  ['delete_file', 'approval', 'deleting a file or a capability'],
+  ['config_deploy', 'approval', 'deployment configuration'],
+  ['ci', 'approval', 'CI configuration'],
+  ['migration', 'approval', 'data/schema migration'],
+  ['destructive_command', 'approval', 'shell command with destructive potential'],
+  ['rename_bulk', 'approval', 'bulk rename across modules'],
+  ['scope_expansion', 'approval', 'widening a task allowed_paths'],
+  ['drop_requirement', 'approval', 'dropping a requirement'],
+  ['waive_requirement', 'approval', 'waiving a criterion or requirement'],
+  ['baseline_change', 'approval', 'removing/weakening/altering a baseline test'],
+  ['fact_promote_from_guess', 'deny', 'promoting a guess to a project fact'],
+  ['none', 'auto', 'no external effect'],
+  ['secret', 'deny', 'reading/writing/logging a secret or token'],
+  ['write_secret', 'deny', 'writing a secret into a file or a log'],
+  ['delete_root_folder', 'deny', 'deleting the workspace root'],
+] as const;
+
 describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
-  it('F.1 carries every category of the plan table and the appendix rows', () => {
+  it('F.1 snapshots the full default table, including every rule note', () => {
+    expect([policy.version, policy.default_level, policy.irreversible_floor]).toEqual([1, 'review', 'review']);
+    expect(policy.rules.map(({ category, level, note }) => [category, level, note])).toEqual(POLICY_DEFAULT_RULE_SNAPSHOT);
+    expect(policy.rules).toHaveLength(27);
+    expect(policy.sensitive_for_irreversible).toContain('deps_add');
+    expect(validatePolicyShape(policy)).toEqual([]);
+    expect(execPolicySchema.safeParse(policy).success).toBe(true);
+  });
+
+  it('F.1b carries every category of the plan table and the appendix rows', () => {
     const cats = policy.rules.map((r) => r.category);
     for (const must of [
       'internal_edit',
@@ -53,11 +94,9 @@ describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
     ]) {
       expect(cats, `missing appendix row ${must}`).toContain(must);
     }
-    expect(validatePolicyShape(policy)).toEqual([]);
-    expect(execPolicySchema.safeParse(policy).success).toBe(true);
   });
 
-  it('F.2 public_api and db_schema are always approval', () => {
+  it('sensitive policy categories require approval', () => {
     for (const t of ['public_api', 'db_schema', 'auth', 'delete_data', 'delete_file', 'config_deploy', 'ci']) {
       expect(classify(policy, { touches: [t], reversible: true }).level, t).toBe('approval');
     }
@@ -79,22 +118,23 @@ describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
     expect(raised.claim_ignored).toBe(false);
   });
 
-  it('F.5 an unknown category is review, never auto', () => {
-    const r = classify(policy, { touches: ['totally_new_thing'], reversible: true });
-    expect(r.level).toBe('review');
-    expect(r.unknown_categories).toEqual(['totally_new_thing']);
+  it('F.5 an unknown category is review, and `none` with reversible=false is at least review', () => {
+    const unknown = classify(policy, { touches: ['totally_new_thing'], reversible: true });
+    expect(unknown.level).toBe('review');
+    expect(unknown.unknown_categories).toEqual(['totally_new_thing']);
+    expect(classify(policy, { touches: ['none'], reversible: false }).level).toBe('review');
   });
 
   it('F.6 several categories ⇒ the highest level wins', () => {
     expect(classify(policy, { touches: ['internal_edit', 'deps_add'] }).level).toBe('review');
     expect(classify(policy, { touches: ['add_test', 'public_api'] }).level).toBe('approval');
+    expect(classify(policy, { touches: ['public_api', 'deps_add'] }).level).toBe('approval');
   });
 
   it('F.6b irreversible raises the floor to review, and to approval for sensitive categories', () => {
     expect(classify(policy, { touches: ['add_test'], reversible: false }).level).toBe('review');
     expect(classify(policy, { touches: ['local_bugfix'], reversible: false }).level).toBe('review');
     expect(classify(policy, { touches: ['deps_add'], reversible: false }).level).toBe('approval');
-    expect(classify(policy, { touches: ['none'], reversible: false }).level).toBe('auto');
     expect(SENSITIVE_FOR_IRREVERSIBLE).toContain('deps_add');
   });
 
@@ -122,13 +162,14 @@ describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
     );
   });
 
-  it('F.1b the policy is data: a project may raise a level without code change', () => {
+  it('F.2 the policy is data: a project may raise deps_add without changing code', () => {
     const custom = {
       ...policy,
       rules: policy.rules.map((r) => (r.category === 'deps_add' ? { ...r, level: 'approval' as const } : r)),
     };
     expect(classify(custom, { touches: ['deps_add'], reversible: true }).level).toBe('approval');
     expect(classify(policy, { touches: ['deps_add'], reversible: true }).level).toBe('review');
+    expect(validateSettingValue('exec.policy', custom).ok).toBe(true);
   });
 
   it('validatePolicyShape rejects a policy that lowers a hard-deny or drops a required category', () => {
@@ -141,6 +182,7 @@ describe('risk policy (plan §F, acceptance F.1–F.8)', () => {
     const problems = validatePolicyShape(bad);
     expect(problems.some((p) => p.includes('db_schema'))).toBe(true);
     expect(problems.some((p) => p.includes('secret'))).toBe(true);
+    expect(validateSettingValue('exec.policy', bad).ok).toBe(false);
   });
 });
 
@@ -202,6 +244,15 @@ describe('test log + weakening heuristics (acceptance J.2–J.4)', () => {
     expect(p.totals.fail).toBeGreaterThanOrEqual(1);
     expect(p.names).toEqual(expect.arrayContaining(['auth > logs in', 'auth > rejects revoked token']));
     expect(p.complete).toBe(true);
+  });
+  it('does not treat a totals-only CI summary as a per-test baseline', () => {
+    expect(parseTestLog('Tests 3 passed (3)').complete).toBe(false);
+  });
+  it('keeps a named skip-only CI run complete so Rule 12 can compare it', () => {
+    const parsed = parseTestLog('↓ auth > logs in (1ms)\nTests 1 skipped (1)');
+    expect(parsed.complete).toBe(true);
+    expect(parsed.results['auth > logs in']).toBe('skip');
+    expect(parsed.totals.skip).toBe(1);
   });
   it('detects a removed assertion and a new skip modifier', () => {
     const before = 'it("a", () => { expect(1).toBe(1); expect(2).toBe(2); });';

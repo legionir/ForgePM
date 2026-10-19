@@ -21,6 +21,7 @@ const REQUIRED = [
   'docs/API_CONTRACTS.md',
   'docs/MCP_CONTRACTS.md',
   'docs/EXECUTION_PLAN.md',
+  'docs/EXECUTION_CONTROL_PLAN.md',
   'docs/ACCEPTANCE_CRITERIA.md',
   'docs/PERFORMANCE_BUDGET.md',
   'docs/DECISIONS.md',
@@ -30,6 +31,8 @@ const REQUIRED = [
   'docs/RUNBOOK.md',
   'docs/SCALING.md',
   'docs/MCP.md',
+  'docs/LEDGER_RULES.md',
+  'docs/EXECUTION_CONTROL.md',
 ];
 
 const problems: string[] = [];

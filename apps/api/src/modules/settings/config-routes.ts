@@ -91,6 +91,14 @@ export function registerSettingsRoutes(app: FastifyInstance, deps: AppDeps): voi
       }
       const v = validateSettingValue(key, req.body.value);
       if (!v.ok) throw new AppError('VALIDATION_ERROR', v.message);
+      // R-08 B-008: stub guard — GitHub/Reviews panel without backend must not silently succeed
+      if ((key === 'github.review_output' || key === 'reviews.github_output') && String(v.value).includes('github')) {
+        const { configStatus } = await import('../github/config');
+        const st = await configStatus(db, actor.organizationId);
+        if (!st.app_id_set || !st.private_key_set) {
+          throw new AppError('UNPROCESSABLE', 'github review output not available — stub active (B-008); configure GitHub App first', { needed_action: 'set github.app_id + private_key via /api/v1/integrations/github/config' });
+        }
+      }
       const scopeId = resolveScopeId(actor, scope, req.params.scope_id);
       await unitOfWork(db, async ({ tx }) => {
         await upsertSetting(tx, scope, scopeId, key, v.value);

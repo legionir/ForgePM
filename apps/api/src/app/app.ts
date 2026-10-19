@@ -4,7 +4,16 @@ import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
 import { AppError, ERROR_CODES } from '@forgepm/shared';
-import { ModuleRegistry, makeRequireModule, loggerOptions, pingDb, setActiveCipher, createCipher, type Env } from '@forgepm/core';
+import {
+  ModuleRegistry,
+  makeRequireModule,
+  loggerOptions,
+  pingDb,
+  setActiveCipher,
+  setExecReviewSource,
+  createCipher,
+  type Env,
+} from '@forgepm/core';
 import { randomUUID } from 'node:crypto';
 import type { Db } from '@forgepm/core';
 import { registerSampleModule } from '../modules/sample/routes';
@@ -22,6 +31,7 @@ import { registerSavedViewsRoutes } from '../modules/saved-views/routes';
 import { registerPlannerRoutes } from '../modules/planner/routes';
 import { registerAiProvidersRoutes } from '../modules/ai-providers/routes';
 import { registerApprovalsRoutes } from '../modules/approvals/routes';
+import { registerExecRoutes } from '../modules/exec/routes';
 import { registerMcpRoutes } from '../modules/mcp/routes';
 import { registerMcpCallsRoutes } from '../modules/mcp/calls-routes';
 import { buildToolRegistry } from '../modules/mcp/tools';
@@ -32,6 +42,7 @@ import { setProviderResolver } from '../modules/planner/service';
 import { makeProviderResolver } from './provider-resolver';
 import { makeReviewProviderResolver } from './review-resolver';
 import { setReviewProviderResolver } from '@forgepm/core';
+import { GitExecReviewSource } from '../modules/exec/review-source';
 import { collectRoutes, buildOpenApiDocument } from './openapi';
 import { installMetrics } from './metrics';
 import { isTrustedProxy } from './trusted-proxy';
@@ -67,6 +78,9 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   // Review runs resolve their provider the same way (fake row => offline).
   // Tests may override via setReviewProviderResolver (module-level slot).
   setReviewProviderResolver(makeReviewProviderResolver(deps.db, deps.reviewFixtures ?? new Map()));
+  // The execution reviewer may only inspect the API's current worktree through
+  // read-only Git/hash operations; it exposes no file-write or project-execution operation.
+  setExecReviewSource(new GitExecReviewSource(process.env.REPO_MOUNT_ROOT || process.cwd()));
   const app = Fastify({
     logger: loggerOptions(deps.env.LOG_LEVEL, { component: 'api' }) as FastifyServerOptions['logger'],
     genReqId: () => randomUUID(),
@@ -121,6 +135,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   registerPlannerRoutes(app, deps);
   registerAiProvidersRoutes(app, deps);
   registerApprovalsRoutes(app, deps);
+  registerExecRoutes(app, deps);
   // MCP Streamable HTTP: build the tool registry once at startup; enabled
   // module gates (github/reviews) are checked at call time.
   const tools = buildToolRegistry(deps.db);

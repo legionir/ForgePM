@@ -170,7 +170,7 @@ export {
   type GenerateResult,
 } from './ai/provider';
 export { buildProvider, FakeProvider, OpenAiCompatibleProvider, AnthropicProvider } from './ai/providers';
-export { tokensUsedToday } from './ai/budget';
+export { tokensUsedToday, remainingTokenBudget, fitsTokenBudget } from './ai/budget';
 export { canTransition, nextStatus, isTerminal, type PlanEvent } from './planner/state';
 export { revisionHash, createPlanInputSchema, planDtoSchema, planContentDtoSchema } from './planner/types';
 export {
@@ -192,6 +192,14 @@ export {
   type ModuleDefinition,
   type ModuleName,
 } from './modules/registry';
+export {
+  registerCompletionGuard,
+  unregisterCompletionGuard,
+  listCompletionGuards,
+  assertCompletionAllowed,
+  type CompletionGuard,
+  type CompletionGuardInput,
+} from './modules/guards';
 export {
   createRedis,
   createQueues,

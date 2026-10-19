@@ -64,6 +64,7 @@ export async function seedApiKey(
   userId: string,
   scopes: string[],
   projectIds: string[] = [],
+  opts: { agentId?: string } = {},
 ): Promise<string> {
   const raw = `fpm_${Buffer.from(cryptoRandomBytes(20)).toString('hex')}`;
   await db
@@ -71,7 +72,9 @@ export async function seedApiKey(
     .values({
       id: newId(),
       organization_id: organizationId,
-      owner_user_id: userId,
+      // An AGENT key has no owner: the schema says exactly one of the two.
+      owner_user_id: opts.agentId ? null : userId,
+      agent_id: opts.agentId ?? null,
       key_hash: hashApiKey(raw),
       prefix: raw.slice(0, 12),
       name: 'seed',
@@ -80,6 +83,16 @@ export async function seedApiKey(
     })
     .execute();
   return raw;
+}
+
+/** An agent row, so a key can belong to an agent instead of a person. */
+export async function seedAgent(db: Db, organizationId: string, name = 'seed-agent'): Promise<string> {
+  const id = newId();
+  await db
+    .insertInto('agents')
+    .values({ id, organization_id: organizationId, name, status: 'active' })
+    .execute();
+  return id;
 }
 
 /** Add another user (default role `member`) to an existing org. */

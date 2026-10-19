@@ -14,6 +14,7 @@ import {
 } from '@forgepm/core';
 import { authenticate, type Actor } from '../../app/auth-context';
 import { jsonSchemaFor } from './json-schema';
+import { enforceExecWriteLock } from '../exec/write-lock';
 
 const rpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
@@ -36,14 +37,29 @@ export interface McpDeps {
 const jsonSchema = jsonSchemaFor;
 
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+const RATE_TTL_MS = 60_000;
+const RATE_MAX_BUCKETS = 10_000;
 export function resetRateBuckets(): void {
   rateBuckets.clear();
 }
 function rateOk(keyId: string, limit: number): boolean {
   const now = Date.now();
+  // R-11: opportunistic TTL sweep + cap — prevents unbounded Map growth per
+  // process and respects trustProxy (rate key is apiKeyId or actor.id, never
+  // X-Forwarded-For when untrusted; see app.ts trustProxy).
+  if (rateBuckets.size > RATE_MAX_BUCKETS) {
+    for (const [k, v] of rateBuckets) if (v.resetAt <= now) rateBuckets.delete(k);
+    if (rateBuckets.size > RATE_MAX_BUCKETS) {
+      // Still over cap: evict oldest resetAt
+      let oldest: string | null = null;
+      let oldestAt = Infinity;
+      for (const [k, v] of rateBuckets) if (v.resetAt < oldestAt) { oldestAt = v.resetAt; oldest = k; }
+      if (oldest) rateBuckets.delete(oldest);
+    }
+  }
   const hit = rateBuckets.get(keyId);
   if (!hit || hit.resetAt <= now) {
-    rateBuckets.set(keyId, { count: 1, resetAt: now + 60_000 });
+    rateBuckets.set(keyId, { count: 1, resetAt: now + RATE_TTL_MS });
     return true;
   }
   hit.count += 1;
@@ -68,13 +84,16 @@ export async function callTool(
   const tool = deps.tools.get(name);
   if (!tool) return fail(deps, actor, name, args, 'NOT_FOUND', `tool '${name}' not found`, started, requestId);
   if (!tool.scopes.some((s) => (actor.scopes as string[]).includes(s))) {
+    const list = tool.scopes.join(',');
     return fail(
       deps,
       actor,
       name,
       args,
       'FORBIDDEN_SCOPE',
-      `FORBIDDEN_SCOPE: requires scope: ${tool.scopes.join(',')}`,
+      // A tool may accept more than one scope (the ledger tools accept the
+      // generic one OR the ledger's own), so the message must say which.
+      `FORBIDDEN_SCOPE: requires ${tool.scopes.length > 1 ? 'one of' : 'scope'}: ${list}`,
       started,
       requestId,
     );
@@ -115,6 +134,9 @@ export async function callTool(
   }
   const ctx: McpCallContext = { actor: toMcpActor(actor), requestId };
   try {
+    if (mods.includes('exec')) {
+      await enforceExecWriteLock(deps.db, actor, name, parsed.data as Record<string, unknown>);
+    }
     const out = await tool.handler(parsed.data as never, ctx);
     const capped = capOutput(out);
     const pending = isPending(capped.payload);

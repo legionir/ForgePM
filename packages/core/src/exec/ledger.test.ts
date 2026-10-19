@@ -21,6 +21,28 @@ describe('baseline comparison (appendix §J, acceptance J.6)', () => {
     expect(b.rows.every((r) => r.source === 'ci' && r.result === 'pass')).toBe(true);
   });
 
+  it('fails closed when a totals-only log provides no named per-test outcomes', () => {
+    const parsed = baselineFromLog('Test Files 1 passed (1)\nTests 4 passed (4)', parser);
+    expect(parsed.rows).toEqual([]);
+    expect(parsed.complete).toBe(false);
+  });
+
+  it('parses explicit failing and skipped markers per test instead of guessing from totals', () => {
+    const log = [
+      '✓ auth > works (1ms)',
+      '× auth > rejects revoked token (2ms)',
+      '↓ auth > legacy case (1ms)',
+      'Tests  1 passed | 1 failed | 1 skipped (3)',
+    ].join('\n');
+    const parsed = baselineFromLog(log, parser);
+    expect(parsed.complete).toBe(true);
+    expect(parsed.rows).toEqual([
+      { name: 'auth > works', result: 'pass', source: 'ci' },
+      { name: 'auth > rejects revoked token', result: 'fail', source: 'ci' },
+      { name: 'auth > legacy case', result: 'skip', source: 'ci' },
+    ]);
+  });
+
   it('J.6b a passing baseline test that fails, skips or vanishes is a red flag', () => {
     const before: BaselineRow[] = [
       { name: 'a', result: 'pass' },
@@ -287,6 +309,13 @@ describe('exec settings (D-05 policy/harness as data)', () => {
     }
     for (const d of SETTING_DEFINITIONS.filter((x) => x.key.startsWith('exec.')))
       expect(d.category, d.key).toBe('execution');
+  });
+
+  it('PE-7 review rounds cannot be configured above the two-round safety cap', () => {
+    const rounds = SETTING_DEFINITIONS.find((definition) => definition.key === 'exec.max_review_rounds');
+    expect(rounds?.default).toBe(2);
+    expect(rounds?.schema.safeParse(2).success).toBe(true);
+    expect(rounds?.schema.safeParse(3).success).toBe(false);
   });
 
   it('every default validates against its own schema (a registry typo fails here, not in production)', () => {

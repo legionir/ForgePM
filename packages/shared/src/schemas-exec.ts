@@ -9,6 +9,7 @@ import {
   EXEC_FACT_KINDS,
   EXEC_FACT_SOURCES,
   EXEC_BLOCKED_ON_KINDS,
+  EXEC_SESSION_SECTION_KEYS,
 } from './enums';
 
 /**
@@ -139,16 +140,26 @@ export function assessCheckable(text: string): CheckableResult {
   };
 }
 
-/** 13-digit guard: an omitted "none" field is a hard error. */
+/**
+ * 13-digit guard: an omitted "none" field is a hard error.
+ *
+ * The value is a boolean, not a literal `true`, because an agent that lists
+ * entries in a field naturally says "not none" with `false` — and that is a
+ * legitimate answer, not a malformed one. The law itself lives in the
+ * cross-field check (`checkNoneConfirmed`): a field must either carry entries
+ * or be confirmed with `true`. Sending `false` for a field that has entries is
+ * exactly right; sending `false` for an empty field is refused with the
+ * "empty without confirmation" message that names the field.
+ */
 export const noneConfirmedSchema = z.strictObject({
-  incomplete: z.literal(true).optional(),
-  assumptions: z.literal(true).optional(),
-  decisions_made: z.literal(true).optional(),
-  risks_found: z.literal(true).optional(),
-  tests_not_run: z.literal(true).optional(),
-  out_of_scope_findings: z.literal(true).optional(),
-  req_ids_covered: z.literal(true).optional(),
-  scope_deviations: z.literal(true).optional(),
+  incomplete: z.boolean().optional(),
+  assumptions: z.boolean().optional(),
+  decisions_made: z.boolean().optional(),
+  risks_found: z.boolean().optional(),
+  tests_not_run: z.boolean().optional(),
+  out_of_scope_findings: z.boolean().optional(),
+  req_ids_covered: z.boolean().optional(),
+  scope_deviations: z.boolean().optional(),
 });
 export type NoneConfirmed = z.infer<typeof noneConfirmedSchema>;
 
@@ -220,7 +231,8 @@ const noneArray = <T extends z.ZodTypeAny>(item: T) => z.array(item).max(200);
 export const exitTestExecutedSchema = z.strictObject({
   name: z.string().min(3).max(300),
   result: z.enum(['pass', 'fail']),
-  evidence_ref: idOrCodeSchema,
+  /** The id (or code) of an `exec_evidence` row — a claim without one is refused. */
+  evidence_id: idOrCodeSchema,
 });
 
 export const exitTestNotRunSchema = z.strictObject({
@@ -234,39 +246,46 @@ export const exitCriterionStatusSchema = z.strictObject({
   evidence_refs: z.array(idOrCodeSchema).min(1),
 });
 
-export const exitReportSchema = z
-  .strictObject({
-    task_ref: idOrCodeSchema,
-    summary: z.string().min(40).max(8000),
-    changed_files: z.array(z.string().min(1).max(400)).max(500),
-    completed_items: z.array(str3).max(200),
-    incomplete: noneArray(str3),
-    assumptions: noneArray(str3),
-    decisions_made: noneArray(ledgerCodeSchema),
-    risks_found: noneArray(str3),
-    tests_executed: z.array(exitTestExecutedSchema).max(200),
-    tests_not_run: noneArray(exitTestNotRunSchema),
-    out_of_scope_findings: noneArray(str3),
-    criteria_status: z.array(exitCriterionStatusSchema).max(100),
-    req_ids_covered: noneArray(ledgerCodeSchema),
-    scope_deviations: noneArray(z.string().min(3).max(500)),
-    facts_recorded: z.array(ledgerCodeSchema).max(100).default([]),
-    none_confirmed: noneConfirmedSchema.optional(),
-  })
-  .superRefine((r, ctx) => {
-    // A criterion must be listed exactly once.
-    const seen = new Set<string>();
-    for (const c of r.criteria_status) {
-      if (seen.has(c.criterion_ref)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `criterion ${c.criterion_ref} listed twice`,
-          path: ['criteria_status'],
-        });
-      }
-      seen.add(c.criterion_ref);
+/**
+ * `exec_submit_exit_report`'s payload (plan §8.1). Strict, and with no `partial`
+ * and no `default`: a field that is missing is an error, because "I forgot to
+ * mention it" and "there was nothing to mention" are different statements and
+ * only the second one may be made. The eight "none" fields are checked against
+ * `none_confirmed` by `checkNoneConfirmed`, which is a cross-field rule and
+ * therefore not expressible as a zod refinement.
+ */
+export const exitReportObjectSchema = z.strictObject({
+  task_ref: idOrCodeSchema,
+  summary: z.string().min(40).max(8000),
+  changed_files: z.array(z.string().min(1).max(400)).max(500),
+  completed_items: z.array(str3).max(200),
+  incomplete: noneArray(str3),
+  assumptions: noneArray(str3),
+  decisions_made: noneArray(ledgerCodeSchema),
+  risks_found: noneArray(str3),
+  tests_executed: z.array(exitTestExecutedSchema).max(200),
+  tests_not_run: noneArray(exitTestNotRunSchema),
+  out_of_scope_findings: noneArray(str3),
+  criteria_status: z.array(exitCriterionStatusSchema).max(100),
+  req_ids_covered: noneArray(ledgerCodeSchema),
+  scope_deviations: noneArray(z.string().min(3).max(500)),
+  facts_recorded: z.array(ledgerCodeSchema).max(100),
+  none_confirmed: noneConfirmedSchema.optional(),
+});
+export const exitReportSchema = exitReportObjectSchema.superRefine((r, ctx) => {
+  // A criterion must be listed exactly once.
+  const seen = new Set<string>();
+  for (const c of r.criteria_status) {
+    if (seen.has(c.criterion_ref)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `criterion ${c.criterion_ref} listed twice`,
+        path: ['criteria_status'],
+      });
     }
-  });
+    seen.add(c.criterion_ref);
+  }
+});
 export type ExitReportInput = z.infer<typeof exitReportSchema>;
 
 /** The six "must not be omitted" fields plus the two from the appendix. */
@@ -301,6 +320,8 @@ export const taskStartInputSchema = z.strictObject({
 });
 export type TaskStartInput = z.infer<typeof taskStartInputSchema>;
 
+
+
 export const openItemInputSchema = z.strictObject({
   task_ref: idOrCodeSchema.optional(),
   title: z.string().min(5).max(500),
@@ -316,6 +337,7 @@ export type OpenItemInput = z.infer<typeof openItemInputSchema>;
 export const BLOCKING_BY_DEFAULT: ReadonlyArray<z.infer<typeof openItemInputSchema>['type']> = [
   'incomplete_requirement',
   'commitment',
+  'out_of_scope',
 ];
 
 export const resolveItemInputSchema = z.strictObject({
@@ -333,163 +355,199 @@ export const resolveItemInputSchema = z.strictObject({
   note: z.string().min(20).max(4000),
 });
 
-export const evidenceInputSchema = z
-  .strictObject({
-    criterion_ref: idOrCodeSchema.optional(),
-    task_ref: idOrCodeSchema.optional(),
-    kind: z.enum(EXEC_EVIDENCE_KINDS),
-    ref: z.string().min(3).max(500),
-    summary: z.string().min(20).max(4000),
-    payload: z.string().max(131_072).optional(),
-  })
-  .superRefine((v, ctx) => {
-    if (v.kind === 'manual_check') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'manual_check may only be recorded by a human (REST/CLI/panel)',
-        path: ['kind'],
-      });
-    }
-    if (v.kind === 'test_output' && !(v.payload && v.payload.length >= 200) && !/^ci:/.test(v.ref)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'test_output needs real output: payload >= 200 chars or ref "ci:<run_id>:<job>"',
-        path: ['payload'],
-      });
-    }
-  });
+/**
+ * The evidence payload, split so the API can add its own `project_ref` without
+ * losing the cross-field rule (a `ZodEffects` has no `.extend`).
+ *
+ * The `manual_check` rule is NOT here: it depends on WHO is calling, and only
+ * the service knows that (an agent may not record a manual check — a human
+ * may). A shape rule that needs the actor belongs in the service, not in a
+ * schema that every caller shares.
+ */
+export const evidenceObjectSchema = z.strictObject({
+  criterion_ref: idOrCodeSchema.optional(),
+  task_ref: idOrCodeSchema.optional(),
+  kind: z.enum(EXEC_EVIDENCE_KINDS),
+  ref: z.string().min(3).max(500),
+  summary: z.string().min(20).max(4000),
+  payload: z.string().max(131_072).optional(),
+});
+
+export function evidenceRefinement(v: z.infer<typeof evidenceObjectSchema>, ctx: z.RefinementCtx): void {
+  if (v.kind === 'test_output' && !(v.payload && v.payload.length >= 200) && !/^ci:/.test(v.ref)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'test_output needs real output: payload >= 200 chars or ref "ci:<run_id>:<job>"',
+      path: ['payload'],
+    });
+  }
+}
+
+export const evidenceInputSchema = evidenceObjectSchema.superRefine(evidenceRefinement);
 export type EvidenceInput = z.infer<typeof evidenceInputSchema>;
 
-export const decisionInputSchema = z
-  .strictObject({
-    task_ref: idOrCodeSchema,
-    title: z.string().min(5).max(500),
-    context: z.string().min(20).max(8000),
-    options: z.array(z.string().min(3).max(500)).min(2).max(20),
-    selected: z.string().min(3).max(500),
-    rationale: str40,
-    reversible: z.boolean(),
-    touches: z.array(z.enum(EXEC_TOUCH_CATEGORIES)).min(1).max(10),
-    review_trigger: z
-      .strictObject({
-        fact_codes: z.array(ledgerCodeSchema).optional(),
-        req_codes: z.array(ledgerCodeSchema).optional(),
-      })
-      .optional(),
-    idempotency_key: z.string().min(8).max(64).optional(),
-  })
-  .superRefine((d, ctx) => {
-    if (!d.options.some((o) => o === d.selected)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'selected must be one of options', path: ['selected'] });
-    }
-    if (d.touches.includes('none') && d.touches.length > 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "touches 'none' cannot be combined with other categories",
-        path: ['touches'],
-      });
-    }
-  });
+export const decisionObjectSchema = z.strictObject({
+  task_ref: idOrCodeSchema,
+  title: z.string().min(5).max(500),
+  context: z.string().min(20).max(8000),
+  options: z.array(z.string().min(3).max(500)).min(2).max(20),
+  selected: z.string().min(3).max(500),
+  rationale: str40,
+  reversible: z.boolean(),
+  touches: z.array(z.enum(EXEC_TOUCH_CATEGORIES)).min(1).max(10),
+  review_trigger: z
+    .strictObject({
+      fact_codes: z.array(ledgerCodeSchema).optional(),
+      req_codes: z.array(ledgerCodeSchema).optional(),
+    })
+    .optional(),
+  idempotency_key: z.string().min(8).max(64).optional(),
+});
+
+export function decisionRefinement(d: z.infer<typeof decisionObjectSchema>, ctx: z.RefinementCtx): void {
+  if (!d.options.some((o) => o === d.selected)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'selected must be one of options', path: ['selected'] });
+  }
+  if (d.touches.includes('none') && d.touches.length > 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "touches 'none' cannot be combined with other categories",
+      path: ['touches'],
+    });
+  }
+}
+
+export const decisionInputSchema = decisionObjectSchema.superRefine(decisionRefinement);
 export type DecisionInput = z.infer<typeof decisionInputSchema>;
 
-export const questionInputSchema = z
-  .strictObject({
-    task_ref: idOrCodeSchema,
-    question: z.string().min(10).max(2000),
-    options: z.array(z.string().min(2).max(500)).min(2).max(10),
-    recommendation: z.string().min(2).max(500),
-    impact_per_option: z.array(z.string().min(20).max(1000)).optional(),
-    why_it_matters: z.string().min(40).max(4000),
-    blocking: z.boolean().default(true),
-    kind: z
-      .enum(['generic', 'scope_expansion', 'drop_requirement', 'waive_requirement', 'baseline_change'])
-      .default('generic'),
-  })
-  .superRefine((q, ctx) => {
-    if (!q.options.includes(q.recommendation)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'recommendation must be one of options',
-        path: ['recommendation'],
-      });
-    }
-    if (!q.impact_per_option) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'impact_per_option is required (one consequence per option)',
-        path: ['impact_per_option'],
-      });
-    } else if (q.impact_per_option.length !== q.options.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `impact_per_option needs exactly ${q.options.length} entries`,
-        path: ['impact_per_option'],
-      });
-    }
-  });
+export const questionObjectSchema = z.strictObject({
+  task_ref: idOrCodeSchema,
+  question: z.string().min(10).max(2000),
+  options: z.array(z.string().min(2).max(500)).min(2).max(10),
+  recommendation: z.string().min(2).max(500),
+  impact_per_option: z.array(z.string().min(20).max(1000)).optional(),
+  why_it_matters: z.string().min(40).max(4000),
+  blocking: z.boolean().default(true),
+  kind: z
+    .enum(['generic', 'scope_expansion', 'drop_requirement', 'waive_requirement', 'baseline_change'])
+    .default('generic'),
+});
+
+export function questionRefinement(q: z.infer<typeof questionObjectSchema>, ctx: z.RefinementCtx): void {
+  if (!q.options.includes(q.recommendation)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'recommendation must be one of options',
+      path: ['recommendation'],
+    });
+  }
+  if (!q.impact_per_option) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'impact_per_option is required (one consequence per option)',
+      path: ['impact_per_option'],
+    });
+  } else if (q.impact_per_option.length !== q.options.length) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `impact_per_option needs exactly ${q.options.length} entries`,
+      path: ['impact_per_option'],
+    });
+  }
+}
+
+export const questionInputSchema = questionObjectSchema.superRefine(questionRefinement);
 export type QuestionInput = z.infer<typeof questionInputSchema>;
 
-export const requirementInputSchema = z
-  .strictObject({
-    text: z.string().min(10).max(4000),
-    quote: z.string().min(3).max(4000),
-    source: z.enum(EXEC_REQ_SOURCES),
-    source_ref: z.string().max(500).optional(),
-    kind: z.enum(EXEC_REQ_KINDS).default('functional'),
-    priority: z.enum(['none', 'low', 'medium', 'high', 'urgent']).default('medium'),
-  })
-  .superRefine((r, ctx) => {
-    if (r.source === 'user_message' && !r.text.includes(r.quote)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'quote must be a verbatim excerpt of text (which must come from the user message)',
-        path: ['quote'],
-      });
-    }
-    if (r.source === 'agent_derived' && !r.source_ref) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'agent_derived requirements need source_ref explaining why they exist',
-        path: ['source_ref'],
-      });
-    }
-  });
+export const requirementInputBaseSchema = z.strictObject({
+  text: z.string().min(10).max(4000),
+  quote: z.string().min(3).max(4000),
+  source: z.enum(EXEC_REQ_SOURCES),
+  source_ref: z.string().max(500).optional(),
+  kind: z.enum(EXEC_REQ_KINDS).default('functional'),
+  priority: z.enum(['none', 'low', 'medium', 'high', 'urgent']).default('medium'),
+  contradicts: z.array(idOrCodeSchema).max(50).default([]),
+});
+
+export function requirementRefinement(
+  requirement: { text: string; quote: string; source: string; source_ref?: string },
+  ctx: z.RefinementCtx,
+): void {
+  if (requirement.source === 'user_message' && !requirement.text.includes(requirement.quote)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'quote must be a verbatim excerpt of text (which must come from the user message)',
+      path: ['quote'],
+    });
+  }
+  if (requirement.source === 'agent_derived' && !requirement.source_ref) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'agent_derived requirements need source_ref explaining why they exist',
+      path: ['source_ref'],
+    });
+  }
+}
+
+export const requirementInputSchema = requirementInputBaseSchema.superRefine(requirementRefinement);
 export type RequirementInput = z.infer<typeof requirementInputSchema>;
 
-export const factInputSchema = z
-  .strictObject({
-    key: z.string().min(3).max(120),
-    value: z.string().min(5).max(4000),
-    kind: z.enum(EXEC_FACT_KINDS),
-    source: z.enum(EXEC_FACT_SOURCES),
-    source_ref: z.string().max(500).optional(),
-    files: z.array(z.string().min(1).max(400)).max(50).default([]),
-  })
-  .superRefine((f, ctx) => {
-    if (f.kind === 'fact' && f.source === 'agent_guess') {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message:
-          "a guess is not a fact: use kind='assumption', or cite source='code'/'tool_output'/'docs'/'human' with source_ref",
-        path: ['source'],
-      });
-    }
-    if (f.kind === 'fact' && (f.source === 'code' || f.source === 'tool_output') && !f.source_ref) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'fact needs source_ref (file:line or the command that printed it)',
-        path: ['source_ref'],
-      });
-    }
-    if (f.kind === 'fact' && f.source === 'code' && f.files.length === 0) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'code-sourced facts must list the files they were read from (so they can go stale)',
-        path: ['files'],
-      });
-    }
-  });
+export const factInputBaseSchema = z.strictObject({
+  key: z.string().min(3).max(120),
+  value: z.string().min(5).max(4000),
+  kind: z.enum(EXEC_FACT_KINDS),
+  source: z.enum(EXEC_FACT_SOURCES),
+  source_ref: z.string().max(500).optional(),
+  files: z.array(z.string().min(1).max(400)).max(50).default([]),
+});
+export type FactInputBase = z.infer<typeof factInputBaseSchema>;
+
+export function factInputRefinement(f: FactInputBase, ctx: z.RefinementCtx): void {
+  if (f.kind === 'fact' && f.source === 'agent_guess') {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message:
+        "a guess is not a fact: use kind='assumption', or cite source='code'/'tool_output'/'docs'/'human' with source_ref",
+      path: ['source'],
+    });
+  }
+  if (f.kind === 'fact' && (f.source === 'code' || f.source === 'tool_output') && !f.source_ref) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'fact needs source_ref (file:line, commit:sha, or a completed cmd journal)',
+      path: ['source_ref'],
+    });
+  }
+  if (f.kind === 'fact' && f.source === 'code' && f.files.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'code-sourced facts must list the files they were read from (so they can go stale)',
+      path: ['files'],
+    });
+  }
+}
+
+export const factInputSchema = factInputBaseSchema.superRefine(factInputRefinement);
 export type FactInput = z.infer<typeof factInputSchema>;
+
+export const factQueryInputSchema = z.strictObject({
+  query: z.string().min(1).max(200).optional(),
+  limit: z.number().int().min(1).max(10).default(10),
+  include_superseded: z.boolean().default(false),
+});
+export type FactQueryInput = z.infer<typeof factQueryInputSchema>;
+
+export const factVerifyInputSchema = z.strictObject({
+  fact_ref: idOrCodeSchema,
+});
+export type FactVerifyInput = z.infer<typeof factVerifyInputSchema>;
+
+export const factPromotionInputSchema = z.strictObject({
+  source: z.enum(['human', 'code', 'docs', 'tool_output']).optional(),
+  source_ref: z.string().min(1).max(500).optional(),
+  reason: z.string().min(10).max(2000),
+});
+export type FactPromotionInput = z.infer<typeof factPromotionInputSchema>;
 
 export const journalStartInputSchema = z.strictObject({
   task_ref: idOrCodeSchema,
@@ -499,23 +557,122 @@ export const journalStartInputSchema = z.strictObject({
   expected_effect: z.string().min(10).max(2000),
 });
 
-export const taskBlockInputSchema = z
+export const taskBlockObjectSchema = z.strictObject({
+  task_ref: idOrCodeSchema,
+  reason: z.string().min(20).max(2000),
+  blocked_on_kind: z.enum(EXEC_BLOCKED_ON_KINDS),
+  blocked_on_ref: idOrCodeSchema.optional(),
+  unblock_condition: z.string().min(10).max(1000),
+});
+
+export function taskBlockRefinement(b: z.infer<typeof taskBlockObjectSchema>, ctx: z.RefinementCtx): void {
+  if (b.blocked_on_kind !== 'external' && !b.blocked_on_ref) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: `blocked_on_ref (${b.blocked_on_kind} code) is required`,
+      path: ['blocked_on_ref'],
+    });
+  }
+}
+
+export const taskBlockInputSchema = taskBlockObjectSchema.superRefine(taskBlockRefinement);
+
+const taskSplitChildSchema = z.strictObject({
+  key: z.string().regex(/^[a-z][a-z0-9_]{0,31}$/, 'key must be a lowercase child label'),
+  title: z.string().min(5).max(500),
+  description: z.string().max(8000).optional(),
+  acceptance_criteria: z.array(z.string().min(1).max(2000)).min(1).max(50),
+  req_ids: z.array(idOrCodeSchema).max(100).default([]),
+  allowed_paths: z.array(z.string().min(1).max(200)).min(1).max(200),
+  depends_on: z.array(z.string().min(1).max(64)).max(50).default([]),
+});
+
+export const taskSplitInputSchema = z.strictObject({
+  parent_ref: idOrCodeSchema,
+  children: z.array(taskSplitChildSchema).min(2).max(20),
+});
+export type TaskSplitInput = z.infer<typeof taskSplitInputSchema>;
+
+export const reqLinkTaskInputSchema = z.strictObject({
+  requirement_ref: idOrCodeSchema,
+  task_ref: idOrCodeSchema,
+  criterion_refs: z.array(idOrCodeSchema).min(1).max(100),
+});
+
+export const reqChangeInputSchema = requirementInputBaseSchema
+  .extend({ requirement_ref: idOrCodeSchema })
+  .superRefine(requirementRefinement);
+
+export const linkDependencyInputSchema = z.strictObject({
+  task_ref: idOrCodeSchema,
+  depends_on_ref: idOrCodeSchema,
+});
+
+export const planViewInputSchema = z.strictObject({
+  task_ref: idOrCodeSchema.optional(),
+});
+
+export const taskStartCommandInputSchema = z.strictObject({ task_ref: idOrCodeSchema });
+export const taskCancelInputSchema = z.strictObject({ reason: z.string().min(10).max(2000) });
+export const reqCoverageInputSchema = z.strictObject({});
+export const sessionStartInputSchema = z.strictObject({});
+
+export const journalDoneInputSchema = z.strictObject({
+  journal_ref: idOrCodeSchema,
+  result_ref: z.string().max(500).optional(),
+  note: z.string().min(10).max(2000).optional(),
+});
+
+export const journalFailInputSchema = z.strictObject({
+  journal_ref: idOrCodeSchema,
+  result_ref: z.string().max(500).optional(),
+  note: z.string().min(20).max(2000),
+});
+
+export const execLedgerReconcileInputSchema = z.strictObject({});
+
+const sessionSectionSchema = z.strictObject({
+  key: z.enum(EXEC_SESSION_SECTION_KEYS),
+  label: z.string().max(80),
+  shown: z.array(z.unknown()),
+  total: z.number().int().nonnegative(),
+  more: z.number().int().nonnegative(),
+  hint: z.string().max(200).optional(),
+});
+
+/** Stable contract for session_start output and optional shell/editor hooks. */
+export const sessionSnapshotSchema = z
   .strictObject({
-    task_ref: idOrCodeSchema,
-    reason: z.string().min(20).max(2000),
-    blocked_on_kind: z.enum(EXEC_BLOCKED_ON_KINDS),
-    blocked_on_ref: idOrCodeSchema.optional(),
-    unblock_condition: z.string().min(10).max(1000),
+    project_id: z.string().uuid(),
+    generated_at: z.string().datetime({ offset: true }),
+    sections: z.array(sessionSectionSchema).length(EXEC_SESSION_SECTION_KEYS.length),
+    totals: z.record(z.string(), z.number().int().nonnegative()),
+    max_bytes: z.number().int().min(1),
+    meta: z.strictObject({
+      bytes: z.number().int().nonnegative(),
+      truncated: z.boolean(),
+      within_budget: z.boolean(),
+    }),
+    uncovered_requirements: z.array(z.string()),
+    uncovered_requirement_count: z.number().int().nonnegative(),
+    recently_unblocked: z.array(z.record(z.string(), z.unknown())),
+    recently_unblocked_limit: z.number().int().nonnegative(),
+    since: z.string().nullable(),
+    needed_action: z.string().optional(),
+    hint: z.string().max(200).optional(),
   })
-  .superRefine((b, ctx) => {
-    if ((b.blocked_on_kind === 'question' || b.blocked_on_kind === 'decision') && !b.blocked_on_ref) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `blocked_on_ref (${b.blocked_on_kind} code) is required`,
-        path: ['blocked_on_ref'],
-      });
-    }
+  .superRefine((snapshot, ctx) => {
+    snapshot.sections.forEach((section, index) => {
+      if (section.key !== EXEC_SESSION_SECTION_KEYS[index]) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'session sections must follow the fixed priority order',
+          path: ['sections', index, 'key'],
+        });
+      }
+    });
   });
+export type SessionSnapshot = z.infer<typeof sessionSnapshotSchema>;
 
 export const policyActionKindSchema = z.enum(POLICY_CATEGORIES);
 export type PolicyActionKind = z.infer<typeof policyActionKindSchema>;
@@ -606,12 +763,27 @@ export interface ParsedTestLog {
   failures: string[];
   skipped: string[];
   names: string[];
+  /** Per-test outcomes extracted from explicit result markers, never inferred from totals. */
+  results: Record<string, 'pass' | 'fail' | 'skip'>;
   complete: boolean;
 }
 
 /** Test names we accept are vitest/jest style file + test titles. */
-/** A per-test result line, e.g. "✓ auth > logs in (12ms)" or "  file.test.ts > name ×". */
-const TEST_MARK = /(?:^|\s)[✓✗×√•]\s*(.+?)\s*(?:\(\d+(?:\.\d+)?m?s\))?\s*$|(?:✓|✗|×)\s*(.*)$/;
+/** Per-test markers, e.g. "✓ auth > logs in (12ms)" or "file.test.ts > name ×". */
+const TEST_MARK_PREFIX = /^\s*([✓√✔]|[✗×❌]|[↓•◦○])\s*(.+?)\s*(?:\(\d+(?:\.\d+)?m?s\))?\s*$/;
+const TEST_MARK_SUFFIX = /^\s*(.+?)\s+([✓√✔]|[✗×❌]|[↓•◦○])(?:\s*\(\d+(?:\.\d+)?m?s\))?\s*$/;
+
+function markedTest(line: string): { name: string; result: 'pass' | 'fail' | 'skip' } | null {
+  const prefix = TEST_MARK_PREFIX.exec(line);
+  const suffix = prefix ? null : TEST_MARK_SUFFIX.exec(line);
+  const match = prefix ?? suffix;
+  if (!match) return null;
+  const marker = prefix ? match[1] : match[2];
+  const name = (prefix ? match[2] : match[1]).trim().replace(/\s*\(\d+(?:\.\d+)?m?s\)\s*$/, '');
+  if (!name || /\d+\s+(passed|failed|skipped)/i.test(name)) return null;
+  const result = marker && /[✗×❌]/.test(marker) ? 'fail' : marker && /[↓•◦○]/.test(marker) ? 'skip' : 'pass';
+  return { name: name.slice(0, 300), result };
+}
 
 const ANSI = new RegExp(String.fromCharCode(27) + '\\[[0-9;]*m', 'g');
 /** Removes terminal colour codes so a log can be matched/diffed deterministically. */
@@ -648,7 +820,8 @@ export function parseTestLog(
   let skip = 0;
   const failures: string[] = [];
   const skipped: string[] = [];
-  const names: string[] = [];
+  const results = new Map<string, 'pass' | 'fail' | 'skip'>();
+  const rank = { pass: 0, skip: 1, fail: 2 } as const;
   for (const line of lines) {
     if (passRe.some((re) => re.test(line))) pass = Math.max(pass, numIn(line, 'passed'));
     if (failRe.some((re) => re.test(line))) {
@@ -656,17 +829,26 @@ export function parseTestLog(
       if (failures.length < 50) failures.push(line.trim().slice(0, 300));
     }
     if (skipRe.some((re) => re.test(line))) skip = Math.max(skip, numIn(line, 'skipped'));
-    const marked = TEST_MARK.exec(line);
-    const name = (marked?.[1] ?? marked?.[2] ?? '').replace(/\s*\(\d+(?:\.\d+)?m?s\)\s*$/, '').trim();
-    if (name && !/\d+\s+(passed|failed|skipped)/i.test(line) && names.length < 5000 && !names.includes(name))
-      names.push(name.slice(0, 300));
+    const marked = markedTest(line);
+    if (!marked) continue;
+    const previous = results.get(marked.name);
+    if (!previous || rank[marked.result] > rank[previous]) results.set(marked.name, marked.result);
+    if (marked.result === 'fail' && failures.length < 50) failures.push(line.trim().slice(0, 300));
+    if (marked.result === 'skip' && skipped.length < 50) skipped.push(marked.name);
   }
+  const names = [...results.keys()];
   return {
     totals: { pass, fail, skip },
     failures,
     skipped,
     names,
-    complete: pass + fail > 0 && lines.some((l) => /Test Files|Tests\s+\d|passed/i.test(l)),
+    results: Object.fromEntries(results),
+    // Totals alone are not enough to establish a per-test baseline; without names,
+    // the gate could silently miss a test that disappeared or started failing.
+    complete:
+      names.length > 0 &&
+      pass + fail + skip > 0 &&
+      lines.some((l) => /Test Files|Tests\s+\d|passed|passing|failed|failing|skipped|pending/i.test(l)),
   };
 }
 

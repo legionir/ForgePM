@@ -7,7 +7,7 @@ import type { ExecPolicy, ExecRiskLevel, PolicyRule, PolicyCategory } from '@for
  * is overridable through the `exec.policy` setting (no code change needed).
  */
 
-export const GATE_VERSION = 1;
+export const GATE_VERSION = 2;
 
 export const LEVEL_ORDER: Record<ExecRiskLevel, number> = { auto: 0, review: 1, approval: 2, deny: 3 };
 
@@ -46,7 +46,6 @@ export const SENSITIVE_FOR_IRREVERSIBLE = [
   'waive_requirement',
   'baseline_change',
   'deps_add',
-  'rename_bulk',
 ] as const;
 
 const r = (category: PolicyCategory, level: ExecRiskLevel, note: string): PolicyRule => ({ category, level, note });
@@ -120,11 +119,9 @@ export function classify(policy: ExecPolicy, input: ClassifyInput): Classified {
   const matched: Classified['matched'] = [];
   const unknown: string[] = [];
   let level: ExecRiskLevel = 'auto';
-  let anyTouched = false;
 
   const cats = input.touches.length ? input.touches : ['none'];
   for (const c of cats) {
-    if (c !== 'none') anyTouched = true;
     if ((HARD_DENY_CATEGORIES as readonly string[]).includes(c)) {
       matched.push({ category: c, level: 'deny', source: 'hard' });
       level = 'deny';
@@ -136,8 +133,9 @@ export function classify(policy: ExecPolicy, input: ClassifyInput): Classified {
     if (LEVEL_ORDER[lv] > LEVEL_ORDER[level]) level = lv;
   }
 
-  // Irreversibility raises the floor (never lowers it).
-  if (input.reversible === false && anyTouched) {
+  // Irreversibility raises the floor (never lowers it). Even an explicit
+  // `none` claim with reversible=false is inconsistent enough to require review.
+  if (input.reversible === false) {
     const sensitive: string[] = [...SENSITIVE_FOR_IRREVERSIBLE, ...(policy.sensitive_for_irreversible ?? [])];
     const floor: ExecRiskLevel = cats.some((c) => sensitive.includes(c)) ? 'approval' : policy.irreversible_floor;
     if (LEVEL_ORDER[floor] > LEVEL_ORDER[level]) {

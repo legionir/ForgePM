@@ -1,486 +1,68 @@
-import type { ExecPolicy } from '@forgepm/shared';
-import { classify, GATE_VERSION } from './policy';
+import { newId } from '../id';
+import type { DbLike } from '../db/unitOfWork';
+import { toJsonb } from '../jsonb';
+import { detectGateStampDrift } from './drift';
+import { GATE_RULES } from './gate-rules';
+import { TREE_HASH_UNMEASURED, loadGateContext } from './gate-context';
+import { GATE_VERSION, classify } from './policy';
+import { resolveExecReviewSource } from './review-source';
+import { restrictScopeManifest } from './scope';
 import { blockingOpen } from './open-items';
+import type { BlockedRef, FinalReport, GateContext } from './gate-types';
+
+export { GATE_RULES, GATE_RULE_NUMBERS } from './gate-rules';
+export type {
+  BlockedRef,
+  FinalReport,
+  GateBaseline,
+  GateContext,
+  GateCriterion,
+  GateDecision,
+  GateFact,
+  GateOpenItem,
+  GateQuestion,
+  GateReport,
+  GateRequirement,
+  GateReview,
+  GateScope,
+  GateStamp,
+  GateTask,
+  Rule,
+} from './gate-types';
 
 /**
- * Finalization Gate (docs/EXECUTION_CONTROL_PLAN.md §8, plan §C + appendix §1.2).
- * Deterministic: 13 numbered rules, each a pure function over a snapshot of the
- * ledger. Rule numbers are a public contract (tests and docs cite them), so a
- * rule may only be added at the end — never renumbered.
+ * The finalization gate (docs/EXECUTION_CONTROL_PLAN.md §8).
+ *
+ * The gate answers one question — "may this task be closed?" — and it answers
+ * it from the ledger, never from the agent's prose. The thirteen rules live in
+ * `gate-rules/`, one file each, so a rule can be read, argued about and
+ * changed without touching the other twelve; this file is the orchestrator:
+ * it loads the snapshot, runs the rules, writes the stamp and says what the
+ * status should become.
  */
 
-export interface GateCriterion {
-  code: string;
-  status: 'pending' | 'verified' | 'waived';
-  evidence_count: number;
-  valid_evidence_count: number;
-  has_waiver_approval: boolean;
-  req_code: string | null;
-  text: string;
-}
-
-export interface GateOpenItem {
-  code: string;
-  title: string;
-  type: string;
-  status: 'open' | 'resolved' | 'accepted' | 'deferred' | 'wont_fix' | 'blocked' | 'awaiting_human' | 'not_applicable';
-  blocks_completion: boolean;
-  source: string;
-}
-
-export interface GateDecision {
-  code: string;
-  title: string;
-  touches: string[];
-  reversible: boolean;
-  approval_state: 'not_required' | 'pending' | 'approved' | 'rejected';
-  applied: boolean;
-  status: 'proposed' | 'active' | 'superseded' | 'needs_revisit';
-}
-
-export interface GateQuestion {
-  code: string;
-  blocking: boolean;
-  status: 'open' | 'answered' | 'canceled';
-}
-
-export interface GateFact {
-  code: string;
-  status: 'active' | 'stale' | 'rejected' | 'superseded';
-  active_dependent_decisions: string[];
-}
-
-export interface GateRequirement {
-  code: string;
-  status: 'active' | 'changed' | 'dropped';
-  verified_criteria: string[];
-}
-
-export interface GateJournalRow {
-  code: string;
-  action: string;
-  status: 'started' | 'done' | 'failed' | 'unknown';
-  idempotent: boolean;
-}
-
-export interface GateBaselineRow {
-  name: string;
-  result_at_start: 'pass' | 'fail' | 'skip';
-}
-
-export interface GateReport {
-  tests_executed: { name: string; result: 'pass' | 'fail' | 'not_run'; evidence_ref: string }[];
-  tests_not_run: { name: string; reason?: string }[];
-  changed_files: string[];
-}
-
-export interface GateExitReport {
-  tests_executed: { name: string; result: 'pass' | 'fail'; evidence_ref: string }[];
-  tests_not_run: { name: string; reason: string }[];
-  incomplete: string[];
-  assumptions: string[];
-  risks_found: string[];
-}
-
-export interface GateReview {
-  round: number;
-  verdict: 'pass' | 'fail';
-  tree_hash: string;
-  open_blocking_findings: number;
-}
-
-export interface GateTask {
-  code: string;
-  status: 'not_started' | 'in_progress' | 'awaiting_review' | 'blocked' | 'done';
-  children: { code: string; title: string; status: GateTask['status']; req_codes: string[]; cancelled: boolean }[];
-  depends_on: { code: string; status: GateTask['status'] }[];
-  human_waivers: string[];
-}
-
-export interface GateScope {
-  available: boolean;
-  files: { path: string; in_allowed_paths: boolean; deleted: boolean }[];
-  tree_hash: string | null;
-}
-
-export interface GateBaseline {
-  /** What the gate itself executed (never the agent's word). */
-  ran: boolean;
-  unavailable_reason: string | null;
-  human_waived: boolean;
-  tests: GateBaselineRow[];
-  after: { present: string[]; results: Record<string, 'pass' | 'fail' | 'skip'> } | null;
-}
-
-export interface GateContext {
+export interface GateResult {
+  ok: boolean;
   gate_version: number;
-  policy: ExecPolicy;
-  require_review: boolean;
-  max_review_rounds: number;
-  task: GateTask;
-  criteria: GateCriterion[];
-  open_items: GateOpenItem[];
-  decisions: GateDecision[];
-  questions: GateQuestion[];
-  facts: GateFact[];
-  requirements: GateRequirement[];
-  journal: GateJournalRow[];
-  review: GateReview | null;
-  current_tree_hash: string | null;
-  scope: GateScope;
-  baseline: GateBaseline;
-  report: GateReport;
-  /** Verbatim strings from the accepted exit report (already promoted to items). */
-  report_assumptions?: string[];
+  tree_hash: string | null;
+  blocked_by: BlockedRef[];
+  counts?: {
+    criteria: number;
+    evidence: number;
+    decisions: number;
+    reviews: number;
+  };
+  human_waivers?: string[];
+  /**
+   * On success: the completion report, composed from the very snapshot the
+   * gate judged (plan §8.2's `GateResult = {ok:true, finalReport}`). The DB
+   * loader `buildFinalReport(tx, taskId)` renders the same thing from the
+   * rows; both come from the ledger, never from the agent's message.
+   */
+  final_report?: FinalReport;
 }
 
-export interface BlockedRef {
-  rule: number;
-  ref: string;
-  title?: string;
-  needed: string;
-  tool_to_call?: string;
-}
-
-export type GateResult =
-  | {
-      ok: true;
-      gate_version: number;
-      tree_hash: string | null;
-      counts: { criteria: number; evidence: number; decisions: number; reviews: number };
-      human_waivers: string[];
-    }
-  | { ok: false; gate_version: number; tree_hash: string | null; blocked_by: BlockedRef[] };
-
-type Rule = (ctx: GateContext) => BlockedRef[];
-
-/** rule 1 — exit report present, current and structurally valid. */
-const rule01: Rule = (ctx) => {
-  if (!ctx.report)
-    return [
-      {
-        rule: 1,
-        ref: 'exit_report',
-        needed: 'call exec_submit_exit_report with the full report',
-        tool_to_call: 'exec_submit_exit_report',
-      },
-    ];
-  if (!Array.isArray(ctx.report.tests_executed) || !Array.isArray(ctx.report.tests_not_run)) {
-    return [
-      {
-        rule: 1,
-        ref: 'exit_report',
-        needed: 'the report is malformed: tests_executed and tests_not_run must both be arrays (use [] for none)',
-        tool_to_call: 'exec_submit_exit_report',
-      },
-    ];
-  }
-  return [];
-};
-
-/** rule 2 — no active blocking open item. */
-const rule02: Rule = (ctx) =>
-  blockingOpen(ctx.open_items).map((i) => ({
-    rule: 2,
-    ref: i.code,
-    title: i.title,
-    needed: 'resolve with proof (note >= 20 chars) or ask the human — never defer it yourself',
-    tool_to_call: 'ledger_resolve_item',
-  }));
-
-/** rule 3 — every criterion has valid evidence or a human waiver. */
-const rule03: Rule = (ctx) =>
-  ctx.criteria
-    .filter((c) => c.status !== 'waived' && c.valid_evidence_count === 0)
-    .map((c) => ({
-      rule: 3,
-      ref: c.code,
-      title: c.text.slice(0, 120),
-      needed:
-        c.evidence_count > 0
-          ? 'evidence exists but is not verifiable (ref missing or output empty) — add valid evidence'
-          : 'add evidence',
-      tool_to_call: 'ledger_add_evidence',
-    }))
-    .filter(Boolean) as BlockedRef[];
-
-/** rule 4 — no pending/rejected approval whose change was already applied. */
-const rule04: Rule = (ctx) => {
-  const out: BlockedRef[] = [];
-  for (const d of ctx.decisions) {
-    const level = classify(ctx.policy, { touches: d.touches, reversible: d.reversible }).level;
-    if (level === 'deny' && d.applied) {
-      out.push({
-        rule: 4,
-        ref: d.code,
-        needed: 'the change is denied by policy — revert it and ask the human',
-        tool_to_call: 'ledger_ask_human',
-      });
-      continue;
-    }
-    if (level !== 'approval' && level !== 'deny') continue;
-    if (d.approval_state === 'pending') {
-      out.push({
-        rule: 4,
-        ref: d.code,
-        needed: 'await human approval before closing',
-        tool_to_call: 'ledger_ask_human',
-      });
-    } else if (d.approval_state === 'rejected' && d.applied) {
-      out.push({
-        rule: 4,
-        ref: d.code,
-        needed: 'decision was rejected but the change is applied — revert it',
-        tool_to_call: 'ledger_record_decision',
-      });
-    }
-  }
-  return out;
-};
-
-/** rule 5 — no unanswered blocking question. */
-const rule05: Rule = (ctx) =>
-  ctx.questions
-    .filter((q) => q.blocking && q.status === 'open')
-    .map((q) => ({
-      rule: 5,
-      ref: q.code,
-      needed: 'waiting for a human answer (silence is not approval)',
-      tool_to_call: 'ledger_list_open',
-    }));
-
-/** rule 6 — no failed test; every not_run needs a reason and a matching item. */
-const rule06: Rule = (ctx) => {
-  const out: BlockedRef[] = [];
-  // rule 1 already reports a missing report; this guard keeps the engine total
-  // (a caller that builds a context by hand must never crash the gate).
-  const report =
-    Array.isArray(ctx.report?.tests_executed) && Array.isArray(ctx.report?.tests_not_run)
-      ? ctx.report
-      : { tests_executed: [], tests_not_run: [], changed_files: [] };
-  for (const t of report.tests_executed) {
-    if (t.result === 'fail')
-      out.push({
-        rule: 6,
-        ref: t.name,
-        needed: 'fix the failing test (do not weaken or delete it)',
-        tool_to_call: 'ledger_add_open_item',
-      });
-  }
-  for (const t of report.tests_not_run) {
-    const linked = ctx.open_items.some(
-      (i) => i.type === 'test_gap' && i.title.toLowerCase().includes(t.name.toLowerCase().slice(0, 40)),
-    );
-    if (!t.reason || t.reason.trim().length < 20) {
-      out.push({
-        rule: 6,
-        ref: t.name,
-        needed: 'record why the test was not run (>= 20 chars) and add a matching open item',
-        tool_to_call: 'ledger_add_open_item',
-      });
-    } else if (!linked) {
-      out.push({
-        rule: 6,
-        ref: t.name,
-        needed: "add open_item(type='test_gap') for this not_run test",
-        tool_to_call: 'ledger_add_open_item',
-      });
-    }
-  }
-  return out;
-};
-
-/** rule 7 — adversarial review of THIS version is done and its blockers closed. */
-const rule07: Rule = (ctx) => {
-  if (!ctx.require_review) return [];
-  const out: BlockedRef[] = [];
-  if (!ctx.review) {
-    out.push({
-      rule: 7,
-      ref: 'review',
-      needed: 'call review_task to run the adversarial reviewer on the current diff',
-      tool_to_call: 'review_task',
-    });
-    return out;
-  }
-  if (ctx.current_tree_hash && ctx.review.tree_hash !== ctx.current_tree_hash) {
-    out.push({
-      rule: 7,
-      ref: `review:r${ctx.review.round}`,
-      needed: 'the diff changed after the review — re-run review_task',
-      tool_to_call: 'review_task',
-    });
-  }
-  if (ctx.review.verdict === 'fail' || ctx.review.open_blocking_findings > 0) {
-    out.push({
-      rule: 7,
-      ref: `review:r${ctx.review.round}`,
-      needed:
-        ctx.review.round >= ctx.max_review_rounds
-          ? 'review round limit reached — a human must decide (fix, waive, or accept the finding)'
-          : 'fix the blocking review findings and re-run review_task',
-      tool_to_call: ctx.review.round >= ctx.max_review_rounds ? 'ledger_ask_human' : 'review_task',
-    });
-  }
-  return out;
-};
-
-/** rule 8 — every linked requirement is covered by a verified criterion. */
-const rule08: Rule = (ctx) =>
-  ctx.requirements
-    .filter((rq) => rq.status !== 'dropped')
-    .filter((rq) => rq.verified_criteria.length === 0)
-    .map((rq) => ({
-      rule: 8,
-      ref: rq.code,
-      needed:
-        'this requirement has no verified acceptance criterion — implement it or link/verify a criterion (dropping needs human approval)',
-      tool_to_call: 'req_link_task',
-    }));
-
-/** rule 9 — children done/cancelled-with-approval, dependencies done. */
-const rule09: Rule = (ctx) => {
-  const out: BlockedRef[] = [];
-  for (const c of ctx.task.children) {
-    if (c.status === 'done') continue;
-    if (
-      c.cancelled &&
-      (ctx.task.human_waivers.includes(`cancel:${c.code}`) ||
-        ctx.task.human_waivers.includes(`cancel:${c.code}:${c.req_codes.join(',')}`))
-    )
-      continue;
-    out.push({
-      rule: 9,
-      ref: c.code,
-      title: c.title,
-      needed: 'finish the subtask (or have a human cancel it)',
-      tool_to_call: 'exec_plan_view',
-    });
-  }
-  for (const d of ctx.task.depends_on) {
-    if (d.status !== 'done')
-      out.push({
-        rule: 9,
-        ref: d.code,
-        needed: `dependency is '${d.status}', not done`,
-        tool_to_call: 'exec_plan_view',
-      });
-  }
-  return out;
-};
-
-/** rule 10 — no stale/rejected fact feeding an active decision. */
-const rule10: Rule = (ctx) =>
-  ctx.facts
-    .filter((f) => f.status === 'stale' || f.status === 'rejected')
-    .filter((f) => f.active_dependent_decisions.length > 0)
-    .map((f) => ({
-      rule: 10,
-      ref: f.code,
-      needed: `re-verify the fact or revisit decision(s) ${f.active_dependent_decisions.join(', ')}`,
-      tool_to_call: 'fact_verify',
-    }));
-
-/** rule 11 — no file outside allowed_paths without human approval. */
-const rule11: Rule = (ctx) => {
-  if (!ctx.scope.available) {
-    return [
-      {
-        rule: 11,
-        ref: 'scope',
-        needed: 'scope cannot be measured (no start_ref/manifest) — record start_ref or ask the human to waive',
-        tool_to_call: 'scope_check',
-      },
-    ];
-  }
-  const out: BlockedRef[] = [];
-  for (const f of ctx.scope.files) {
-    if (!f.in_allowed_paths) {
-      out.push({
-        rule: 11,
-        ref: f.path,
-        needed: f.deleted
-          ? 'deleted outside the allowed scope — needs human approval'
-          : 'outside allowed_paths — ask the human for scope_expansion or revert',
-        tool_to_call: 'ledger_ask_human',
-      });
-    }
-  }
-  return out;
-};
-
-/** rule 12 — the gate itself ran the tests: no baseline pass turned fail/skip/gone. */
-const rule12: Rule = (ctx) => {
-  if (ctx.baseline.human_waived) return [];
-  if (!ctx.baseline.ran) {
-    return [
-      {
-        rule: 12,
-        ref: 'baseline',
-        needed: ctx.baseline.unavailable_reason
-          ? `baseline could not be read (${ctx.baseline.unavailable_reason}) — point exec.ci_log_endpoint at the CI run of this sha, or have a human waive explicitly`
-          : 'the gate needs a baseline from CI — set exec.baseline_source/exec.ci_log_endpoint (ForgePM never runs repo code itself)',
-        tool_to_call: 'baseline_capture',
-      },
-    ];
-  }
-  const out: BlockedRef[] = [];
-  const after = ctx.baseline.after;
-  for (const b of ctx.baseline.tests) {
-    if (b.result_at_start !== 'pass') continue;
-    if (!after) continue;
-    if (!after.present.includes(b.name)) {
-      out.push({
-        rule: 12,
-        ref: b.name,
-        needed: 'a passing baseline test disappeared — restore it (deleting a test to go green is banned)',
-        tool_to_call: 'ledger_resolve_item',
-      });
-    } else if (after.results[b.name] !== 'pass') {
-      out.push({
-        rule: 12,
-        ref: b.name,
-        needed: `baseline test now reports '${after.results[b.name]}' — fix the cause, do not weaken the test`,
-        tool_to_call: 'ledger_add_open_item',
-      });
-    }
-  }
-  return out;
-};
-
-/** rule 13 — no unfinished journal rows for this task. */
-const rule13: Rule = (ctx) =>
-  ctx.journal
-    .filter((j) => j.status === 'started' || j.status === 'unknown')
-    .map((j) => ({
-      rule: 13,
-      ref: j.code,
-      title: j.action,
-      needed:
-        j.status === 'unknown'
-          ? 'determine the real state first, then journal_done/journal_fail'
-          : 'finish the action and call journal_done (or journal_fail with a note)',
-      tool_to_call: 'journal_done',
-    }));
-
-export const GATE_RULES: ReadonlyArray<{ n: number; name: string; run: Rule }> = [
-  { n: 1, name: 'exit_report_valid', run: rule01 },
-  { n: 2, name: 'no_blocking_open_items', run: rule02 },
-  { n: 3, name: 'criteria_have_evidence', run: rule03 },
-  { n: 4, name: 'no_pending_or_rejected_approvals', run: rule04 },
-  { n: 5, name: 'no_unanswered_blocking_questions', run: rule05 },
-  { n: 6, name: 'tests_pass_or_justified', run: rule06 },
-  { n: 7, name: 'adversarial_review_current', run: rule07 },
-  { n: 8, name: 'requirements_covered', run: rule08 },
-  { n: 9, name: 'plan_children_and_deps_done', run: rule09 },
-  { n: 10, name: 'no_stale_fact_dependency', run: rule10 },
-  { n: 11, name: 'scope_respected', run: rule11 },
-  { n: 12, name: 'baseline_intact', run: rule12 },
-  { n: 13, name: 'journal_settled', run: rule13 },
-];
-
-export const GATE_RULE_NUMBERS = GATE_RULES.map((r) => r.n);
-
+/** Run all thirteen rules over one snapshot. Pure: same ctx in, same answer out. */
 export function evaluateGate(ctx: GateContext): GateResult {
   const blocked: BlockedRef[] = [];
   // gate_version is a public contract: a stale caller must not silently pass.
@@ -491,14 +73,20 @@ export function evaluateGate(ctx: GateContext): GateResult {
       tree_hash: ctx.current_tree_hash,
       blocked_by: [
         {
-          rule: 1,
+          rule: 0,
           ref: 'gate_version',
+          title: 'the caller and the gate disagree about the gate version',
           needed: `caller gate_version ${ctx.gate_version} != engine ${GATE_VERSION}`,
           tool_to_call: 'exec_task_complete',
         },
       ],
     };
   }
+  // C.9b — a task that claims to be done but has no passing stamp is drift.
+  // It is checked before the rules so the drift is never hidden behind a
+  // rule that happens to be unhappy about something else.
+  const drift = stampDrift(ctx);
+  if (drift) blocked.push(drift);
   for (const rule of GATE_RULES) blocked.push(...rule.run(ctx));
   if (blocked.length) {
     return { ok: false, gate_version: GATE_VERSION, tree_hash: ctx.current_tree_hash, blocked_by: blocked };
@@ -507,6 +95,8 @@ export function evaluateGate(ctx: GateContext): GateResult {
     ok: true,
     gate_version: GATE_VERSION,
     tree_hash: ctx.current_tree_hash,
+    blocked_by: [],
+    final_report: composeFinalReport(ctx),
     counts: {
       criteria: ctx.criteria.length,
       evidence: ctx.criteria.reduce((a, c) => a + c.valid_evidence_count, 0),
@@ -514,6 +104,29 @@ export function evaluateGate(ctx: GateContext): GateResult {
       reviews: ctx.review ? ctx.review.round : 0,
     },
     human_waivers: ctx.task.human_waivers,
+  };
+}
+
+/**
+ * C.9b — the drift between "the task says done" and "the gate says so".
+ *
+ * `exec_task_complete` is the only path to `status='done'`, so a task in that
+ * state without a passing stamp was closed by hand (or by a bug). Both the
+ * gate and `exec_ledger_status` report it with the same words.
+ */
+export function stampDrift(ctx: GateContext): BlockedRef | null {
+  const drift = detectGateStampDrift({
+    status: ctx.task.status,
+    stamp: ctx.stamp?.stamp_id ? { ok: ctx.stamp.ok, stamp_id: ctx.stamp.stamp_id } : null,
+  });
+  if (!drift) return null;
+  return {
+    rule: 0,
+    ref: drift,
+    title: 'the ledger and the board disagree about this task',
+    needed:
+      'the task claims to be done but the gate never passed for it — run exec_task_complete so the ledger can stamp it',
+    tool_to_call: 'exec_task_complete',
   };
 }
 
@@ -531,24 +144,143 @@ export function deriveStatusAfterFailure(
   return 'in_progress';
 }
 
-/** The completion report is generated FROM THE LEDGER, never from memory. */
-export interface FinalReport {
-  task: string;
-  summary: string;
-  completed: { criterion: string; evidence: number }[];
-  accepted_or_deferred: GateOpenItem[];
-  decisions: { code: string; title: string; level: string; approval_state: string }[];
-  needs_human_review: string[];
-  assumptions: string[];
-  out_of_scope: string[];
-  counts: { criteria_verified: number; criteria_pending: number; open_blocking: number; review_rounds: number };
+/**
+ * The status a task gets after a gate run. Pure (acceptance §C): the only
+ * way to `done` is a gate that said `ok`.
+ */
+export function deriveStatus(
+  ctx: GateContext,
+  outcome: { ok: boolean; blocked_by: BlockedRef[] },
+): 'done' | 'in_progress' | 'awaiting_review' | 'blocked' {
+  if (outcome.ok) return 'done';
+  return deriveStatusAfterFailure(ctx, outcome.blocked_by);
 }
 
-function outOfScope(ctx: GateContext): string[] {
-  return ctx.open_items.filter((i) => i.type === 'out_of_scope').map((i) => `${i.code} ${i.title}`);
+// ------------------------------------------------------------- the DB-backed gate
+
+export interface RunGateOptions {
+  /** The report the caller closes on; the newest one otherwise. */
+  reportId?: string | null;
+  /** Who asked for the gate run — recorded in the stamp's `run_source`. */
+  actorType?: 'agent' | 'human' | 'system';
+  runSource?: string;
 }
 
-export function buildFinalReport(ctx: GateContext, summary: string, reviewRounds: number): FinalReport {
+export interface RunGateResult {
+  ok: boolean;
+  blocked_by: BlockedRef[];
+  gate_version: number;
+  tree_hash: string;
+  /**
+   * The stamp's id — or null when the gate had no report to stamp. The
+   * ledger's schema makes `exec_gate_checks.report_id` a NOT NULL foreign key
+   * (a stamp always belongs to a report), so an evaluation of a task that has
+   * no report yet leaves an event instead of a row. See `runGate`.
+   */
+  stamp_id: string | null;
+  report_id: string | null;
+  status: 'done' | 'in_progress' | 'awaiting_review' | 'blocked';
+}
+
+/**
+ * Run the gate against the ledger and WRITE THE STAMP before answering.
+ *
+ * The stamp (`exec_gate_checks`) is the proof that the gate ran: which report
+ * it looked at, what it blocked on, which gate version decided, and the tree
+ * it measured. It is written even when the gate fails — a refused close is
+ * evidence too, and without it a failed attempt would be invisible.
+ *
+ * The one exception is a task with no exit report at all. The schema says a
+ * stamp references a report (`report_id` is NOT NULL and a foreign key), so
+ * there is nothing to point the row at: rule 1 refuses the close and the
+ * refusal is recorded as an event. The answer is the same, and the ledger
+ * does not grow a row that pretends a report exists.
+ */
+export async function runGate(tx: DbLike, taskId: string, options: RunGateOptions = {}): Promise<RunGateResult> {
+  const loaded = await loadGateContext(tx, taskId, { reportId: options.reportId ?? null });
+  const result = evaluateGate(loaded.ctx);
+  const treeHash = loaded.ctx.current_tree_hash ?? TREE_HASH_UNMEASURED;
+  const stampId = loaded.report_id ? newId() : null;
+  let closeFileManifest: Record<string, unknown> | null = null;
+  if (result.ok && loaded.review_roots.length && loaded.allowed_paths.length) {
+    const source = resolveExecReviewSource();
+    if (source?.fileSnapshot) {
+      try {
+        const snapshot = await source.fileSnapshot({ roots: loaded.review_roots });
+        const scopedSnapshot = restrictScopeManifest(snapshot, loaded.allowed_paths);
+        closeFileManifest = { ...scopedSnapshot, roots: loaded.review_roots, allowed_paths: loaded.allowed_paths };
+      } catch {
+        // Gate remains governed by its existing rules; reconciliation reports
+        // that the close-time file snapshot was unavailable rather than
+        // claiming a clean tree.
+        closeFileManifest = null;
+      }
+    }
+  }
+  if (stampId && loaded.report_id) {
+    await tx
+      .insertInto('exec_gate_checks')
+      .values({
+        id: stampId,
+        organization_id: loaded.organization_id,
+        task_id: taskId,
+        report_id: loaded.report_id,
+        ok: result.ok,
+        blocked_by: toJsonb(result.blocked_by) as never,
+        gate_version: result.gate_version,
+        tree_hash: treeHash,
+        run_source: options.runSource ?? options.actorType ?? 'none',
+        file_manifest: closeFileManifest ? (toJsonb(closeFileManifest) as never) : null,
+      })
+      .execute();
+    // The report learns the verdict: a report nobody judged is still 'submitted'.
+    await tx
+      .updateTable('exec_reports')
+      .set({ status: result.ok ? 'gate_passed' : 'gate_failed', updated_at: new Date() })
+      .where('id', '=', loaded.report_id)
+      .execute();
+  }
+  return {
+    ok: result.ok,
+    blocked_by: result.blocked_by,
+    gate_version: result.gate_version,
+    tree_hash: treeHash,
+    stamp_id: stampId,
+    report_id: loaded.report_id,
+    status: deriveStatus(loaded.ctx, { ok: result.ok, blocked_by: result.blocked_by }),
+  };
+}
+
+/**
+ * The gate, asked without closing anything (plan §9.5 — the human's dry run).
+ *
+ * A human asks "may this task close?" before anybody tries. The answer has to
+ * be the SAME answer the gate would give — so it runs the same rules over the
+ * same snapshot — but it must leave nothing behind: a dry run writes no
+ * stamp, no report status and no event. A gate check that leaves a trace is
+ * not a dry run, it is a second attempt.
+ */
+export async function dryRunGate(tx: DbLike, taskId: string): Promise<RunGateResult> {
+  const loaded = await loadGateContext(tx, taskId, {});
+  const result = evaluateGate(loaded.ctx);
+  return {
+    ok: result.ok,
+    blocked_by: result.blocked_by,
+    gate_version: result.gate_version,
+    tree_hash: loaded.ctx.current_tree_hash ?? TREE_HASH_UNMEASURED,
+    stamp_id: null,
+    report_id: loaded.report_id,
+    status: deriveStatus(loaded.ctx, { ok: result.ok, blocked_by: result.blocked_by }),
+  };
+}
+
+// ------------------------------------------------------------- the completion report
+
+/**
+ * The completion report is generated FROM THE LEDGER, never from memory.
+ * Pure: it renders the snapshot the gate just judged.
+ */
+export function composeFinalReport(ctx: GateContext, summary?: string, reviewRounds?: number): FinalReport {
   const humanReview: string[] = [];
   for (const d of ctx.decisions) {
     const level = classify(ctx.policy, { touches: d.touches, reversible: d.reversible }).level;
@@ -561,9 +293,17 @@ export function buildFinalReport(ctx: GateContext, summary: string, reviewRounds
   for (const w of ctx.task.human_waivers) humanReview.push(`waived: ${w}`);
   for (const q of ctx.questions.filter((x) => x.status === 'answered'))
     humanReview.push(`answered ${q.code}: confirm the implementation follows it`);
+  // R-04: waiver fatigue warning when threshold exceeded
+  let waiverWarning: string | null = null;
+  if (ctx.baselineWaivers30d !== undefined && ctx.baselineWaiverThreshold !== undefined && ctx.baselineWaivers30d > ctx.baselineWaiverThreshold) {
+    waiverWarning = `baseline waiver fatigue: ${ctx.baselineWaivers30d} waivers in last 30d exceeds threshold ${ctx.baselineWaiverThreshold} — Gate is decorative, fix CI`;
+    humanReview.push(waiverWarning);
+  }
   return {
     task: ctx.task.code,
-    summary,
+    summary: summary ?? ctx.report?.summary ?? '',
+    baseline_waivers_30d: ctx.baselineWaivers30d,
+    baseline_waiver_warning: waiverWarning,
     completed: ctx.criteria
       .filter((c) => c.status === 'verified')
       .map((c) => ({ criterion: c.text, evidence: c.valid_evidence_count })),
@@ -584,7 +324,17 @@ export function buildFinalReport(ctx: GateContext, summary: string, reviewRounds
       criteria_verified: ctx.criteria.filter((c) => c.status === 'verified').length,
       criteria_pending: ctx.criteria.filter((c) => c.status === 'pending').length,
       open_blocking: blockingOpen(ctx.open_items).length,
-      review_rounds: reviewRounds,
+      review_rounds: reviewRounds ?? (ctx.review ? ctx.review.round : 0),
     },
   };
+}
+
+function outOfScope(ctx: GateContext): string[] {
+  const measured = ctx.scope.files
+    .filter((file) => !file.transient && (!file.in_allowed_paths || file.deleted))
+    .map((file) => `${file.deleted ? 'deleted' : 'outside allowed_paths'}: ${file.path}`);
+  const codeItems = ctx.open_items
+    .filter((item) => item.type === 'out_of_scope' && item.source === 'hook')
+    .map((item) => `${item.code} ${item.title}`);
+  return [...new Set([...measured, ...codeItems])];
 }

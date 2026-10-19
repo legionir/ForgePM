@@ -60,8 +60,11 @@ machine).
 ## Blocked
 
 If an external dependency is unavailable, continue with a mock/fake, record it
-in `docs/BLOCKERS.md`, and surface it in the final report. The only allowed
-stop is missing GitHub credentials for push (EXECUTION_PLAN §16).
+in `docs/BLOCKERS.md`, and surface it in the final report. **Execution-control
+exception:** for a real task, if the Ledger tool/module is unavailable, stop
+mutations and report the reason; never fake or replace ledger state. This is a
+fail-closed rule, not a claim that acceptance passed. For other work, the only
+allowed stop is missing GitHub credentials for push (EXECUTION_PLAN §16).
 
 ## Reference docs
 
@@ -71,3 +74,14 @@ stop is missing GitHub credentials for push (EXECUTION_PLAN §16).
   `ACCEPTANCE_CRITERIA.md`, `PERFORMANCE_BUDGET.md`, `DECISIONS.md`,
   `BLOCKERS.md`, `GITHUB.md`, `REVIEWS.md`, `RUNBOOK.md`, `SCALING.md`,
   `MCP.md`
+
+## Execution control (exec_control)
+
+- **Stop hook (R-01):** `.claude/settings.json` registers `Stop` → `scripts/hooks/ledger-stop.mjs`. It calls `GET /api/v1/exec/status` with `FORGEPM_API_KEY` and blocks exit when `blocked_by`/`pending_approvals`/`journal` (`started`/`unknown`) or `trigger_without_registration` remain. `stop_hook_active` is respected to avoid loops. No chat-only "done" bypasses the ledger.
+- **CI gate (R-01):** `scripts/ci/ledger-gate-check.mjs` checks every product-code commit for a `Ledger-Task:` (or `Ledger-Exempt:` with allowlisted paths) trailer and that the Gate stamp (`gate.json`) was produced via `dryRunGate`. See `.github/workflows/ci.yml` `ledger-gate` job.
+- At the start of a task and after every interruption, call `exec_ledger_status` before making changes; start new work with `exec_task_start`. Follow the trigger map and exit sequence in `docs/LEDGER_RULES.md`.
+- Record observed evidence, decisions, assumptions, questions, and later work in the ledger as they arise. A tool failure is a stop condition: report it; never substitute chat memory, a local file, direct database writes, or another unlogged path for the ledger.
+- **Never invent or choose a risk level**: the policy engine computes it from the recorded decision, so a guessed level would bypass policy.
+- **Never apply an approval-level change before a human approves it**: a pending or rejected decision is not authorization.
+- **Never soften-close a blocker, waive/drop a criterion, expand scope, or promote a guess to fact as the agent**: these are auditable human decisions that can change delivery or acceptance.
+- **Never continue mutations when ledger tools are unavailable**: an unrecorded fallback cannot be reviewed or trusted by the exit gate.

@@ -1728,6 +1728,156 @@
         }
       }
     },
+    "/api/v1/exec/status": {
+      "get": {
+        "summary": "GET /api/v1/exec/status",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/plan": {
+      "get": {
+        "summary": "GET /api/v1/exec/plan",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/approvals": {
+      "get": {
+        "summary": "GET /api/v1/exec/approvals",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/items/{code}/resolve": {
+      "post": {
+        "summary": "POST /api/v1/exec/items/:code/resolve",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/questions/{code}/answer": {
+      "post": {
+        "summary": "POST /api/v1/exec/questions/:code/answer",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/decisions/{code}/decide": {
+      "post": {
+        "summary": "POST /api/v1/exec/decisions/:code/decide",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/approvals/{id}/decide": {
+      "post": {
+        "summary": "POST /api/v1/exec/approvals/:id/decide",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/criteria/{code}/waive": {
+      "post": {
+        "summary": "POST /api/v1/exec/criteria/:code/waive",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/tasks/{parentRef}/children/{childRef}/cancel": {
+      "post": {
+        "summary": "POST /api/v1/exec/tasks/:parentRef/children/:childRef/cancel",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/requirements/{code}/drop": {
+      "post": {
+        "summary": "POST /api/v1/exec/requirements/:code/drop",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/scope/{taskId}/expand": {
+      "post": {
+        "summary": "POST /api/v1/exec/scope/:taskId/expand",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/tasks/{taskId}/scope/waive": {
+      "post": {
+        "summary": "POST /api/v1/exec/tasks/:taskId/scope/waive",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/tasks/{taskId}/baseline/waive": {
+      "post": {
+        "summary": "POST /api/v1/exec/tasks/:taskId/baseline/waive",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/facts/{code}/promote": {
+      "post": {
+        "summary": "POST /api/v1/exec/facts/:code/promote",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/exec/gate/{taskId}": {
+      "post": {
+        "summary": "POST /api/v1/exec/gate/:taskId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/mcp": {
       "post": {
         "summary": "POST /mcp",

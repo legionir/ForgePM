@@ -8,6 +8,8 @@ import { MIGRATION_0007_GITHUB } from './0007_github.migration';
 import { MIGRATION_0008_REVIEWS } from './0008_reviews.migration';
 import { MIGRATION_0009_PERF } from './0009_perf.migration';
 import { MIGRATION_0010_EXEC } from './0010_exec.migration';
+import { MIGRATION_0011_EXEC_JOURNAL_RECONCILE } from './0011_exec_journal_reconcile.migration';
+import { MIGRATION_0012_EXEC_REMEDIATION } from './0012_exec_remediation.migration';
 import { migrationsFromSql } from '../client';
 
 /**
@@ -24,6 +26,8 @@ const entries = [
   { name: '0008_reviews', sql: MIGRATION_0008_REVIEWS },
   { name: '0009_perf', sql: MIGRATION_0009_PERF },
   { name: '0010_exec', sql: MIGRATION_0010_EXEC },
+  { name: '0011_exec_journal_reconcile', sql: MIGRATION_0011_EXEC_JOURNAL_RECONCILE },
+  { name: '0012_exec_remediation', sql: MIGRATION_0012_EXEC_REMEDIATION },
 ];
 
 export const migrations: Record<string, Migration> = migrationsFromSql(entries);

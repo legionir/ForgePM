@@ -62,15 +62,39 @@ describe('jsonSchemaFor', () => {
   it('falls back to a permissive shape for an unknown schema kind instead of guessing', () => {
     expect(jsonSchemaFor(z.number())).toEqual({ type: 'object' });
   });
+
+  it('unwraps a preprocess: the wrapper changes the input, not the shape', () => {
+    // The exit report accepts `task_id` as an alias for `task_ref` (the plan
+    // and the repo spell it differently). The advertisement must still be the
+    // strict object — a wrapper that renames one key does not make the tool
+    // any more permissive than it is.
+    const out = jsonSchemaFor(
+      z.preprocess((v) => v, z.strictObject({ task_ref: z.string().min(3), note: z.string().optional() })),
+    ) as Schema;
+    expect(out.type).toBe('object');
+    expect(out.additionalProperties).toBe(false);
+    expect(out.required).toEqual(['task_ref']);
+  });
 });
 
-describe('the five ledger tools advertise what they enforce (B.1)', () => {
+describe('the ledger tools advertise what they enforce (B.1, §8)', () => {
   const names = [
     'exec_task_start',
     'ledger_add_open_item',
     'ledger_resolve_item',
     'ledger_list_open',
     'exec_ledger_status',
+    'exec_ledger_reconcile',
+    'session_start',
+    'journal_start',
+    'journal_done',
+    'journal_fail',
+    'exec_submit_exit_report',
+    'exec_task_complete',
+    'ledger_add_evidence',
+    'ledger_record_decision',
+    'ledger_ask_human',
+    'exec_policy_check',
   ];
   const registry = { current: undefined as ReturnType<typeof buildToolRegistry> | undefined };
   it.each(names)('%s advertises additionalProperties:false and non-empty required', (name) => {

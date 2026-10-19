@@ -49,6 +49,65 @@ export interface ChangedFile {
   from?: string;
 }
 
+export interface ScopeManifestFile {
+  path: string;
+  /** Digest of file content plus mode, or of the symbolic-link target. */
+  sha256: string;
+}
+
+export interface ScopeFileManifest {
+  hash: string;
+  files: ScopeManifestFile[];
+}
+
+/** Normalize and hash a server-measured, content-hash-only file manifest. */
+export function makeScopeManifest(files: readonly ScopeManifestFile[]): ScopeFileManifest {
+  if (files.length > 10_000) throw new Error('scope manifest contains too many files');
+  const sorted = [...files].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const seen = new Set<string>();
+  const hash = createHash('sha256');
+  for (const file of sorted) {
+    if (
+      !file.path || file.path.length > 1024 || file.path.startsWith('/') || file.path.includes('\\') ||
+      hasUnsafeManifestPathCharacter(file.path) || file.path.split('/').some((part) => part === '' || part === '.' || part === '..') ||
+      !/^[0-9a-f]{64}$/i.test(file.sha256) || seen.has(file.path)
+    ) {
+      throw new Error('scope manifest contains an invalid or duplicate file entry');
+    }
+    seen.add(file.path);
+    hash.update(`${file.path}\0${file.sha256.toLowerCase()}\n`);
+  }
+  return { hash: hash.digest('hex'), files: sorted.map((file) => ({ path: file.path, sha256: file.sha256.toLowerCase() })) };
+}
+
+function hasUnsafeManifestPathCharacter(path: string): boolean {
+  for (const character of path) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code <= 0x1f || code === 0x7f || code === 0xfffd) return true;
+  }
+  return false;
+}
+
+/** Keep post-close comparisons limited to the task's immutable allowed scope. */
+export function restrictScopeManifest(manifest: ScopeFileManifest, allowedGlobs: readonly string[]): ScopeFileManifest {
+  const matchers = allowedGlobs.map((pattern) => new RegExp(globSource(pattern), 's'));
+  return makeScopeManifest(manifest.files.filter((file) => matchers.some((matcher) => matcher.test(file.path))));
+}
+
+/** Compare hash-only snapshots while preserving additions, modifications and deletions. */
+export function diffScopeManifest(before: ScopeFileManifest, after: ScopeFileManifest): ChangedFile[] {
+  const oldFiles = new Map(before.files.map((file) => [file.path, file.sha256]));
+  const newFiles = new Map(after.files.map((file) => [file.path, file.sha256]));
+  const changes: ChangedFile[] = [];
+  for (const [path, sha] of newFiles) {
+    const old = oldFiles.get(path);
+    if (old === undefined) changes.push({ path, status: 'A' });
+    else if (old !== sha) changes.push({ path, status: 'M' });
+  }
+  for (const path of oldFiles.keys()) if (!newFiles.has(path)) changes.push({ path, status: 'D' });
+  return changes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
 export interface ScopeVerdict {
   measurable: boolean;
   basis: 'git' | 'manifest' | 'none';
@@ -122,4 +181,10 @@ export function diffManifest(before: Record<string, string>, after: Record<strin
 
 export function isTransient(path: string): boolean {
   return TRANSIENT.has(path.split('/').pop() ?? path);
+}
+
+/** Stable, opaque ledger reference for a specific measured scope finding. */
+export function scopeIssueRef(path: string, status: ChangedFile['status']): string {
+  const digest = createHash('sha256').update(`${status}\0${path}`).digest('hex');
+  return `scope:${digest}`;
 }

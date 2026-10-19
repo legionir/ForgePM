@@ -211,6 +211,16 @@ export type ExecFactStatus = (typeof EXEC_FACT_STATUSES)[number];
 export const EXEC_JOURNAL_STATUSES = ['started', 'done', 'failed', 'unknown'] as const;
 export type ExecJournalStatus = (typeof EXEC_JOURNAL_STATUSES)[number];
 
+export const EXEC_SESSION_SECTION_KEYS = [
+  'human_pending',
+  'journal_unknown',
+  'blocking_open_items',
+  'stale_facts_and_revisits',
+  'uncovered_requirements',
+  'tasks',
+] as const;
+export type ExecSessionSectionKey = (typeof EXEC_SESSION_SECTION_KEYS)[number];
+
 export const EXEC_BLOCKED_ON_KINDS = ['task', 'question', 'decision', 'external'] as const;
 export type ExecBlockedOnKind = (typeof EXEC_BLOCKED_ON_KINDS)[number];
 

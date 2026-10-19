@@ -49,9 +49,17 @@ reviewed, not silently ignored. Documented exceptions (plan §14: "مگر با
 
 ## SSRF
 
-Provider `base_url` and external MCP server URLs are checked; private ranges
-and `169.254.0.0/16` blocked unless `network.allow_private_targets` is
-explicitly set.
+Provider `base_url`, external MCP server URLs and CI-log endpoints are checked
+against loopback/private/link-local/multicast IPv4 and IPv6 ranges and reserved
+IPv4 ranges, including DNS results. CI logs require HTTPS, fail closed when DNS cannot be
+validated, and never follow redirects. Private targets require the explicit
+`network.allow_private_targets` opt-in.
+
+## Execution control: scope and CI baseline
+
+- Rule 11 measures changed paths from a server-captured Git start SHA or a content-hash-only server manifest. Agent-authored `changed_files` claims do not affect scope; if neither source is measurable, the gate fails closed unless a human records an explicit scope waiver. Manifest snapshots store paths and digests, not file contents, and are bounded.
+- Rule 12 never executes repository tests or scripts. It accepts only named per-test results read from an administrator-configured HTTPS CI-log endpoint for the exact server-measured commit SHA. Redirects, oversized/slow responses, private/reserved targets (unless explicitly allowed), and mismatched or incomplete logs are refused. Only a human can waive missing baseline evidence; that approval is tied to an append-only event. Report/test-output claims cannot substitute for CI provenance.
+- The read-only Git adapter is the only execution-control source allowed to call `execFile`; it uses fixed non-shell Git commands. The structural test `tests/unit/exec-no-spawn.test.ts` forbids other process boundaries in execution-control modules.
 
 ## Prompt injection
 
