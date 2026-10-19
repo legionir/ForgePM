@@ -46,7 +46,6 @@ let app: FastifyInstance;
 let orgId: string;
 let projectId: string;
 let userId: string;
-let humanKey: string;
 let agentKey: string;
 let taskId: string;
 let taskCode: string;
@@ -66,10 +65,7 @@ beforeAll(async () => {
   orgId = seeded.organizationId;
   projectId = seeded.projectId;
   userId = seeded.userId;
-  await upsertSetting(db, 'project', projectId, 'exec.allowed_repo_roots', ['docs']);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  humanKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:decide'], [projectId]);
-  agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
+  await upsertSetting(db, 'project', projectId, 'exec.allowed_repo_roots', ['docs']);  agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
   const registry = buildRegistry();
   await upsertSetting(db, 'system', null, 'modules.exec.enabled', true);
   registry.invalidate();
