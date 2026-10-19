@@ -48,7 +48,7 @@ describe('R-06 exec_action_journal settle (started→unknown→done)', () => {
     const code2 = `J-${(Date.now()+1).toString(36)}`;
     const ins2 = await sql<{ id: string }>`INSERT INTO exec_action_journal (id, organization_id, task_id, code, action, status, target, idempotent, expected_effect, pre_state_ref, started_at) VALUES (gen_random_uuid(), ${orgId}::uuid, ${taskId}::uuid, ${code2}, 'test.action', 'started', 'target', false, 'expected effect long enough', 'pre', now()) RETURNING id::text as id`.execute(db as never);
     const id2 = ins2.rows[0].id;
-    await sql`UPDATE exec_action_journal SET status='unknown' WHERE id=${id2}::uuid`.execute(db as never);
-    await expect(sql`UPDATE exec_action_journal SET status='unknown' WHERE id=${id2}::uuid`.execute(db as never)).rejects.toThrow(/re-opened|restarted/);
+    await sql`UPDATE exec_action_journal SET status='unknown', finished_at=now() WHERE id=${id2}::uuid`.execute(db as never);
+    await expect(sql`UPDATE exec_action_journal SET status='unknown', finished_at=now() WHERE id=${id2}::uuid`.execute(db as never)).rejects.toThrow(/re-opened|restarted/);
   });
 });
