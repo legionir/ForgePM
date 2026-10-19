@@ -7,6 +7,15 @@ import { buildRegistry } from '../../apps/api/src/app/modules';
 import { ensureWorkflow } from '../../apps/api/src/modules/work-items/states';
 import { createHarness, type Harness } from './harness';
 import { seedApiKey, seedOrg } from './seed';
+async function loginAs(app: any, email: string, password: string): Promise<{ cookie: string; csrf: string }> {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
+  if (res.statusCode !== 200) throw new Error(`login failed ${email}: ${res.body}`);
+  const cookies = res.headers['set-cookie'] as unknown as string[];
+  const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
+  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
+  return { cookie: `${session}; fpm_csrf=${csrf}`, csrf };
+}
+
 
 /**
  * The human's other verbs (plan §9.5): waive, drop, widen the scope, promote
@@ -158,16 +167,21 @@ async function count(table: string, where = ''): Promise<number> {
 }
 
 const asHuman = (key: string) => ({ authorization: `Bearer ${key}` });
+async function asHumanSession(): Promise<{ cookie: string; 'x-csrf-token': string }> {
+  const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
+  const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
+  return { cookie, 'x-csrf-token': csrf };
+}
 
 describe('the human removes a demand', () => {
   it('waives a criterion, and the waiver points at the approval that made it', async () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/criteria/${criterionCode}/waive`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'the requirement behind it is not part of this release' },
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
+    expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toMatchObject({ code: criterionCode, status: 'waived' });
 
     const row = await sql<{ status: string; waiver_approval_id: string | null }>`
@@ -194,10 +208,10 @@ describe('the human removes a demand', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/criteria/${criterionCode}/waive`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'because' },
     });
-    expect(res.statusCode).toBe(403); // R-02: API key cannot decide, so 403 before validation
+    expect(res.statusCode).toBe(400);
     expect(res.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
   });
 
@@ -243,10 +257,10 @@ describe('the human removes a demand', () => {
     const canceled = await app.inject({
       method: 'POST',
       url,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'human approved cancellation because the requirement moved out of scope' },
     });
-    expect(canceled.statusCode, canceled.body).toBe(403); // R-02
+    expect(canceled.statusCode, canceled.body).toBe(200);
     expect(canceled.json()).toMatchObject({ task: 'T-002', parent: taskCode, status: 'canceled', linked_requirements: [requirementCode] });
     const approval = await sql<{ action: string; status: string }>`
       SELECT action, status FROM approval_requests WHERE id = ${canceled.json().approval_id}::uuid
@@ -258,10 +272,10 @@ describe('the human removes a demand', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/requirements/${requirementCode}/drop`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'the product owner moved this promise to the next quarter' },
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
+    expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toMatchObject({ code: requirementCode, status: 'dropped' });
 
     const row = await sql<{ status: string; drop_reason: string; dropped_by: string }>`
@@ -289,10 +303,10 @@ describe('the human widens what the task may touch', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/scope/${taskCode}/expand`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { paths: ['apps/api/src/modules/exec/**'], reason: 'the route file has to change too' },
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
+    expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toMatchObject({ task_code: taskCode, added_paths: ['apps/api/src/modules/exec/**'] });
 
     const row = await sql<{ allowed_paths: unknown }>`
@@ -314,10 +328,10 @@ describe('the human promotes a guess into a fact', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/facts/${factCode}/promote`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { source: 'docs', source_ref: 'docs/EXECUTION_CONTROL_PLAN.md', reason: 'the plan says so, in writing' },
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
+    expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toMatchObject({ code: factCode, source: 'docs' });
 
     const row = await sql<{ kind: string; source: string; source_ref: string | null; verified_at: Date | null }>`
@@ -344,10 +358,12 @@ describe('the human promotes a guess into a fact', () => {
         source: 'agent_guess',
       })
       .execute();
+    const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
+    const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/exec/facts/F-002/promote',
-      headers: asHuman(humanKey),
+      headers: { cookie, 'x-csrf-token': csrf },
       payload: { source: 'code', reason: 'the human checked the code and says it is true' },
     });
     expect(res.statusCode).toBe(400);
@@ -361,10 +377,10 @@ describe('the gate, asked without closing anything', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/gate/${taskCode}`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: {},
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
+    expect(res.statusCode, res.body).toBe(200);
     const body = res.json() as { ok: boolean; dry_run: boolean; blocked_by: unknown[] };
     expect(body.dry_run).toBe(true);
     expect(body.ok).toBe(false); // no exit report, no evidence — the gate says no

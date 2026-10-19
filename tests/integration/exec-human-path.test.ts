@@ -7,6 +7,15 @@ import { buildRegistry } from '../../apps/api/src/app/modules';
 import { ensureWorkflow } from '../../apps/api/src/modules/work-items/states';
 import { createHarness, type Harness } from './harness';
 import { seedApiKey, seedOrg } from './seed';
+async function loginAs(app: any, email: string, password: string): Promise<{ cookie: string; csrf: string }> {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
+  if (res.statusCode !== 200) throw new Error(`login failed ${email}: ${res.body}`);
+  const cookies = res.headers['set-cookie'] as unknown as string[];
+  const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
+  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
+  return { cookie: `${session}; fpm_csrf=${csrf}`, csrf };
+}
+
 
 /**
  * The HUMAN side of the ledger (plan §9.5, acceptance B.15).
@@ -172,13 +181,15 @@ afterAll(async () => {
 
 describe('the human decides — and the ledger records it', () => {
   it('answering a question unblocks the task', async () => {
+    const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
+    const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/questions/${questionCode}/answer`,
-      headers: { authorization: `Bearer ${humanKey}` },
+      headers: { cookie, 'x-csrf-token': csrf },
       payload: { answer: 'yes, show it — the drift must be visible' },
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide, even with ledger:decide
+    expect(res.statusCode, res.body).toBe(200);
     expect(res.json()).toMatchObject({ code: questionCode, status: 'answered' });
 
     const row = await sql<{ status: string; answer: string; answered_by: string }>`
@@ -199,13 +210,15 @@ describe('the human decides — and the ledger records it', () => {
       SELECT id::text AS id FROM approval_requests WHERE action = 'exec.decision' AND status = 'pending'
     `.execute(db as never);
     const approvalId = pending.rows[0]?.id as string;
+    const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
+    const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/approvals/${approvalId}/decide`,
-      headers: { authorization: `Bearer ${humanKey}` },
+      headers: { cookie, 'x-csrf-token': csrf },
       payload: { decision: 'approved', reason: 'the old shape stays for one release' },
     });
-    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
+    expect(res.statusCode, res.body).toBe(200);
 
     const decision = await sql<{ approval_state: string }>`
       SELECT approval_state FROM exec_decisions WHERE code = ${decisionCode}
