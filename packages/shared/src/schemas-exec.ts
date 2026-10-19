@@ -337,6 +337,7 @@ export type OpenItemInput = z.infer<typeof openItemInputSchema>;
 export const BLOCKING_BY_DEFAULT: ReadonlyArray<z.infer<typeof openItemInputSchema>['type']> = [
   'incomplete_requirement',
   'commitment',
+  'out_of_scope',
 ];
 
 export const resolveItemInputSchema = z.strictObject({
