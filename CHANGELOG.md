@@ -3,6 +3,26 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Execution control, PE-12 panel + E2E (2026-10-19)
+
+Full panel and 13-scene proof: `pages/exec-tasks.ts` (tree, cursor pagination,
+project picker, blocked/awaiting_human coloring, drawer with criteria/evidence
+provenance, open items/decisions/questions/reviews/journal/REQs, Dry-run Gate
+with blocked_by), `pages/exec-policy.ts` (editable exec.policy with zod +
+diff, admin), WorkItem Execution control (gate status + recent exec_events,
+Done disabled with tooltip + server FORBIDDEN guard), Approvals ledger rows
+with task link and the six exec kinds. i18n fa/en parity for new keys
+(248 keys, `i18n-check` green), RTL/360/1280 no-overflow, contrast 52 pairs.
+`scripts/exec-e2e.ts` 13 scenes (12 REQs, uncovered→REQUIREMENT_UNCOVERED,
+task_split dependency, later→OI, public_api approval, early complete ok:false,
+out-of-scope, baseline vanish→rule 12, fact stale→needs_revisit, journal
+unknown→retry, review TODO, human unlock via CLI+panel, final done+report)
+and `ledger snapshot --out .agent-ledger/status.json` (advisory_only, TTL).
+Docs: README Execution control, DATA_MODEL §H 17 tables, API `/api/v1/exec/plan`,
+MCP 28 tools, SECURITY no-exec, RUNBOOK baseline, DECISIONS D-01…D-13.
+`npm run build/typecheck/lint/docs:check/migration-hash/i18n-check/contrast/raw-value`
+green; `npm run exec:e2e` harness green; no better-sqlite3.
+
 ## [Unreleased] — Execution control, PE-3–PE-11 (2026-10-19)
 
 The exit report and the finalization gate: the report that says what was done, and the

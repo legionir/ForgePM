@@ -1738,6 +1738,16 @@
         }
       }
     },
+    "/api/v1/exec/plan": {
+      "get": {
+        "summary": "GET /api/v1/exec/plan",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/exec/approvals": {
       "get": {
         "summary": "GET /api/v1/exec/approvals",

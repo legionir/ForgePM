@@ -201,6 +201,39 @@ export function registerExecRoutes(app: FastifyInstance, deps: { db: Db; registr
     },
   );
 
+  // ---- plan view for the panel (same projection as the tool) ----
+  t.get(
+    '/api/v1/exec/plan',
+    {
+      schema: {
+        querystring: z.object({
+          project_ref: z.string().max(64).optional(),
+          task_ref: z.string().max(64).optional(),
+          cursor: z.string().max(64).optional(),
+          limit: z.coerce.number().int().min(1).max(200).optional(),
+        }),
+      },
+      preHandler: guard(db, { scope: 'ledger:read' }),
+    },
+    async (req) => {
+      const actor = requireActor(req);
+      const projectId = await resolveProject(db, actor, req.query.project_ref, 'project:read');
+      await gate(actor.organizationId, projectId);
+      const { execPlanView } = await import('@forgepm/core');
+      const view = await execPlanView(db as never, { organizationId: actor.organizationId, projectId, actorType: actor.type, actorId: actor.id } as never, req.query.task_ref);
+      // simple cursor pagination on root codes
+      const limit = req.query.limit ?? 50;
+      let roots = view.roots;
+      if (req.query.cursor) {
+        const idx = roots.findIndex((r) => r.code === req.query.cursor);
+        if (idx >= 0) roots = roots.slice(idx + 1);
+      }
+      const sliced = roots.slice(0, limit);
+      const next_cursor = sliced.length === limit && roots.length > limit ? sliced[sliced.length - 1]!.code : null;
+      return { project_id: view.project_id, roots: sliced, task_count: view.task_count, requirements: view.requirements, next_cursor };
+    },
+  );
+
   // ---- the exec rows of the approvals queue, in the ledger's own names ----
   t.get(
     '/api/v1/exec/approvals',

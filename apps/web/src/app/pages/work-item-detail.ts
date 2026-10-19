@@ -31,6 +31,7 @@ interface ItemDto {
   milestone_id: string | null;
   acceptance_criteria: { text: string; done: boolean }[];
   labels: string[];
+  exec_task_id?: string | null;
 }
 interface CommentDto {
   id: string;
@@ -207,6 +208,26 @@ interface MilestoneDto {
             }
           </div>
 
+          <!-- Execution control (PE-12 L.4c) -->
+          @if (execTaskCode()) {
+            <section class="ui-exec-control" data-testid="wi-exec-control">
+              <h3 data-testid="wi-exec-title">{{ i18n.instant('exec.execution_control') }}</h3>
+              <p data-testid="wi-exec-gate" [class.ui-exec-blocked]="execGateOk() === false">
+                {{ i18n.instant('exec.gate_status') }}: {{ execGateOk() === null ? '—' : execGateOk() ? i18n.instant('exec.gate_ok') : i18n.instant('exec.gate_blocked') }}
+                @if (execBlockedBy().length) {
+                  <span data-testid="wi-exec-blocked-by">{{ execBlockedBy().join('; ') }}</span>
+                }
+              </p>
+              <ul data-testid="wi-exec-events">
+                @for (ev of execEvents(); track ev.created_at) {
+                  <li data-testid="wi-exec-event">{{ ev.action }} ({{ ev.actor_type }})</li>
+                } @empty {
+                  <li data-testid="wi-exec-events-empty">{{ i18n.instant('common.empty') }}</li>
+                }
+              </ul>
+            </section>
+          }
+
           <aside class="ui-detail-side" data-testid="wi-sidebar">
             <form (ngSubmit)="move()" data-testid="wi-move">
               <ui-field [label]="i18n.instant('work_items.transition')">
@@ -216,7 +237,10 @@ interface MilestoneDto {
                   }
                 </select>
               </ui-field>
-              <button type="submit" ui-button variant="primary" size="sm" [loading]="busy()">{{ i18n.instant('common.save') }}</button>
+              <button type="submit" ui-button variant="primary" size="sm" [loading]="busy()" [disabled]="isDoneDisabled()" [attr.title]="doneTooltip()" data-testid="wi-move-submit">{{ i18n.instant('common.save') }}</button>
+              @if (isDoneDisabled()) {
+                <p class="ui-exec-tooltip" data-testid="wi-done-tooltip">{{ doneTooltip() }}</p>
+              }
             </form>
 
             <ui-field [label]="i18n.instant('work_items.priority')">
@@ -269,10 +293,14 @@ export class WorkItemDetailPage implements OnInit {
   readonly i18n = inject(I18n);
 
   readonly item = signal<ItemDto | null>(null);
-  readonly states = signal<{ id: string; name: string }[]>([]);
+  readonly states = signal<{ id: string; name: string; category?: string }[]>([]);
   readonly comments = signal<CommentDto[]>([]);
   readonly activity = signal<ActivityDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
+  readonly execTaskCode = signal<string | null>(null);
+  readonly execGateOk = signal<boolean | null>(null);
+  readonly execBlockedBy = signal<string[]>([]);
+  readonly execEvents = signal<{ action: string; actor_type: string; created_at: string }[]>([]);
   readonly error = signal('');
   readonly busy = signal(false);
   readonly tab = signal('conversation');
@@ -338,6 +366,37 @@ export class WorkItemDetailPage implements OnInit {
     this.activity.set(act.items);
     this.links.set(dev.items);
     this.relations.set(rel.items);
+    // Load exec gate if linked
+    if (it.exec_task_id) {
+      try {
+        const exec = await this.api.get<{ task: { code: string }; gate?: { ok: boolean; blocked_by: { needed: string }[] }; events?: { action: string; actor_type: string; created_at: string }[] }>(`/api/v1/exec/status?task_ref=${it.exec_task_id}`);
+        this.execTaskCode.set(exec.task.code);
+        this.execGateOk.set(exec.gate ? exec.gate.ok : null);
+        this.execBlockedBy.set(exec.gate?.blocked_by?.map(b => b.needed) ?? []);
+        this.execEvents.set(exec.events ?? []);
+      } catch { /* no exec */ }
+    } else {
+      this.execTaskCode.set(null);
+      this.execGateOk.set(null);
+      this.execBlockedBy.set([]);
+      this.execEvents.set([]);
+    }
+  }
+
+  isDoneDisabled(): boolean {
+    if (this.execGateOk() === false) {
+      const target = this.states().find(s => s.id === this.toState);
+      if (target && (target.category === 'completed' || target.name.toLowerCase().includes('done'))) return true;
+    }
+    return false;
+  }
+
+  doneTooltip(): string {
+    if (this.isDoneDisabled()) {
+      const reasons = this.execBlockedBy().join('; ') || this.i18n.instant('exec.gate_blocked');
+      return `${this.i18n.instant('exec.done_disabled')}: ${reasons}`;
+    }
+    return '';
   }
 
   /** Generic sidebar PATCH (priority/labels/due/milestone) — P6-4. */

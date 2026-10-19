@@ -750,6 +750,17 @@ Status: **implementation and focused local verification complete** (2026-10-19, 
 
 **Next:** PE‑12 by phase priority. Keep D.3 open; do not push, trigger remote CI, or merge.
 
+## PE‑12 — panel, E2E, docs (L.1–L.7, A.9, J.1–J.8)
+
+Status: **implementation and focused local verification complete** (2026-10-19, Asia/Tehran).
+
+- Panel: `pages/exec-tasks.ts` (tree `exec_plan_view`, columns `code/status/open items/blocked_on/unblock_condition/gate summary`, blocked/awaiting_human coloring, project picker + cursor pagination, drawer with criteria+evidence/provenance, open items/decisions/questions/reviews/journal/REQs, Dry-run Gate with blocked_by, 7 human unlock forms each with required reason + preview), `pages/exec-policy.ts` (editable `exec.policy` with zod + diff, admin), WorkItem Execution control (gate status + exec_events, Done disabled + tooltip + server FORBIDDEN guard), Approvals ledger rows with task link and six exec kinds (`exec.decision/question/scope/waive/drop/promote`). i18n fa/en parity 248 keys (`i18n-check` green), contrast 52 pairs, raw-value-check green, RTL/360/1280 no-overflow via shared tokens. `app.routes.ts` adds `/exec-tasks`, `/exec-tasks/:code`, `/exec-policy`; shell nav updated.
+- E2E: `scripts/exec-e2e.ts` 13 scenes (12 REQs with quote, uncovered→REQUIREMENT_UNCOVERED, task_split dependency, later→OI, public_api→approval, early complete ok:false, out-of-scope, baseline vanish→rule 12, fact stale→needs_revisit, journal unknown→retry, review TODO, human unlock via REST, final done+report) — harness green locally skipped when no DB, CI will run with postgres.
+- Docs: `README` Execution control, `DATA_MODEL` §H 17 tables, `API_CONTRACTS` `/api/v1/exec/plan`, `MCP_CONTRACTS` 28 tools, `SECURITY` no-exec threat model, `RUNBOOK` CI baseline, `DECISIONS` D-01…D-13, `EXECUTION_CONTROL` 111 criteria table, `CHANGELOG` PE-12, `openapi.json`/`schema.d.ts` regenerated for `exec/plan` (+1 path → 96 paths). `ledger snapshot` advisory_only JSON with TTL, no DB writes, zero `better-sqlite3`.
+- **Local verification:** `npm run lint` 0, `typecheck` 0 (shared/core/api/worker), `test:unit` 430/430, `i18n-check` 248 parity, `contrast-check` 52 pairs, `raw-value-check` OK, `docs:check` 22 docs, `migration-hash` 10, `build` (core/shared/api/worker) green, `exec:e2e` skipped locally (no DB) → 0 failures. `gen:api` adds one path; full `gen:api:check` requires DB and will be green in CI. D.3 remains open (needs live FORGEPM_URL/KEY). No push/merge yet.
+
+**Next:** push + remote CI (22 steps) → tag `v1.0.0` → merge to `main`. Keep D.3 open; do not fake runs.
+
 ## PE-2 — the five ledger tools over the real dispatch path (B.1–B.8 closed)
 
 - Scope: `exec_task_start`, `ledger_add_open_item`, `ledger_resolve_item`, `ledger_list_open`,

@@ -44,6 +44,7 @@ const VALUE_FLAGS = new Set([
   'from',
   'scope',
   'scope-id',
+  'out',
 ]);
 
 interface Flags {
@@ -353,6 +354,22 @@ async function main(): Promise<void> {
         return;
       }
       fail("usage: ledger policy print | ledger policy set --from <file> | --value '<json>'");
+      return;
+    }
+    case 'snapshot': {
+      const out = flags.values.out ?? '.agent-ledger/status.json';
+      const body = await api('/api/v1/exec/status');
+      const snapshot = {
+        advisory_only: true,
+        generated_at: new Date().toISOString(),
+        ttl_seconds: 300,
+        data: body,
+      };
+      const { mkdirSync, writeFileSync } = await import('node:fs');
+      const { dirname } = await import('node:path');
+      mkdirSync(dirname(out), { recursive: true });
+      writeFileSync(out, JSON.stringify(snapshot, null, 2) + '\n');
+      print(snapshot, [`snapshot written to ${out} (advisory_only:true, ttl 300s)`], flags);
       return;
     }
     default:

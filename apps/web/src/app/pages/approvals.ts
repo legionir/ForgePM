@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
@@ -38,7 +39,7 @@ interface ExecApprovalDto {
 @Component({
   selector: 'page-approvals',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage],
+  imports: [FormsModule, RouterLink, UiButton, UiPage],
   template: `
     <ui-page data-testid="approvals" [title]="i18n.instant('approvals.title')">
       <ul class="ui-list" data-testid="approval-list">
@@ -64,7 +65,7 @@ interface ExecApprovalDto {
               {{ kindLabel(a.action) }}
               <span data-testid="exec-approval-code">{{ a.ledger_code ?? '' }}</span>
               @if (a.task_code) {
-                <span data-testid="exec-approval-task">{{ a.task_code }}</span>
+                <a [routerLink]="['/exec-tasks', a.task_code]" data-testid="exec-approval-task-link"><span data-testid="exec-approval-task">{{ a.task_code }}</span></a>
               }
               · {{ a.status }}
             </span>

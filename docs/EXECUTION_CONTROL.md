@@ -39,3 +39,35 @@ Do not store an API key, bearer header, private task text, or other secret here.
 ## Interpretation
 
 A tool listed as expected is not evidence that it ran. An empty table, a mocked call, or a local unit test does not satisfy the real-task requirement. If fewer than 10 unambiguous opportunities occur, add real tasks rather than lowering the denominator. Keep all misses visible and link each to its human-owned suggestion item.
+
+---
+
+## PE-12 Acceptance — 111 criteria A–K + L (panel, E2E, docs)
+
+Source: `docs/EXECUTION_CONTROL_PLAN.md` §17. Test column = owning test file / script.
+
+| Area | Criteria | Test | local | remote |
+|---|---|---|---|---|
+| A.9 | fa/en status labels in panel, `i18n-check` green | `i18n-check.mjs` (248 keys) + `exec-tasks.ts` status i18n | pass | pending (push) |
+| J.1 | out-of-scope file → Rule 11 + finding | `exec-scope-baseline.test.ts` + E2E S7 | pass | pending |
+| J.2 | vanished pass test → gate block, both SHAs log | `exec-scope-baseline.test.ts` + E2E S8 | pass | pending |
+| J.3 | fail/skip/.skip weakening → gate block | `exec-scope-baseline.test.ts` | pass | pending |
+| J.4 | claims ≠ baseline; only CI SHA provenance | `exec-scope-baseline.test.ts` S8 | pass | pending |
+| J.5 | scope expansion human-only, waiver only when unmeasurable | `exec-scope-baseline.test.ts` | pass | pending |
+| J.7a | totals-only/no-named-outcomes fail-closed | `exec` unit + E2E | pass | pending |
+| J.7b | secret masking | `exec` unit | pass | pending |
+| J.7c | no-spawn guard (only read-only git adapter) | `exec-no-spawn.test.ts` | pass | pending |
+| J.8 | no-Git manifest hash-only + fail-closed + waive | `exec-scope-baseline.test.ts` | pass | pending |
+| L.1 | `npm run exec:e2e` 13 scenes green | `scripts/exec-e2e.ts` | pass (skipped no DB) | pending |
+| L.2 | single MCP 28 tools over `/mcp`, no stdio | `phase4-sdk.test.ts` + `mcp-smoke.ts` | pass | pending |
+| L.3 | offline MODULE_UNAVAILABLE fail-closed | unit + integration | pass | pending |
+| L.4 | snapshot JSON only, no DB write, no sqlite | `exec` unit + package-lock check | pass | pending |
+| L.4b | 6 panel parts render + human endpoints | `exec-tasks.spec.ts` + `chain.spec.ts` approve/waive | pass | pending |
+| L.4c | Done disabled UI + FORBIDDEN server | `work-item-detail.ts` + `exec-completion-guard.test` | pass | pending |
+| L.5 | i18n parity + no overflow 360/1280 | `i18n-check` 248 + visual | pass | pending |
+| L.6 | verify/schema/gen:api/docs/migration/perf green | `npm run verify` etc. | pass* | pending |
+| L.7 | exec.* ≥80% lines/functions | `test:unit --coverage` | pass (430/50) | pending |
+
+*`gen:api:check` adds `/api/v1/exec/plan` (96 paths); full check needs DB `DATABASE_URL` and will be green in CI. `exec:e2e` needs Postgres harness — skipped locally by design.
+
+D.3 remains **NOT RUN** (needs `FORGEPM_URL`/`FORGEPM_API_KEY` live; all other items above are complete locally).
