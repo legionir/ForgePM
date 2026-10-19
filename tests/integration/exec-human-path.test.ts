@@ -178,7 +178,7 @@ describe('the human decides — and the ledger records it', () => {
       headers: { authorization: `Bearer ${humanKey}` },
       payload: { answer: 'yes, show it — the drift must be visible' },
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide, even with ledger:decide
     expect(res.json()).toMatchObject({ code: questionCode, status: 'answered' });
 
     const row = await sql<{ status: string; answer: string; answered_by: string }>`
@@ -205,7 +205,7 @@ describe('the human decides — and the ledger records it', () => {
       headers: { authorization: `Bearer ${humanKey}` },
       payload: { decision: 'approved', reason: 'the old shape stays for one release' },
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
 
     const decision = await sql<{ approval_state: string }>`
       SELECT approval_state FROM exec_decisions WHERE code = ${decisionCode}

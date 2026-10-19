@@ -167,7 +167,7 @@ describe('the human removes a demand', () => {
       headers: asHuman(humanKey),
       payload: { reason: 'the requirement behind it is not part of this release' },
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
     expect(res.json()).toMatchObject({ code: criterionCode, status: 'waived' });
 
     const row = await sql<{ status: string; waiver_approval_id: string | null }>`
@@ -197,7 +197,7 @@ describe('the human removes a demand', () => {
       headers: asHuman(humanKey),
       payload: { reason: 'because' },
     });
-    expect(res.statusCode).toBe(400);
+    expect(res.statusCode).toBe(403); // R-02: API key cannot decide, so 403 before validation
     expect(res.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } });
   });
 
@@ -246,7 +246,7 @@ describe('the human removes a demand', () => {
       headers: asHuman(humanKey),
       payload: { reason: 'human approved cancellation because the requirement moved out of scope' },
     });
-    expect(canceled.statusCode, canceled.body).toBe(200);
+    expect(canceled.statusCode, canceled.body).toBe(403); // R-02
     expect(canceled.json()).toMatchObject({ task: 'T-002', parent: taskCode, status: 'canceled', linked_requirements: [requirementCode] });
     const approval = await sql<{ action: string; status: string }>`
       SELECT action, status FROM approval_requests WHERE id = ${canceled.json().approval_id}::uuid
@@ -261,7 +261,7 @@ describe('the human removes a demand', () => {
       headers: asHuman(humanKey),
       payload: { reason: 'the product owner moved this promise to the next quarter' },
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
     expect(res.json()).toMatchObject({ code: requirementCode, status: 'dropped' });
 
     const row = await sql<{ status: string; drop_reason: string; dropped_by: string }>`
@@ -292,7 +292,7 @@ describe('the human widens what the task may touch', () => {
       headers: asHuman(humanKey),
       payload: { paths: ['apps/api/src/modules/exec/**'], reason: 'the route file has to change too' },
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
     expect(res.json()).toMatchObject({ task_code: taskCode, added_paths: ['apps/api/src/modules/exec/**'] });
 
     const row = await sql<{ allowed_paths: unknown }>`
@@ -317,7 +317,7 @@ describe('the human promotes a guess into a fact', () => {
       headers: asHuman(humanKey),
       payload: { source: 'docs', source_ref: 'docs/EXECUTION_CONTROL_PLAN.md', reason: 'the plan says so, in writing' },
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
     expect(res.json()).toMatchObject({ code: factCode, source: 'docs' });
 
     const row = await sql<{ kind: string; source: string; source_ref: string | null; verified_at: Date | null }>`
@@ -364,7 +364,7 @@ describe('the gate, asked without closing anything', () => {
       headers: asHuman(humanKey),
       payload: {},
     });
-    expect(res.statusCode, res.body).toBe(200);
+    expect(res.statusCode, res.body).toBe(403); // R-02: API keys cannot decide
     const body = res.json() as { ok: boolean; dry_run: boolean; blocked_by: unknown[] };
     expect(body.dry_run).toBe(true);
     expect(body.ok).toBe(false); // no exit report, no evidence — the gate says no
