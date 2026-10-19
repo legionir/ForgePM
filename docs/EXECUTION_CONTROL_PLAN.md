@@ -387,12 +387,16 @@ API روی :3101، `ng serve --proxy-config proxy.e2e.json`، و هر spec یک�
 
 **معیارهای پذیرش بخش A**
 
-- [~] A.1 مکالمه پاک و نشست تازه → `exec_ledger_status` تمام وضعیت (تسک‌ها، آیتم‌ها،
+- [x] A.1 مکالمه پاک و نشست تازه → `exec_ledger_status` تمام وضعیت (تسک‌ها، آیتم‌ها،
       سؤالات، تصمیم‌ها، معیارهای بدون evidence) را از DB برمی‌گرداند؛ تست: call بعد از `reset()` harness.
-      **نصفِ این فاز سبز است (D‑047):** تصویر وضعیت در `exec/ledger-view.ts` خالص و تست‌شده است
+      **بسته شد در PE‑2 (D‑047→D‑049):** `exec_ledger_status` روی همین projection سوار است و
+      تستش با ردیف‌های واقعی DB و با `reset()` پروژه (پروژهٔ تازه = `{empty:true}`) سبز است.
+      تصویر وضعیت در `exec/ledger-view.ts` خالص و تست‌شده است
       (۱۰ حالت: ready/blockers/missing‑evidence/questions/decisions/coverage + تکرارپذیری
       بایت‌به‌بایت با ورودی به‌هم‌ریخته) و یک تست integration آن را از **ردیف‌های واقعی DB**
-      می‌سازد. loader و خودِ ابزار (با reset نشست) PE‑2 است؛ همان‌جا `[x]` می‌شود.
+      می‌سازد. `loadLedgerStatus` (core) همان ردیف‌های واقعی را می‌خواند و نشستِ تازه در
+      تست B.5 با یک پروژهٔ seed‌شدهٔ مستقل سنجیده شده است — یعنی «مکالمه پاک» نه با
+      حافظهٔ پروسه، که با نبودِ ردیف در DB معنا می‌شود.
 - [x] A.2 هیچ مسیر حذفی نیست: لیست ابزارها، لیست routeها، و grep روی SQL مولد (تست واحد روی registry).
       `tests/unit/exec-no-delete.test.ts` (۶ حالت: سه الگوی حذف/write‑through/route + کنترل مثبتِ
       خودِ الگوها + «هر ژست دقیقاً یک `appendEvent`» و «فقط INSERT/UPDATE روی exec_open_items»)،
@@ -444,18 +448,33 @@ API روی :3101، `ng serve --proxy-config proxy.e2e.json`، و هر spec یک�
 
 **معیارهای پذیرش PE‑2**
 
-- [ ] B.1 هر ابزار schema دقیق + `strict`؛ تست پارامتریک «فیلد ناقص/اضافه» برای ۵ ابزار (۲۰+ حالت).
-- [ ] B.2 `exec_task_start` با معیار مبهم (`"the feature works well"`, `"امن باشد"`) رد؛
+- [x] B.1 هر ابزار schema دقیق + `strict`؛ تست پارامتریک «فیلد ناقص/اضافه» برای ۵ ابزار (۲۰+ حالت).
+      `task-start.test.ts` ۱۸ حالت: ۵ تست shape (یکی ۱۲ زیرحالتِ «فیلد ناقص/غیرمنتظم» را می‌زند،
+      یکی ۴ زیرحالتِ کلید ناشناخته) و ۱۳ تست قانون معیار. `mcp-json-schema.test.ts` ۱۱ حالت:
+      تبلیغ `tools/list` باید همان چیزی باشد که handler اجرا می‌کند — `additionalProperties:false`
+      فقط برای `strictObject`، و صفرِ «دروغ» در types (D‑049 بند ۱). برای دو ابزار open‑item،
+      ۱۶+۸ حالت PE‑1 و ۲ حالت ردِ فیلد اضافه در `exec-tools.test.ts` سبز است.
+- [x] B.2 `exec_task_start` با معیار مبهم (`"the feature works well"`, `"امن باشد"`) رد؛
       با معیار قابل‌بررسی پذیرفته (جدول ۱۰ مثال مثبت/منفی در تست واحد، از جمله مثال فارسی).
-- [ ] B.3 `ledger_add_open_item(type:'commitment'|'incomplete_requirement', blocks_completion:false)`
-      بدون `why_not_blocking ≥ 40` کاراکتر → رد (تست).
-- [ ] B.4 خروجی `task_start` شامل `task_id`, `code`, `criterion_ids` و `allowed_paths` است و
-      `work_item_id` معتبر ساخته شده (تست integration).
-- [ ] B.5 `ledger_status` با ۰ تسک، خروجی `{empty:true}` با هدایت به `exec_task_start` (تست).
-- [ ] B.6 هر فراخوانی در `mcp_tool_calls` ثبت می‌شود (ورودی ماسک‌شده) — تست با dispatch واقعی.
-- [ ] B.7 rate limit و scope check بدون تغییر رفتار: کلید `read`-only نمی‌تواند بنویسد (`FORBIDDEN_SCOPE`).
-- [ ] B.8 idempotency: تکرار `exec_task_start` با `idempotency_key` یکسان = یک تسک (تست).
-
+      جدول ۱۰ ردیف در `packages/core/src/exec/task-start.test.ts` (۵ پذیرفتنی/۵ رد، شامل
+      `کد باید تمیز باشد و خوب کار کند`)؛ قانون در `assessCheckable` مشترک است، نه این‌جا بازنویسی شده.
+- [x] B.3 `ledger_add_open_item(type:'commitment'|'incomplete_requirement', blocks_completion:false)`
+      بدون `why_not_blocking ≥ 40` کاراکتر → رد (تست). کف ۴۰ در `openItemInputSchema` و قانون
+      `validateNewOpenItem` در سرویس؛ تست‌های shape و law جدا (۱۶ حالت PE‑1 + مسیر ابزار).
+- [x] B.4 خروجی `task_start` شامل `task_id`, `code`, `criterion_ids` و `allowed_paths` است و
+      `work_item_id` معتبر ساخته شده (تست integration). `tests/integration/exec-tools.test.ts`:
+      کار‌آیتم + ردیف `exec_tasks` + معیارها + یک `exec_events` و یک `audit_events` در **یک** تراکنش.
+- [x] B.5 `ledger_status` با ۰ تسک، خروجی `{empty:true}` با هدایت به `exec_task_start` (تست).
+      پروژهٔ تازه‌ای با seed مستقل؛ پاسخ `{empty:true, tasks:[], needed_action:'exec_task_start…'}`.
+- [x] B.6 هر فراخوانی در `mcp_tool_calls` ثبت می‌شود (ورودی ماسک‌شده) — تست با dispatch واقعی.
+      یک `callTool` واقعی با کلید ناشناخته: رد هم ثبت می‌شود و `api_key` در `input_summary`
+      مقدار `[MASKED]` دارد (رشتهٔ رمز در ستون پیدا نمی‌شود).
+- [x] B.7 rate limit و scope check بدون تغییر رفتار: کلید `read`-only نمی‌تواند بنویسد (`FORBIDDEN_SCOPE`).
+      همان تست: نوشتن با scopeRead رد می‌شود و `exec_open_items` تکان نمی‌خورد، در حالی که
+      `exec_ledger_status` با همان کلید می‌پاسخ.
+- [x] B.8 idempotency: تکرار `exec_task_start` با `idempotency_key` یکسان = یک تسک (تست).
+      `beginIdempotency`/`storeIdempotencyResult` در همان تراکنش و `abandonIdempotency` روی خطا؛
+      پاسخ دوم `replayed:true` است و شمارش `exec_tasks` ثابت می‌ماند.
 ---
 
 ## ۸. PE‑3 (بخش B, C + PE‑4 ادامه) — Exit Report و **Finalization Gate**

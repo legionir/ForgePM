@@ -343,12 +343,22 @@ describe('PE-0.4/0.6 module + tool surface', () => {
   });
 
   it('no tool in the whole registry is a ledger delete path', async () => {
-    const names = buildToolRegistry(db)
-      .all()
-      .map((t) => t.name);
+    const reg = buildToolRegistry(db);
+    const names = reg.all().map((t) => t.name);
     expect(names.filter((n) => /_delete$|^delete_/.test(n))).toEqual([]);
-    // PE-0 adds no tools yet: the exec surface is dark until PE-2 registers it.
-    expect(names.filter((n) => /^exec_/.test(n))).toEqual([]);
+    // PE-2 registered the ledger tools, so "dark" can no longer mean "absent": the
+    // module gate is what hides them. Both halves are asserted, because a registry
+    // that grows an exec tool without a module gate would pass either test alone.
+    expect(names.filter((n) => /(^|_)(delete|remove|purge)_?(open_item|task|ledger)/.test(n))).toEqual([]);
+    expect(names.filter((n) => /^(exec_|ledger_)/.test(n)).sort()).toEqual([
+      'exec_ledger_status',
+      'exec_task_start',
+      'ledger_add_open_item',
+      'ledger_list_open',
+      'ledger_resolve_item',
+    ]);
+    const execTools = reg.all().filter((t) => /^(exec_|ledger_)/.test(t.name));
+    expect(execTools.every((t) => t.module === 'exec')).toBe(true);
   });
 
   it('exec.policy must parse before the module may be enabled', async () => {

@@ -197,13 +197,17 @@ schema:check` against a live schema and `npm run test:integration` (including
   only from `5915afc` on for the panel step, and the verify-step reporter was added _because_ of the
   third red (its first version tailed 60 lines, which on a vitest run is the coverage table: see the
   `61ca4a7` fix). No red has been reproduced on demand and none has been explained.
-- Untested hypotheses, deliberately not "fixes": (a) resource contention in the single Postgres
-  service — `--project integration` runs 24 files in parallel and each creates/drops a database, so
-  connection or `pg_database` lock pressure is plausible; (b) runner-level instability on the account
-  (the same account that once could not start jobs at all); (c) `ng serve` cold compile racing the
-  health-wait loop in `e2e.sh`. Choosing among them requires the failing test names, which is what
-  the two reporters now produce — **read them before changing anything**, the way D-046 had to be
-  found by measuring after two wrong guesses (D-044/D-045).
+- Hypotheses, and what has already happened to them: (a) ~~connection/`pg_database` contention
+  from parallel integration files~~ — **falsified without needing a run**: `vitest.workspace.ts` sets
+  `fileParallelism: false` for the integration project, so those files never ran in parallel;
+  (b) runner-level instability on the account (the same account that once could not start jobs at
+  all) — untestable from here, and consistent with reds landing on unrelated steps; (c) `ng serve`
+  cold compile racing `e2e.sh`'s 90-second wait — possible for a step-12 red, not for a verify red.
+  The failing-test names the two reporters now print are what would settle it, and **reading them
+  comes before changing anything** — that is the lesson D-046 had to be bought with D-044/D-045.
+- PE-1's own record is bounded by this: `remote: pass` was obtained on `5915afc` and `236af36`, and
+  the branch was then closed to further GitHub operations for the session (PE-1 merged), so any
+  later run for PE-2 must come from a fresh session/branch.
 - Consequence for the phase rules: `remote: pass` now means "a full green run exists on a tree whose
   code is this head", not "this sha was verified twice" — a stricter reading would block every phase
   on an environment that is known-flaky. If a future gate depends on a _sequence_ of green runs

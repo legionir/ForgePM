@@ -281,6 +281,26 @@ export const EXIT_REPORT_REQUIRED_ARRAYS = [
   'scope_deviations',
 ] as const;
 
+/**
+ * `exec_task_start` (plan §7). Criteria are plain sentences on purpose: the
+ * checkability law is code (`assessCheckable`), so it cannot be satisfied by
+ * shaping a string to a schema. `allowed_paths` is required from the first phase
+ * even though scope is only *measured* in PE-5 — a task born without a declared
+ * footprint cannot get one later without pretending the baseline was already known.
+ */
+export const taskStartInputSchema = z.strictObject({
+  title: z.string().min(5).max(500),
+  description: z.string().max(8000).optional(),
+  acceptance_criteria: z.array(z.string().min(1).max(2000)).min(1).max(50),
+  /** Requirements this task claims. Claiming is not covering: rule 8 needs a
+   *  *verified criterion* linked to the requirement (see D-049). */
+  req_ids: z.array(z.string().min(3).max(64)).max(100).default([]),
+  allowed_paths: z.array(z.string().min(1).max(200)).min(1).max(200),
+  project_ref: z.string().min(1).max(64).optional(),
+  idempotency_key: z.string().min(8).max(64).optional(),
+});
+export type TaskStartInput = z.infer<typeof taskStartInputSchema>;
+
 export const openItemInputSchema = z.strictObject({
   task_ref: idOrCodeSchema.optional(),
   title: z.string().min(5).max(500),

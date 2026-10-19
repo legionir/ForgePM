@@ -29,7 +29,9 @@ export const execControlModule: ModuleDefinition = {
       if (!eff) continue;
       const parsed = schema.safeParse(eff.value);
       if (!parsed.success) {
-        problems.push(`${key}: ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}`);
+        problems.push(
+          `${key}: ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}`,
+        );
       }
     }
     if (problems.length) {
