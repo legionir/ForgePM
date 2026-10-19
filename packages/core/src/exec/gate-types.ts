@@ -156,6 +156,9 @@ export interface GateContext {
   max_review_rounds: number;
   /** R-13: ledger recall of observed behaviors (0..1, threshold 0.3) */
   behaviorRecall?: number;
+  /** R-04 waiver fatigue: baseline waivers in last 30d */
+  baselineWaivers30d?: number;
+  baselineWaiverThreshold?: number;
   task: GateTask;
   criteria: GateCriterion[];
   open_items: GateOpenItem[];
@@ -204,5 +207,7 @@ export interface FinalReport {
   needs_human_review: string[];
   assumptions: string[];
   out_of_scope: string[];
+  baseline_waivers_30d?: number;
+  baseline_waiver_warning?: string | null;
   counts: { criteria_verified: number; criteria_pending: number; open_blocking: number; review_rounds: number };
 }

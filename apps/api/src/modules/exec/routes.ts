@@ -673,7 +673,7 @@ export function registerExecRoutes(app: FastifyInstance, deps: { db: Db; registr
     },
   );
 
-  // ---- the gate, asked without closing anything ----
+  // ---- the gate, asked without closing anything ---- (R-09: snapshot total 32M)
   t.post(
     '/api/v1/exec/gate/:taskId',
     {
@@ -681,6 +681,7 @@ export function registerExecRoutes(app: FastifyInstance, deps: { db: Db; registr
         params: z.object({ taskId: z.string().min(1).max(64) }),
         body: z.object({}).strict().optional(),
       },
+      config: { bodyLimit: 32 * 1024 * 1024 } as never,
       preHandler: guard(db, { scope: 'ledger:read' }),
     },
     async (req) => {

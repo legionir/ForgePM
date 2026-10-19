@@ -293,9 +293,17 @@ export function composeFinalReport(ctx: GateContext, summary?: string, reviewRou
   for (const w of ctx.task.human_waivers) humanReview.push(`waived: ${w}`);
   for (const q of ctx.questions.filter((x) => x.status === 'answered'))
     humanReview.push(`answered ${q.code}: confirm the implementation follows it`);
+  // R-04: waiver fatigue warning when threshold exceeded
+  let waiverWarning: string | null = null;
+  if (ctx.baselineWaivers30d !== undefined && ctx.baselineWaiverThreshold !== undefined && ctx.baselineWaivers30d > ctx.baselineWaiverThreshold) {
+    waiverWarning = `baseline waiver fatigue: ${ctx.baselineWaivers30d} waivers in last 30d exceeds threshold ${ctx.baselineWaiverThreshold} — Gate is decorative, fix CI`;
+    humanReview.push(waiverWarning);
+  }
   return {
     task: ctx.task.code,
     summary: summary ?? ctx.report?.summary ?? '',
+    baseline_waivers_30d: ctx.baselineWaivers30d,
+    baseline_waiver_warning: waiverWarning,
     completed: ctx.criteria
       .filter((c) => c.status === 'verified')
       .map((c) => ({ criterion: c.text, evidence: c.valid_evidence_count })),

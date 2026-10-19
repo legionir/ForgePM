@@ -1,5 +1,7 @@
 # Scaling
 
+**R-11 limiter (D-016) — current in-process Map, TTL 60s, cap 10k, trustProxy explicit (`isTrustedProxy`), key = `req.ip` when `trustProxy=false` so `X-Forwarded-For` cannot bypass. Multi-instance: each process has its own Map, so a 120/min limit becomes N×120 across N replicas — documented, not hidden. Redis-backed limiter is the future path.**
+
 Path of growth (documented, not implemented in v1 — plan §14):
 
 - **PgBouncer** in front of Postgres (transaction pooling); app already uses a

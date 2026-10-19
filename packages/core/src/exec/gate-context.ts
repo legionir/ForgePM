@@ -169,6 +169,21 @@ export async function loadGateContext(
     .filter((event) => event.action === 'task.waived' && event.actor_type === 'human')
     .concat(verifiedScopeEvents, verifiedBaselineEvents);
 
+  // R-04: waiver fatigue counter — baseline waivers in last 30d across project (via task's project)
+  const projectTaskIds = await db.selectFrom('exec_tasks').select('id').where('project_id', '=', project).execute();
+  const waiverCount30d = projectTaskIds.length
+    ? await db
+        .selectFrom('exec_events')
+        .select((eb) => eb.fn.count<number>('id').as('count'))
+        .where('organization_id', '=', org)
+        .where('task_id', 'in', projectTaskIds.map((r) => r.id))
+        .where('action', '=', 'baseline.waived')
+        .where('created_at', '>', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+        .executeTakeFirst()
+    : { count: 0 };
+  const baselineWaivers30d = Number(waiverCount30d?.count ?? 0);
+  const baselineWaiverThreshold = 3; // configurable via exec.baseline_waiver_threshold later
+
   const reportRow =
     reports.find((r) => r.id === options.reportId) ??
     [...reports].sort((a, b) => b.created_at.getTime() - a.created_at.getTime() || (a.id < b.id ? 1 : -1))[0] ??
@@ -256,6 +271,8 @@ export async function loadGateContext(
     policy,
     require_review: requireReview,
     max_review_rounds: maxReviewRounds,
+    baselineWaivers30d,
+    baselineWaiverThreshold,
     task: toTask(task, children, deps, depTasks, taskWaiverEvents),
     criteria: toCriteria(criteria, evidence),
     open_items: toOpenItems(items),
