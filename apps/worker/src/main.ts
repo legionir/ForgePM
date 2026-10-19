@@ -15,6 +15,8 @@ import {
 import { OutboxDispatcher } from './dispatcher';
 import { JobSweeper } from './sweeper';
 import { RetentionJob } from './retention-job';
+import { FactVerificationJob } from './fact-verification-job';
+import { LocalFactFileSource } from './fact-file-source';
 import { createDefaultWorker } from './handlers';
 
 async function main(): Promise<void> {
@@ -33,17 +35,20 @@ async function main(): Promise<void> {
   const dispatcher = new OutboxDispatcher(db, queue, log);
   const sweeper = new JobSweeper(db, queue, log);
   const retention = new RetentionJob(db, log);
+  const factVerification = new FactVerificationJob(db, log, new LocalFactFileSource());
   const worker = createDefaultWorker(connection, db, log);
 
   dispatcher.start();
   sweeper.start();
   retention.start();
-  log.info('worker started (dispatcher + sweeper + retention + default worker)');
+  factVerification.start();
+  log.info('worker started (dispatcher + sweeper + retention + fact verification + default worker)');
 
   const shutdown = async () => {
     dispatcher.stop();
     sweeper.stop();
     retention.stop();
+    await factVerification.stop();
     await worker.close();
     await queue.close();
     await db.destroy();

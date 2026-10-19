@@ -57,7 +57,7 @@ describe('parseTaskStart — shape only (B.1)', () => {
     // object literal set the prototype instead of adding a property, so only
     // `{ ['__proto__']: v }` is an unknown *field* for strictObject to refuse.
     const protoKey = { ['__proto__']: 'nope' };
-    for (const extra of [{ status: 'done' }, { id: '1' }, protoKey, { work_item_id: 'x' }]) {
+    for (const extra of [{ status: 'done' }, { id: '1' }, protoKey, { work_item_id: 'x' }, { start_ref: 'a'.repeat(40) }]) {
       const r = parseTaskStart({ ...base, ...extra });
       expect(r.ok, JSON.stringify(extra)).toBe(false);
     }

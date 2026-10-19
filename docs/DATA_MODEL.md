@@ -881,6 +881,7 @@ CREATE TABLE exec_gate_checks (
   gate_version integer NOT NULL,
   tree_hash text NOT NULL,
   run_source text NOT NULL DEFAULT 'none',
+  file_manifest jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX exec_gate_task_created_idx ON exec_gate_checks (task_id, created_at DESC, id DESC);
@@ -890,19 +891,22 @@ CREATE TABLE exec_facts (
   organization_id uuid NOT NULL REFERENCES organizations(id),
   project_id uuid NOT NULL,
   code text NOT NULL,               -- F-###
-  key text NOT NULL,
-  value text NOT NULL,
-  kind text NOT NULL,               -- fact|assumption
-  source text NOT NULL,             -- code|docs|human|tool_output|agent_guess
-  source_ref text,
-  files jsonb NOT NULL DEFAULT '[]',
-  file_hashes jsonb NOT NULL DEFAULT '[]',
+  key text NOT NULL CHECK (char_length(key) BETWEEN 3 AND 120),
+  value text NOT NULL CHECK (char_length(value) >= 5),
+  kind text NOT NULL CHECK (kind IN ('fact','assumption')),
+  source text NOT NULL CHECK (source IN ('code','docs','human','tool_output','agent_guess')),
+  source_ref text,                   -- file path, parseable commit, completed cmd journal, or null for human confirmation
+  files jsonb NOT NULL DEFAULT '[]', -- relative paths; the API hashes these at record/verify time
+  file_hashes jsonb NOT NULL DEFAULT '[]', -- [{path,sha256}], content only (no source bytes)
   verified_at timestamptz,
-  status text NOT NULL DEFAULT 'active',   -- active|stale|rejected|superseded
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','stale','rejected','superseded')),
   superseded_by uuid REFERENCES exec_facts(id),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (project_id, code),
-  FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id)
+  FOREIGN KEY (project_id, organization_id) REFERENCES projects(id, organization_id),
+  CHECK (kind <> 'fact' OR source <> 'agent_guess'),
+  CHECK (NOT (kind = 'fact' AND source IN ('code','tool_output')) OR source_ref IS NOT NULL),
+  CHECK (status <> 'superseded' OR superseded_by IS NOT NULL)
 );
 CREATE UNIQUE INDEX exec_facts_active_key_uniq ON exec_facts (project_id, key) WHERE status = 'active';
 

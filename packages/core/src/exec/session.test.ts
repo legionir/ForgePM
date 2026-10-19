@@ -32,7 +32,7 @@ describe('session pack (appendix §K.3, acceptance K.4)', () => {
     expect(packed.sections[0].more).toBe(35);
     expect(packed.sections[0].hint).toContain('ledger_list_open');
     expect(packed.totals.tasks).toBe(40);
-    expect(packed.meta.truncated).toBe(false);
+    expect(packed.meta.truncated).toBe(true);
   });
 
   it('K.4 the byte budget is honoured and the payload is always valid JSON', () => {
@@ -48,6 +48,22 @@ describe('session pack (appendix §K.3, acceptance K.4)', () => {
     expect(packed.sections[packed.sections.length - 1].shown).toHaveLength(0);
     // totals still tell the truth about the ledger
     expect(packed.sections.reduce((a, s) => a + s.total, 0)).toBe(360);
+  });
+
+  it('K.5 keeps all six sections and signals counts when hundreds of rows exceed the budget', () => {
+    const secs: SessionSection<Row>[] = SESSION_ORDER.map((key) => ({
+      key,
+      label: key,
+      items: rows(key, key === 'blocking_open_items' ? 200 : 0),
+    }));
+    const packed = packSession(secs, { maxBytes: 2048 });
+    expect(packed.sections.map((section) => section.key)).toEqual([...SESSION_ORDER]);
+    expect(packed.sections[2]?.total).toBe(200);
+    expect(packed.sections[2]?.more).toBeGreaterThan(0);
+    expect(packed.meta.truncated).toBe(true);
+    expect(packed.meta.within_budget).toBe(true);
+    expect(packed.meta.bytes).toBeLessThanOrEqual(2048);
+    expect(Buffer.byteLength(JSON.stringify(packed), 'utf8')).toBeLessThanOrEqual(2048);
   });
 
   it('a generated_at timestamp is present so a stale session can be detected', () => {

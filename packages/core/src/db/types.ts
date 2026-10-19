@@ -762,6 +762,8 @@ export interface ExecGateChecksTable {
   gate_version: number;
   tree_hash: string;
   run_source: string;
+  /** Hash-only per-file snapshot captured when a task passes Gate. */
+  file_manifest: Jsonb | null;
   created_at: Timestamp;
 }
 
@@ -833,13 +835,6 @@ export interface ExecEventsTable {
   created_at: Timestamp;
 }
 
-export interface ExecReqTasksTable {
-  req_id: string;
-  task_id: string;
-  criterion_ids: Jsonb;
-  created_at: Timestamp;
-}
-
 export interface DB {
   outbox: OutboxTable;
   jobs: JobsTable;
@@ -887,7 +882,6 @@ export interface DB {
   code_structure_index: CodeStructureIndexTable;
   exec_code_seq: ExecCodeSeqTable;
   exec_requirements: ExecRequirementsTable;
-  exec_req_tasks: ExecReqTasksTable;
   exec_tasks: ExecTasksTable;
   exec_task_deps: ExecTaskDepsTable;
   exec_criteria: ExecCriteriaTable;

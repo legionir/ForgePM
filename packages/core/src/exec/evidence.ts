@@ -80,6 +80,30 @@ export function underRoot(path: string, roots: readonly string[]): boolean {
   return roots.some((r) => (r && clean === norm(r)) || clean.startsWith(`${norm(r)}/`));
 }
 
+/**
+ * Is a *stored* evidence row good enough to close a criterion?
+ *
+ * `checkEvidence` is the gate at write time; this is the gate at read time,
+ * because a row can also arrive by other means (an import, a hand-written
+ * statement, a later hand-edit). A row counts only when it points somewhere
+ * real AND carries proof: a payload, a recorded hash, or a CI run whose log
+ * lives in CI. "There is a row" is not "there is evidence".
+ */
+export function evidenceIsVerifiable(row: {
+  ref: string | null;
+  payload?: string | null;
+  sha256?: string | null;
+}): boolean {
+  const ref = (row.ref ?? '').trim();
+  if (ref.length < 3) return false;
+  const parsed = parseRef(ref);
+  if (parsed.kind === 'unknown') return false;
+  if (typeof row.payload === 'string' && row.payload.trim().length > 0) return true;
+  if (typeof row.sha256 === 'string' && row.sha256.trim().length > 0) return true;
+  // A CI reference is proof in itself: the log is in CI, not in this row.
+  return parsed.kind === 'ci';
+}
+
 export function checkEvidence(input: EvidenceCheckInput): EvidenceCheckResult {
   const max = input.maxBytes ?? 131_072;
   const summary = (input.summary ?? '').trim();
@@ -118,13 +142,13 @@ export function checkEvidence(input: EvidenceCheckInput): EvidenceCheckResult {
       };
     }
     if (!input.fs.exists(ref.path))
-      return {
-        ...invalid(
-          `ref path '${ref.path}' does not exist`,
-          'run the thing you claim; a path to a missing file is not evidence',
-        ),
-        code: 'EVIDENCE_UNAVAILABLE',
-      };
+      // A path that is not there is not a proof, it is a wrong pointer: the
+      // plan (§9.1, acceptance B.10) says EVIDENCE_INVALID. EVIDENCE_UNAVAILABLE
+      // is for a ref that exists but cannot be read right now.
+      return invalid(
+        `ref path '${ref.path}' does not exist`,
+        'run the thing you claim; a path to a missing file is not evidence',
+      );
     meta.sha256_file = undefined;
     const body = input.fs.read(ref.path);
     if (body === null)

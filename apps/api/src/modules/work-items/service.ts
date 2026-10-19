@@ -7,6 +7,7 @@ import {
   beginIdempotency,
   storeIdempotencyResult,
   abandonIdempotency,
+  assertCompletionAllowed,
   getEffective,
   type Db,
   type Tx,
@@ -121,6 +122,20 @@ export async function patchWorkItem(db: Db, actor: Actor, key: string, patch: Pa
   await assertProjectAccess(db, actor, existing.project_id as string, 'project:write');
   const gateResult = await gateAgentOperation(db, actor, existing.project_id as string, 'work_item.update_content', { item_type: existing.type as WorkItemType, priority: existing.priority as Priority });
   if (gateResult) throw new AppError('APPROVAL_REQUIRED', 'agent action requires approval', { approval_request_id: gateResult.approval_request_id });
+  // The panel's PATCH can move an item's state, so the completion guard has to be
+  // consulted here too — otherwise the PATCH would be a second door to `completed`
+  // (plan §8.3, I-1).
+  if (patch.state_id) {
+    const state = (await listStates(db, existing.project_id as string)).find((s) => s.id === patch.state_id);
+    if (state?.category === 'completed') {
+      await assertCompletionAllowed(db, {
+        work_item_id: existing.id as string,
+        target_category: state.category,
+        organization_id: actor.organizationId,
+        project_id: existing.project_id as string,
+      });
+    }
+  }
 
   await unitOfWork(db, async ({ tx }) => {
     await updateWorkItemFields(tx as never, existing.id as string, patch as never);
@@ -180,6 +195,15 @@ export async function transitionWorkItem(db: Db, actor: Actor, key: string, toSt
     if (open.length > 0) {
       throw new AppError('BLOCKED_BY_OPEN_ITEMS', `blocked by: ${open.join(', ')}`);
     }
+    // I-1 (plan §8.3): a work item that belongs to the ledger may only reach
+    // `completed` through the finalization gate. The guard is a no-op for items
+    // that have no ledger task behind them.
+    await assertCompletionAllowed(db, {
+      work_item_id: item.id as string,
+      target_category: toState.category,
+      organization_id: actor.organizationId,
+      project_id: item.project_id as string,
+    });
   }
   await unitOfWork(db, async ({ tx }) => {
     await updateWorkItemFields(tx as never, item.id as string, { state_id: toStateId });

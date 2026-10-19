@@ -4,25 +4,25 @@ import { AppError, idOrCodeSchema, openItemInputSchema, resolveItemInputSchema }
 import {
   abandonIdempotency,
   beginIdempotency,
+  assertRequirementsAssigned,
   checkCriteria,
   createOpenItem,
   createTask,
   listTaskItems,
   loadLedgerStatus,
   parseTaskStart,
-  recordAudit,
   resolveOpenItem,
+  resolveExecReviewSource,
   storeIdempotencyResult,
   unitOfWork,
   type Db,
-  type DbLike,
-  type LedgerActor,
+  type ScopeFileManifest,
 } from '@forgepm/core';
 import type { Actor } from '../../app/auth-context';
-import { assertProjectAccess } from '../projects/access';
 import { allocateNumber, ensureWorkflow } from '../work-items/states';
 import { insertWorkItem } from '../work-items/items-repository';
 import { gateAgentOperation } from '../work-items/service';
+import { auditIn, ledgerActor, parseTool, projectForTask, projectRefSchema, resolveProject } from './context';
 
 /**
  * The service behind PE-2's five ledger tools (plan §7). Thin on purpose: every ledger
@@ -31,8 +31,6 @@ import { gateAgentOperation } from '../work-items/service';
  * *api* part — which project the caller means, whether an agent write needs the
  * approval gate first, the audit row, and the idempotency claim.
  */
-
-const projectRefSchema = z.string().min(1).max(64);
 
 // ---- tool input shapes (B.1) — strict, and the ledger laws are NOT restated here ----
 
@@ -53,105 +51,6 @@ export const statusToolSchema = z.strictObject({
   task_ref: idOrCodeSchema.optional(),
   project_ref: projectRefSchema.optional(),
 });
-
-/** A malformed call is an answer, not a crash: same shape as the ledger parsers (A.5). */
-function parseTool<T extends object>(schema: z.ZodTypeAny, raw: unknown, neededAction: string): T {
-  const parsed = schema.safeParse(raw ?? {});
-  if (parsed.success) return parsed.data as T;
-  const issue = parsed.error.issues[0] ?? { path: [], message: 'payload did not parse' };
-  const path = (issue.path as (string | number)[]).join('.');
-  throw new AppError('VALIDATION_ERROR', path ? `${path}: ${issue.message}` : issue.message, {
-    needed_action: neededAction,
-  });
-}
-
-/** `{project_ref}` is optional everywhere; the rule for filling it in lives here. */
-async function resolveProject(
-  db: DbLike,
-  actor: Actor,
-  ref: string | undefined,
-  action: 'project:read' | 'project:write',
-): Promise<string> {
-  if (ref) {
-    // `id::text` because a caller may pass the PRJ-key; comparing a text key to a uuid
-    // column is a postgres type error, which would surface as INTERNAL rather than
-    // "no such project".
-    const found = await sql<{ id: string }>`
-      SELECT id::text AS id FROM projects
-      WHERE organization_id = ${actor.organizationId} AND (id::text = ${ref} OR key = ${ref})
-    `.execute(db as never);
-    const row = found.rows[0];
-    if (!row) {
-      throw new AppError('NOT_FOUND', `no project '${ref}' in this organisation`, {
-        ref,
-        needed_action: 'the key may only touch the projects it is bound to',
-      });
-    }
-    await assertProjectAccess(db as Db, actor, row.id, action);
-    return row.id;
-  }
-  if (actor.projectIds && actor.projectIds.length === 1) {
-    await assertProjectAccess(db as Db, actor, actor.projectIds[0], action);
-    return actor.projectIds[0];
-  }
-  throw new AppError('VALIDATION_ERROR', 'the ledger needs one project to write into', {
-    needed_action: 'pass project_ref (id or PRJ-key), or bind the API key to a single project',
-  });
-}
-
-/**
- * A task code is unique per project, not per org, so `T-004` alone can name several
- * tasks. Resolving it by project is fine; guessing between two projects is not.
- */
-async function projectForTask(db: DbLike, actor: Actor, taskRef: string, explicit?: string): Promise<string> {
-  if (explicit) return resolveProject(db, actor, explicit, 'project:read');
-  const rows = await sql<{ project_id: string }>`
-    SELECT project_id::text AS project_id FROM exec_tasks
-    WHERE organization_id = ${actor.organizationId} AND (code = ${taskRef} OR id::text = ${taskRef})
-  `.execute(db as never);
-  const found = [...new Set(rows.rows.map((r) => r.project_id))];
-  const narrowed = actor.projectIds ? found.filter((p) => actor.projectIds?.includes(p)) : found;
-  if (narrowed.length === 1) return narrowed[0];
-  if (!narrowed.length) {
-    throw new AppError('NOT_FOUND', `no ledger task '${taskRef}' you may write to`, {
-      ref: taskRef,
-      needed_action: 'exec_task_start creates the task; ledger_status without task_ref lists what exists',
-    });
-  }
-  throw new AppError('VALIDATION_ERROR', `'${taskRef}' names a task in ${narrowed.length} projects`, {
-    needed_action: 'pass project_ref to pick one',
-  });
-}
-
-function ledgerActor(actor: Actor, projectId: string, tool: string): LedgerActor {
-  return {
-    organizationId: actor.organizationId,
-    projectId,
-    actorType: actor.type === 'agent' ? 'agent' : 'human',
-    actorId: actor.id,
-    tool,
-  };
-}
-
-function auditIn(
-  tx: DbLike,
-  actor: Actor,
-  action: string,
-  resourceType: string,
-  resourceId: string,
-  summary: unknown,
-): Promise<string> {
-  return recordAudit(tx, {
-    organization_id: actor.organizationId,
-    actor_type: actor.type === 'agent' ? 'agent' : 'user',
-    actor_id: actor.id,
-    action,
-    resource_type: resourceType,
-    resource_id: resourceId,
-    summary,
-    request_id: actor.requestId,
-  });
-}
 
 export interface TaskStartOutcome {
   pending?: true;
@@ -184,6 +83,7 @@ export async function startTask(db: Db, actor: Actor, raw: unknown): Promise<Tas
     });
   }
   const projectId = await resolveProject(db, actor, parsed.value.projectRef, 'project:write');
+  await assertRequirementsAssigned(db, { organizationId: actor.organizationId, projectId }, parsed.value.reqIds);
   const gate = await gateAgentOperation(db, actor, projectId, 'work_item.create', {
     item_type: 'task',
     priority: 'none',
@@ -196,9 +96,29 @@ export async function startTask(db: Db, actor: Actor, raw: unknown): Promise<Tas
     if (begin.kind === 'replay') return { ...(begin.response as object), replayed: true };
   }
 
+  // Capture the commit or a hash-only workspace manifest from the API's
+  // read-only source. Either value is server-measured; no agent claim is used.
+  let startRef: string | null = null;
+  let startManifest: ScopeFileManifest | null = null;
+  const reviewSource = resolveExecReviewSource();
+  try {
+    const measured = (await reviewSource?.headSha?.()) ?? null;
+    startRef = typeof measured === 'string' && /^[0-9a-f]{40,64}$/i.test(measured) ? measured.toLowerCase() : null;
+  } catch {
+    startRef = null;
+  }
+  if (!startRef && reviewSource?.fileManifest) {
+    try {
+      startManifest = await reviewSource.fileManifest();
+    } catch {
+      startManifest = null;
+    }
+  }
+
   let created: TaskStartOutcome = {};
   try {
     await unitOfWork(db, async ({ tx }) => {
+      await assertRequirementsAssigned(tx, { organizationId: actor.organizationId, projectId }, parsed.value.reqIds);
       const states = await ensureWorkflow(tx as never, projectId, actor.organizationId);
       const first = states.slice().sort((a, b) => Number(a.position) - Number(b.position))[0];
       if (!first) throw new AppError('INTERNAL', 'project has no workflow states after ensureWorkflow');
@@ -220,7 +140,7 @@ export async function startTask(db: Db, actor: Actor, raw: unknown): Promise<Tas
           number,
         } as never,
       );
-      const row = await createTask(tx, ledgerActor(actor, projectId, 'exec_task_start'), workItemId, raw);
+      const row = await createTask(tx, ledgerActor(actor, projectId, 'exec_task_start'), workItemId, raw, { startRef, startManifest });
       await auditIn(tx, actor, 'exec.task_start', 'exec_task', row.task_id, {
         code: row.code,
         work_item_id: row.work_item_id,

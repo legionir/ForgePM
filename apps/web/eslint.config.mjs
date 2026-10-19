@@ -6,6 +6,17 @@ import tsparser from '@typescript-eslint/parser';
 export default [
   js.configs.recommended,
   {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+      globals: {
+        process: 'readonly', console: 'readonly', URL: 'readonly',
+        setInterval: 'readonly', setTimeout: 'readonly',
+        clearInterval: 'readonly', clearTimeout: 'readonly',
+      },
+    },
+  },
+  {
     files: ['src/**/*.ts'],
     languageOptions: {
       parser: tsparser,
@@ -20,6 +31,8 @@ export default [
     plugins: { '@typescript-eslint': tseslint },
     rules: {
       'no-unused-vars': 'off',
+      // TypeScript owns undefined-name checks, including DOM and Vitest globals.
+      'no-undef': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
       eqeqeq: ['error', 'always'],

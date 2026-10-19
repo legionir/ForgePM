@@ -5,6 +5,7 @@ import { toJsonb } from '../jsonb';
 import type { DbLike } from '../db/unitOfWork';
 import { allocateLedgerCode } from './codes';
 import { appendEvent } from './events';
+import { makeScopeManifest, type ScopeFileManifest } from './scope';
 import type { LedgerActor, ParseResult } from './open-items-service';
 
 /**
@@ -40,6 +41,8 @@ export interface TaskCreatedRow {
   criterion_codes: string[];
   /** Declared, not covered: rule 8 needs a verified criterion linked to the requirement. */
   req_ids: string[];
+  /** Captured by the API's read-only repository adapter, never supplied by the task author. */
+  start_ref: string | null;
 }
 
 export type CriteriaCheck =
@@ -146,8 +149,9 @@ async function taskRow(db: DbLike, id: string): Promise<TaskCreatedRow> {
     status: string;
     work_item_id: string;
     allowed_paths: unknown;
+    start_ref: string | null;
   }>`
-    SELECT id, code, title, status, work_item_id::text AS work_item_id, allowed_paths
+    SELECT id, code, title, status, work_item_id::text AS work_item_id, allowed_paths, start_ref
     FROM exec_tasks WHERE id = ${id}::uuid
   `.execute(db as never);
   const row = r.rows[0];
@@ -159,6 +163,7 @@ async function taskRow(db: DbLike, id: string): Promise<TaskCreatedRow> {
     status: row.status,
     work_item_id: row.work_item_id,
     allowed_paths: Array.isArray(row.allowed_paths) ? (row.allowed_paths as string[]) : [],
+    start_ref: row.start_ref,
     criterion_ids: [],
     criterion_codes: [],
     req_ids: [],
@@ -170,11 +175,21 @@ async function taskRow(db: DbLike, id: string): Promise<TaskCreatedRow> {
  * (`exec_tasks.work_item_id NOT NULL`), which is what keeps the ledger and the
  * board from drifting apart: a ledger task always has a work item behind it.
  */
+export interface CreateTaskOptions {
+  /** Server-measured commit SHA from the configured read-only Git source. */
+  startRef?: string | null;
+  /** Hash-only snapshot for a Git-less workspace; never accepted from task input. */
+  startManifest?: ScopeFileManifest | null;
+  /** Parent ledger task when this row is created by task_split. */
+  parentTaskId?: string | null;
+}
+
 export async function createTask(
   db: DbLike,
   actor: LedgerActor,
   workItemId: string,
   raw: unknown,
+  options: CreateTaskOptions = {},
 ): Promise<TaskCreatedRow> {
   const parsed = parseTaskStart(raw);
   if (!parsed.ok) throw new AppError('VALIDATION_ERROR', parsed.message, { needed_action: parsed.needed_action });
@@ -188,12 +203,30 @@ export async function createTask(
   }
   await assertRequirementsExist(db, actor, parsed.value.reqIds);
 
+  let startManifest: ScopeFileManifest | null = null;
+  if (!options.startRef && options.startManifest) {
+    try {
+      startManifest = makeScopeManifest(options.startManifest.files);
+    } catch {
+      throw new AppError('VALIDATION_ERROR', 'server-measured scope manifest is invalid', {
+        needed_action: 'retry task creation with a stable read-only workspace snapshot',
+      });
+    }
+    if (startManifest.hash !== options.startManifest.hash) {
+      throw new AppError('VALIDATION_ERROR', 'server-measured scope manifest hash is inconsistent', {
+        needed_action: 'retry task creation with a stable read-only workspace snapshot',
+      });
+    }
+  }
+
   const id = newId();
   const code = await allocateLedgerCode(db, actor.projectId, 'T');
   await sql`
-    INSERT INTO exec_tasks (id, organization_id, project_id, work_item_id, code, title, description, status, allowed_paths)
-    VALUES (${id}, ${actor.organizationId}, ${actor.projectId}, ${workItemId}::uuid, ${code},
-            ${parsed.value.title}, ${parsed.value.description}, 'not_started', ${toJsonb(parsed.value.allowedPaths)}::jsonb)
+    INSERT INTO exec_tasks
+      (id, organization_id, project_id, work_item_id, parent_id, code, title, description, status, start_ref, allowed_paths)
+    VALUES (${id}, ${actor.organizationId}, ${actor.projectId}, ${workItemId}::uuid, ${options.parentTaskId ?? null}::uuid, ${code},
+            ${parsed.value.title}, ${parsed.value.description}, 'not_started', ${options.startRef ?? null},
+            ${toJsonb(parsed.value.allowedPaths)}::jsonb)
   `.execute(db as never);
 
   const criterionIds: string[] = [];
@@ -225,5 +258,19 @@ export async function createTask(
     tool: actor.tool ?? null,
     payload: { before: null, after: row },
   });
+  if (startManifest) {
+    await appendEvent(db, {
+      organization_id: actor.organizationId,
+      task_id: id,
+      entity: 'task',
+      entity_id: id,
+      entity_code: code,
+      action: 'scope.manifest_captured',
+      actor_type: 'system',
+      actor_id: 'exec-scope-manifest',
+      tool: 'exec_task_start',
+      payload: { version: 1, hash: startManifest.hash, files: startManifest.files },
+    });
+  }
   return row;
 }

@@ -23,31 +23,34 @@ const parts: ReviewInputParts = {
 };
 
 describe('adversarial reviewer isolation (plan §E, acceptance E.1–E.4)', () => {
-  it('E.1 conversation-shaped inputs are refused outright', () => {
+  it('E.1 conversation-shaped inputs are refused at every nesting depth', () => {
     for (const k of ['messages', 'agent_history', 'chat', 'transcript', 'conversation', 'reasoning', 'scratchpad']) {
       expect(() => buildReviewInput({ ...parts, [k]: 'the whole chat so far' } as never), k).toThrowError(
         /not allowed/,
       );
     }
+    expect(() => buildReviewInput({ ...parts, ledger_status: { task: { conversation: ['hidden'] } } })).toThrowError(/not allowed/);
+    expect(() => buildReviewInput({ ...parts, exit_report: { messages: ['hidden'] } })).toThrowError(/not allowed/);
   });
 
-  it('E.2 the prompt contains exactly the nine documented sections, in order', () => {
+  it('E.2 the prompt contains exactly the five documented sections, in order', () => {
     const built = buildReviewInput(parts);
-    expect(built.meta.sections).toEqual([
-      'user_request',
-      'criteria',
-      'requirements',
-      'diff',
-      'ledger_status',
-      'exit_report',
-      'scope',
-      'baseline',
-      'stale_facts',
-    ]);
+    expect(built.meta.sections).toEqual(['user_request', 'criteria', 'diff', 'ledger_status', 'exit_report']);
     for (const sec of built.meta.sections) expect(built.prompt).toContain(sec);
     expect(built.prompt).toContain('کاربر باید بتواند خارج شود'); // verbatim human text is passed through
     expect(built.meta.sha256).toMatch(/^[0-9a-f]{64}$/);
     expect(built.meta.bytes).toBe(Buffer.byteLength(built.prompt, 'utf8'));
+  });
+
+  it('redacts secret-shaped strings before the prompt is sent and counted', () => {
+    const secret = 'ghp_' + 'z'.repeat(32);
+    const built = buildReviewInput({
+      ...parts,
+      user_request: [{ code: 'REQ-1', text: 'keep credentials private', quote: `token=${secret}` }],
+    });
+    expect(built.prompt).not.toContain(secret);
+    expect(built.meta.redacted_secrets).toBeGreaterThan(0);
+    expect(built.meta.sha256).toBeTruthy();
   });
 
   it('E.2b the preamble states the isolation rule and the output contract', () => {
@@ -71,6 +74,19 @@ describe('reviewer output validation (acceptance E.4)', () => {
   it('accepts strict JSON and fenced JSON alike', () => {
     expect(parseReviewOutput(JSON.stringify(clean))).toMatchObject({ ok: true });
     expect(parseReviewOutput('```json\n' + JSON.stringify(clean) + '\n```').ok).toBe(true);
+  });
+
+  it('binds file:line witnesses to a changed line in this exact input', () => {
+    const built = buildReviewInput(parts);
+    const finding = {
+      title: 'missing behavior for logout',
+      type: 'bug',
+      blocks_completion: true,
+      evidence_ref: 'file:packages/core/src/exec/gate.ts:1',
+      why: 'the changed implementation does not enforce the required behavior',
+    };
+    expect(parseReviewOutput(JSON.stringify({ verdict: 'fail', checked: ['diff'], findings: [finding] }), built.witness_refs).ok).toBe(true);
+    expect(parseReviewOutput(JSON.stringify({ verdict: 'fail', checked: ['diff'], findings: [{ ...finding, evidence_ref: 'file:packages/core/src/exec/gate.ts:9' }] }), built.witness_refs).ok).toBe(false);
   });
 
   it('a "clean" verdict with nothing checked is not a review', () => {
@@ -99,7 +115,7 @@ describe('reviewer output validation (acceptance E.4)', () => {
           title: 'auth bypass',
           type: 'bug',
           blocks_completion: true,
-          evidence_ref: 'file:apps/api/src/x.ts',
+          evidence_ref: 'file:apps/api/src/x.ts:3',
           why: 'the token check is skipped when the header is missing',
         },
       ],
@@ -119,7 +135,7 @@ describe('reviewer output validation (acceptance E.4)', () => {
             title: 'naming could improve',
             type: 'suggestion',
             blocks_completion: true,
-            evidence_ref: 'file:a.ts',
+            evidence_ref: 'file:a.ts:1',
             why: 'naming is unclear in this module today',
           },
         ],
@@ -135,7 +151,8 @@ describe('reviewer output validation (acceptance E.4)', () => {
           {
             title: 'naming could improve',
             type: 'suggestion',
-            evidence_ref: 'file:a.ts',
+            blocks_completion: false,
+            evidence_ref: 'file:a.ts:1',
             why: 'naming is unclear in this module today',
           },
         ],
@@ -164,7 +181,7 @@ describe('reviewer output validation (acceptance E.4)', () => {
           {
             title: 'weird thing',
             type: 'vibe',
-            evidence_ref: 'file:a.ts',
+            evidence_ref: 'file:a.ts:1',
             why: 'it does not feel complete at all here',
           },
         ],

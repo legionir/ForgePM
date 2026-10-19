@@ -208,6 +208,9 @@ describe('PE-0.3 append-only enforcement (invariant I-2)', () => {
     await expect(
       sql`UPDATE exec_action_journal SET expected_effect = 'nothing happened' WHERE id = ${jid}`.execute(db),
     ).rejects.toThrowError(/only status\/finished_at\/result_ref\/note/);
+    await expect(sql`UPDATE exec_action_journal SET target = 'another target' WHERE id = ${jid}`.execute(db)).rejects.toThrowError(
+      /only status\/finished_at\/result_ref\/note/,
+    );
     // settling is allowed, and only once
     await expect(
       sql`UPDATE exec_action_journal SET status = 'done', finished_at = now(), result_ref = 'cmd:1' WHERE id = ${jid}`.execute(
@@ -220,6 +223,20 @@ describe('PE-0.3 append-only enforcement (invariant I-2)', () => {
     await expect(sql`DELETE FROM exec_action_journal WHERE id = ${jid}`.execute(db)).rejects.toThrowError(
       /may not be deleted/,
     );
+  });
+
+  it('a resumed unknown journal row can be settled exactly once', async () => {
+    const j = await sql`
+      INSERT INTO exec_action_journal (id, organization_id, task_id, code, action, idempotent, expected_effect, status)
+      VALUES (${newId()}, ${orgId}, ${taskId}, 'AJ-002', 'apply a migration', true, ${'the schema reaches the expected version'}, 'started')
+      RETURNING id
+    `.execute(db);
+    const jid = (j.rows as { id: string }[])[0].id;
+    await sql`UPDATE exec_action_journal SET status = 'unknown', finished_at = now() WHERE id = ${jid}`.execute(db);
+    await sql`UPDATE exec_action_journal SET status = 'done', finished_at = now(), result_ref = 'db:version' WHERE id = ${jid}`.execute(db);
+    await expect(
+      sql`UPDATE exec_action_journal SET status = 'failed', finished_at = now() WHERE id = ${jid}`.execute(db),
+    ).rejects.toThrowError(/already settled/);
   });
 
   it('the REVOKE half of I-2 bites when a dedicated app role exists', async () => {
@@ -350,14 +367,28 @@ describe('PE-0.4/0.6 module + tool surface', () => {
     // module gate is what hides them. Both halves are asserted, because a registry
     // that grows an exec tool without a module gate would pass either test alone.
     expect(names.filter((n) => /(^|_)(delete|remove|purge)_?(open_item|task|ledger)/.test(n))).toEqual([]);
-    expect(names.filter((n) => /^(exec_|ledger_)/.test(n)).sort()).toEqual([
+    expect(names.filter((n) => /^(exec_|ledger_|journal_)/.test(n)).sort()).toEqual([
+      'exec_ledger_reconcile',
       'exec_ledger_status',
+      'exec_link_dep',
+      'exec_plan_view',
+      'exec_policy_check',
+      'exec_submit_exit_report',
+      'exec_task_complete',
       'exec_task_start',
+      'journal_done',
+      'journal_fail',
+      'journal_start',
+      'ledger_add_evidence',
       'ledger_add_open_item',
+      'ledger_ask_human',
       'ledger_list_open',
+      'ledger_record_decision',
       'ledger_resolve_item',
     ]);
-    const execTools = reg.all().filter((t) => /^(exec_|ledger_)/.test(t.name));
+    expect(names).toContain('review_task');
+    expect(reg.get('review_task')?.scopes).toEqual(['review']);
+    const execTools = reg.all().filter((t) => /^(exec_|ledger_|journal_)/.test(t.name) || t.name === 'review_task');
     expect(execTools.every((t) => t.module === 'exec')).toBe(true);
   });
 

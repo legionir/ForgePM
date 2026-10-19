@@ -14,6 +14,7 @@ import {
 } from '@forgepm/core';
 import { authenticate, type Actor } from '../../app/auth-context';
 import { jsonSchemaFor } from './json-schema';
+import { enforceExecWriteLock } from '../exec/write-lock';
 
 const rpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
@@ -68,13 +69,16 @@ export async function callTool(
   const tool = deps.tools.get(name);
   if (!tool) return fail(deps, actor, name, args, 'NOT_FOUND', `tool '${name}' not found`, started, requestId);
   if (!tool.scopes.some((s) => (actor.scopes as string[]).includes(s))) {
+    const list = tool.scopes.join(',');
     return fail(
       deps,
       actor,
       name,
       args,
       'FORBIDDEN_SCOPE',
-      `FORBIDDEN_SCOPE: requires scope: ${tool.scopes.join(',')}`,
+      // A tool may accept more than one scope (the ledger tools accept the
+      // generic one OR the ledger's own), so the message must say which.
+      `FORBIDDEN_SCOPE: requires ${tool.scopes.length > 1 ? 'one of' : 'scope'}: ${list}`,
       started,
       requestId,
     );
@@ -115,6 +119,9 @@ export async function callTool(
   }
   const ctx: McpCallContext = { actor: toMcpActor(actor), requestId };
   try {
+    if (mods.includes('exec')) {
+      await enforceExecWriteLock(deps.db, actor, name, parsed.data as Record<string, unknown>);
+    }
     const out = await tool.handler(parsed.data as never, ctx);
     const capped = capOutput(out);
     const pending = isPending(capped.payload);

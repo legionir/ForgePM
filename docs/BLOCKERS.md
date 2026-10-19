@@ -159,13 +159,18 @@ schema:check` against a live schema and `npm run test:integration` (including
   bugs, so the gates were worth running. Plan OI-8/OI-9 are closed — D-041
   cancelled the only Docker-bound acceptance item, so nothing is skipped
   "because there is no Docker".
-- Status: **RESOLVED for everything that is not Redis** (2026-10-18, D-048). The harness no
-  longer needs `psql`, so `--project integration` runs on the repo's own Postgres: the ledger file
-  is 21/21 (13 PE-0 + 8 PE-1) and the whole suite is 189 passed / 5 failed / 2 skipped, every
-  failure `pg_dump`/Redis-bound (`FORGEPM_TEST_NO_REDIS=1` makes queue tests fail loudly). Hosted
-  CI runs them with a real Redis and reports green (PR #9 → `main` 7848c71; PR #12).
-- Residual: no Redis binary in this sandbox ⇒ the four queue suites and `phase7-backup` can only be
-  verified remotely. That is a genuine environment gap (not a policy excuse) and CI covers it.
+- Status update (2026-10-18): the harness runs DB-backed integration on the repo's embedded
+  PostgreSQL. The six selected execution-ledger files pass **84/84**. A full
+  `npm run test:integration` run with `FORGEPM_TEST_NO_REDIS=1` reported **254 passed, 5 failed,
+  2 skipped** across 29 files. All execution-ledger files passed. Four queue tests in `outbox` and
+  `phase5-worker` fail loudly when no Redis queue is configured; one backup endpoint test cannot
+  run the missing PostgreSQL client utility; and the separate `phase7-backup` suite cannot set up
+  because `psql` is absent (two tests skipped). `schema:check` still verifies 60 contract tables.
+  Earlier hosted CI runs were green (PR #9 → `main` 7848c71; PR #12), but no CI was triggered for
+  this local continuation.
+- Residual: this sandbox has no Redis server and no `psql`/`pg_dump` utilities. Thus queue delivery,
+  backup endpoint, and backup/restore integration coverage remain environment-blocked locally; this
+  is a genuine environment gap, not a policy excuse.
 
 ## B-012 — [environment] Actions raw job logs are unreachable from the sandbox; a red gate must self-report
 

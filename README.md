@@ -43,6 +43,7 @@ scripts/         seed, backup, restore, doctor, publish
 ## Docs
 
 - [Execution control plan (agent gate system)](docs/EXECUTION_CONTROL_PLAN.md) — phases PE‑0…PE‑12
+- [Agent ledger rules](docs/LEDGER_RULES.md) · [Execution-control field report](docs/EXECUTION_CONTROL.md)
 - [Product](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) ·
   [Data model (schema contract)](docs/DATA_MODEL.md) ·
   [Security](docs/SECURITY.md) · [REST contracts](docs/API_CONTRACTS.md) ·

@@ -25,13 +25,26 @@ interface ApiKeyDto {
   template: `
     <ui-page data-testid="api-keys" [title]="i18n.instant('nav.api_keys')">
       <form class="ui-new" (ngSubmit)="create()">
-        <label>{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name" /></label>
-        <label>Scope<select name="scope" [(ngModel)]="scope">
-          <option value="read">read</option>
-          <option value="write">write</option>
-          <option value="admin">admin</option>
-        </select></label>
-        <button type="submit" ui-button variant="primary" data-testid="apikey-create">{{ i18n.instant('common.create_key') }}</button>
+        <label
+          >{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name"
+        /></label>
+        <label
+          >Scope<select name="scope" [(ngModel)]="scope">
+            <option value="read">read</option>
+            <option value="write">write</option>
+            <option value="admin">admin</option>
+            <!-- The ledger's own scopes (plan §4.0): a key may drive the
+               execution ledger without holding the product's general write. -->
+            <option value="ledger:read">ledger:read</option>
+            <option value="ledger:write">ledger:write</option>
+            <!-- Human-only (D-040): the deciding path — approvals, answers and
+               closures. A key that may decide must belong to a person. -->
+            <option value="ledger:decide">ledger:decide</option>
+          </select></label
+        >
+        <button type="submit" ui-button variant="primary" data-testid="apikey-create">
+          {{ i18n.instant('common.create_key') }}
+        </button>
       </form>
       @if (rawKey()) {
         <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>

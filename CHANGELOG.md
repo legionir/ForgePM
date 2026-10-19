@@ -3,6 +3,211 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Execution control, PE-3–PE-11 (2026-10-19)
+
+The exit report and the finalization gate: the report that says what was done, and the
+one door to `done`. Two tools, thirteen rules, one stamp. No new migration (D-047) — the
+tables (`exec_reports`, `exec_gate_checks`, `exec_tasks.gate_stamp_id`) were already there.
+
+### Added
+
+- **PE‑11 project facts and source verification (I.1–I.7)** — added `fact_record`, `fact_query`,
+  `fact_verify`, and human-only `fact_promote`. Code reads and hashes named source files; file and
+  commit refs fail closed when uninspectable; duplicate keys supersede without deleting prior rows.
+  Hash drift is checked at `session_start`, before task completion, and by a periodic worker pass;
+  stale facts move dependent decisions to `needs_revisit`, create blocking items, and remain visibly
+  stale with a query warning. The idempotent 15-minute reconciliation is documented in D-064. No
+  migration was needed; the existing `exec_facts` columns and checks already support the lifecycle.
+  Local verification results are recorded in `docs/PROGRESS.md`.
+- **PE‑10 session recovery and action journaling (K.1–K.7)** — added server-captured Git pre-state,
+  journal start/done/fail, session recovery from `started` to `unknown`, and a dispatch-enforced write
+  lock with narrow recovery exceptions. Exact idempotent retries match task/action/target/expected
+  effect and append `journal.retry_started`; Gate rule 13 blocks `started` and `unknown` rows.
+  Forward-only migration `0011_exec_journal_reconcile` updates the settlement trigger and adds
+  hash-only close manifests. Reconciliation checks task-scoped post-close file drift, stale facts,
+  unsettled journals, and measured Git diffs against report claims. `session_start` preserves all six
+  priority sections within the configured budget and the 50 KiB MCP cap; the `SessionSnapshot`
+  schema is tested, with no optional hook installed. Local verification passed: build, typecheck,
+  lint, 425 unit tests, the focused PostgreSQL-backed execution batch (109 tests / 10 files), migration
+  status, schema contract (60 tables), OpenAPI/client freshness, docs check (22 docs), migration hashes
+  (10 migrations), and diff check. The full integration project and remote CI were not run; no push
+  or merge occurred.
+- **PE‑8 measured scope and CI baseline (J.1–J.8, D‑063)** — Rule 11 now ignores
+  agent-authored file lists and compares the server-measured Git diff with `allowed_paths`; on
+  Git-less installs the API captures a bounded two-pass hash-only start manifest. Measurement
+  provenance is validated at gate time, and measured out-of-scope files/deletions cannot be
+  bypassed by a scope-measurement waiver. Rule 12 now records named per-test outcomes only from
+  bounded, redirect-free HTTPS CI logs for the exact server-measured start/current SHAs; logs and
+  tokens are not persisted, the initial run provenance is preserved across recaptures, and missing
+  evidence requires a human waiver. Added `baseline_capture`/`scope_check`, SSRF and source-boundary
+  hardening, Gate version 2, unit and PostgreSQL integration coverage, and updated the plan, MCP,
+  security, runbook and decision documentation. Local verification passed: build, typecheck, lint,
+  404 unit tests, and 93 selected execution integration tests across the eight-file batch and PE-8
+  focused rerun; docs, migration, schema, OpenAPI generation/check, migration-hash and diff checks
+  also passed. No D.3 request, remote CI, push, or merge occurred.
+- **PE‑9 requirements and planning (G + H)** — added `req_add`, `req_link_task`, `req_change`,
+  `req_coverage`, `task_split`, `task_start`, `task_block`, `exec_link_dep`, `exec_plan_view`, and
+  the PE-9 `session_start` projection. Exact quotes and shared checkability rules are enforced;
+  `exec_criteria.req_id` remains the sole coverage link, while task `req_ids` are declarations.
+  Requirement changes reopen criteria without rewriting append-only evidence, flag dependent
+  decisions `needs_revisit`, and add blockers for reopened completed tasks. Explicit conflicts open a
+  blocking design gap and human question. Dependency cycles/pending starts are refused, blockers
+  resume after their matching human response or dependency completion, and linked-child cancellation
+  is human-only with an approval-backed parent-gate waiver. No migration or requirement↔task table was
+  added. Local verification passed: build/typecheck/lint, 417 unit tests, the focused PostgreSQL-backed
+  integration batch (80 tests / five files), docs check (22 docs), migrations up to date, schema check
+  (60 tables), OpenAPI generation/check (95 paths), migration hashes, and diff check. The broad
+  integration project is not claimed as green because unrelated suites require Redis and `psql`/
+  `pg_dump`. No remote CI, push, merge, or D.3 API request occurred.
+- **PE‑7 adversarial review (E.1–E.8, D‑062)** — added `review_task` over five isolated ledger
+  sections and a bounded, read-only Git diff/hash; the model has six fixed lenses and no tools.
+  Witness-bound parsing permits one corrective retry, records provider/token usage, and persists
+  reviewer findings as blocking ledger items. Reviews are bound to a worktree hash and capped at two
+  rounds; the human arbitration reference binds task, round and hash, and cannot bypass freshness or
+  other active blockers. Local checks passed: build, typecheck, lint, 380 unit tests, the selected
+  PostgreSQL-backed execution integration batch (90 tests / seven files), a 6/6 `exec-review` follow-
+  up after provenance hardening, `docs:check`, migration, schema (60 tables), API-generation drift,
+  migration-hash, and diff checks. No D.3 call, push, GitHub CI, or merge was run.
+- **PE‑6 agent execution rules and MCP setup docs (D.1–D.5)** — added the ≤80-line
+  trigger-to-tool guide, four reasoned prohibitions, `AGENTS.md` execution-control rules, and
+  scope-limited Streamable-HTTP setup. Corrected the nonexistent stdio-proxy claim; no bridge was
+  added (D-060/D-061). D.1/D.2's three local guard assertions passed. D.3's three-real-task run
+  remains **not run**: although authorized, required `FORGEPM_URL`/`FORGEPM_API_KEY` configuration
+  and real task references were unavailable, so no API request or task run occurred and no pass rate
+  is claimed. Docs/i18n, lint, typecheck, build, 371 backend unit tests and 77 Angular unit tests
+  passed after fixing the malformed-report guard, evidence fixtures, recursive structural scanners,
+  and the web-local ESLint globals (details in `docs/PROGRESS.md`). The selected DB-backed exec
+  suite passed 84/84 tests. A full integration attempt then reported 254 passed, 5 environment-bound
+  failures and 2 skipped with Redis and PostgreSQL client utilities unavailable; GitHub CI was not
+  run.
+- **PE‑5 risk policy and hook controls (F.1–F.9)** — the default risk table is pinned by a
+  complete golden snapshot; `policy:set --from file.json` writes validated organization/project
+  policy through the existing settings API, and the next `exec_policy_check` reads it directly
+  from Postgres (no stale in-process cache). Irreversible `none` claims now require review;
+  rejected decisions applied by a completed journal entry are caught by Gate rule 4. Denied
+  policy checks append `policy.denied` events with `outcome='blocked'`. The standalone
+  `scripts/claude-hook.mjs` asks before `git push` or package-manifest edits and denies recursive
+  forced deletion; its five-case subprocess unit test passed locally.
+- **`exec_submit_exit_report`** — the report is strict and complete: every field must be
+  present, and each of the eight "none" fields must either list its entries or be confirmed
+  empty (`none_confirmed.<field>=true`). A dropped required field is rejected at tool-schema
+  validation with MCP code `VALIDATION_ERROR` (the message names the missing field); an empty list
+  without confirmation or a confirmation that contradicts the list is `UNPROCESSABLE` — "I forgot to mention it" and
+  "there was nothing to mention" are different statements, and only the second one may be made
+  silently. Every `incomplete` / `assumption` / `risks_found` /
+  `tests_not_run` / `out_of_scope_findings` entry is filed as an `exec_open_items` row with
+  `source='exit_report'`, in the same transaction as the report, deduplicated by the C.4 key.
+  A `tests_executed[]` entry that cites no existing `exec_evidence` row is `EVIDENCE_INVALID`.
+- **The rest of the human path (PE‑4, plan §9.5, D‑058/D‑059)** — the verbs the
+  plan's tool table gives to nobody but a human: waive a criterion, drop a
+  requirement, widen a task's scope, promote a guess into a fact, and ask the
+  gate "may this close?" without closing anything (`POST /exec/gate/:taskId`
+  writes nothing — no stamp, no report status, no event). Each of them leaves
+  a decided row in the approval queue with the ledger's own code and task, so
+  the six kinds (`exec.decision|question|scope_expansion|waive_criterion|
+drop_requirement|fact_promotion`) are one list a human can read.
+- **A crash found by reading the code (D‑058)** — the gate's snapshot loader
+  queried `exec_req_tasks`, a table **no migration ever created** (D‑049 #2 had
+  already dropped the requirement↔task table in favour of the criterion's own
+  `req_id`). Every gate run would have failed on a missing relation. The link
+  now comes from the criteria, and the phantom table is gone from the code and
+  from the DB interface.
+- **`scripts/ledger-cli.ts` (PE‑4, plan §9.5, D‑11)** — the human's command line:
+  `list`, `show <T>`, `resolve <OI> --status --note`, `answer <Q> "…"`, `approve/reject <D>`,
+  `waive <C>`, `req drop <REQ>`, `approve-scope <T>`, `fact promote <F>`, `policy print|set`.
+  It speaks to the same `/api/v1/exec/*` routes the panel uses, with `FORGEPM_URL` +
+  `FORGEPM_API_KEY` — it NEVER connects to the database, because a tool that can reach
+  the DB can do what the human's key is not allowed to do. The output is at most one page
+  (40 lines) unless `--json` is passed.
+- **The human path (PE‑4, plan §9.5)** — four REST routes under `/api/v1/exec/*`:
+  `GET /exec/status` (the panel's projection — the same one the tool returns), `POST
+/exec/items/:code/resolve`, `POST /exec/questions/:code/answer` (the task leaves
+  `awaiting_review`) and `POST /exec/approvals/:id/decide` — where "the human approved" finally
+  reaches the ledger: the decision's `approval_state` flips and the `decision.approved` event is
+  written, in the same transaction as the approval itself. The mutating routes need the human-only
+  `ledger:decide` scope, and an agent is refused in the handler as well.
+- **`exec_policy_check` (PE‑4, plan §9.4)** — "what would the policy say about this?", answered
+  by the same table that decides: the level, matched rules, and next tool. It creates no decision
+  or approval; only a denied action appends a `policy.denied` event so the blocked attempt is auditable.
+- **`ledger_record_decision` and `ledger_ask_human` (PE‑4, plan §9.2/§9.3)** — the two ways an
+  agent involves a human: a decision whose RISK is computed from the policy table (the agent may
+  not send its own level, an approval-level decision is stored `pending` and says
+  `do_not_apply_until_human_approval:true`, a denied one is not recorded at all), and a question
+  whose options each carry their impact. A blocking question parks the task in `awaiting_review`,
+  and there is no timeout: silence is not approval.
+- **`ledger_add_evidence` (PE‑4, plan §9.1)** — the write path that makes "a claim without
+  proof is forbidden" true: the ref is READ before anything is written (a path that is not
+  there is `EVIDENCE_INVALID`, a test log with no result line is a paraphrase, a path outside
+  `exec.allowed_repo_roots` is a `SCOPE_VIOLATION`), secrets are masked on the way in (B.16),
+  and the evidence, the criterion it verifies and the ledger event commit together.
+- **A declared `scope_deviations` entry is filed as an `out_of_scope` open item**
+  (D-054), with `source='exit_report'` like every other finding: the report's
+  `changed_files` are what rule 11 measures, and the deviation is the part the
+  agent volunteers — the ledger must not drop it.
+- **A closed task stays closed, and a hand-written `done` is taken back** (D-055):
+  `exec_task_complete` refuses a task that is `done` with a passing stamp
+  (`LEDGER_STATE_INVALID`), and a task that says `done` WITHOUT a stamp is
+  drift — the gate reports it and the status goes back to what the gate
+  implies, `closed_at` included.
+- **`exec_task_complete`** — the single gate. It runs the thirteen rules against a snapshot
+  read out of the ledger, writes the stamp into `exec_gate_checks` **before** the answer
+  exists (a refused close is evidence too), and only then moves the task: `done` +
+  `closed_at` on accept, `in_progress` / `awaiting_review` / `blocked` on refusal. A refusal
+  is an answer, not an error: `{ ok:false, blocked_by:[{rule,ref,needed,tool_to_call}] }`.
+  Open items are **not** closed for the agent, and the completion report is rendered from the
+  ledger (`buildFinalReport(tx, taskId)`), never from the message.
+- **`packages/core/src/exec/gate-rules/`** — the thirteen rules, one file each, each under 60
+  lines. `gate.ts` was 590 lines (already over the plan's own C.11 bound) and is now 268
+  lines of orchestrator over `gate-types.ts`, `gate-context.ts` and `gate-mappers.ts`. The
+  numbering is a public contract: a rule may be added at the end, never renumbered.
+- **`packages/core/src/modules/guards.ts`** — the completion-guard registry (plan §8.3, I-1).
+  The core does not import the exec module, only the interface. The exec module registers
+  its guard on enable, and the work-item service consults it before a move to
+  `category='completed'` — in the transition path _and_ in the PATCH, which can carry a
+  `state_id`. A work item with a ledger task behind it may only be completed once the gate
+  has stamped that task; otherwise the answer is `GATE_FAILED` (409).
+- **`packages/core/src/exec/drift.ts`** — one place that decides what "the task says done and
+  the gate does not" means. `exec_ledger_status` and the gate both report
+  `drift: gate stamp missing` (C.9b) in the same words, so a hand-written `status='done'` is
+  at least visible.
+
+### Changed
+
+- **The ledger tools take the ledger's own scope, or the generic one** (D-053): the plan's
+  §4.0 gives every execution-control tool `ledger:read` / `ledger:write`, and PE-0 added those
+  scopes to the enum with the comment "these are the agent's scopes" — but PE-2's five tools
+  were implemented with the generic `read` / `write`, so the ledger scopes were used by nothing
+  and the comment was false. All seven tools now accept **either**, which keeps §7's B.7
+  acceptance (a read-only key must not write) intact and makes a ledger-only grant possible for
+  the first time; the panel's API-key form offers the two scopes. The refusal message says
+  "requires one of" when a tool lists more than one scope.
+- **`exitReportSchema`** is strict, with no `partial` and no `default`: `facts_recorded` lost
+  its default, and `tests_executed[].evidence_ref` is now `tests_executed[].evidence_id` — the
+  name the plan (§8.1) and the acceptance criteria use. The service still accepts
+  `task_id`/`evidence_ref` as aliases, so a caller that read either spelling is not broken.
+- **`exec_ledger_status`** gained a `drift` field (and a matching line in `reasons_not_ready`).
+- **C.9b gate drift:** the gate loader's empty-stamp sentinel has a null `stamp_id`; it now maps
+  to “no stamp” rather than “a stamp that did not pass,” matching the status projection and
+  reporting `drift: gate stamp missing` consistently.
+- **Fact-promotion audit:** the human promotion route now writes the fact's UUID to `audit_events`
+  (the audit table's UUID resource key), not its human-readable `F-…` ledger code. The selected
+  integration suite covers both the route and the CLI path.
+
+### Notes
+
+- **Historical D-050 implementation note (superseded by PE-8):** the interim PE-5 Rule 11/12
+  checks used report `changed_files` and `tests_executed` claims. Those fields are now descriptive
+  only: Rule 11 uses server-measured scope and Rule 12 uses exact-SHA CI evidence. See
+  `docs/PROGRESS.md` for current verification status.
+- **Local verification (authorized, 2026-10-18):** the selected PostgreSQL-backed exec suite
+  passed **84/84 tests across six files** after repairing stale fixtures and fixing the no-stamp
+  drift projection and fact-promotion audit UUID. Root lint, typecheck, 371 unit tests, and build
+  also passed. A full integration attempt with `FORGEPM_TEST_NO_REDIS=1` reported **254 passed,
+  5 failed, 2 skipped**: four queue tests cannot enqueue without Redis, one backup endpoint needs
+  PostgreSQL client utilities, and the `phase7-backup` suite could not set up without `psql` (its two
+  cases were skipped). E2E/performance checks remain unrun. No push, GitHub CI, or merge occurred.
+  `docs/PROGRESS.md` carries the exact scope and D.3 status.
+
 ## [Unreleased] — Execution control, PE-1 (2026-10-18)
 
 Open-item ledger: the only supported write path, the shared status projection, and the
@@ -69,6 +274,71 @@ exec_*`, no write-through UPDATE of `exec_events`/`exec_evidence`/`exec_gate_che
 - Acceptance §6: A.2/A.3/A.4/A.5/A.6/A.7/A.8 ticked with evidence; A.1 is `[~]` (projection done
   and proven from DB rows; the tool and its session-reset test are PE-2's); A.9 moves to PE-12
   because no exec panel page renders those labels yet (D-047).
+
+## [Unreleased] — Execution control, PE-2 (2026-10-18)
+
+The five mandatory ledger tools, on the real dispatch path: scope checks, call logging,
+idempotency and the approval gate are the api's business, every ledger rule stays in
+`@forgepm/core/src/exec`, and no rule got a second owner.
+
+### Added
+
+- **Five MCP tools** (`apps/api/src/modules/exec/mcp-tools.ts`, all gated on `module: 'exec'`):
+  `exec_task_start` (work item + `exec_tasks` + one `exec_criteria` per criterion + audit + event in
+  one transaction), `ledger_add_open_item`, `ledger_resolve_item` (agent soft-closure of a blocking
+  item refused with `LEDGER_TRANSITION_NOT_ALLOWED`; a human's is written and logged),
+  `ledger_list_open` (active first, history after), `exec_ledger_status` (the shared projection; an
+  empty project answers `{empty:true, needed_action}` and names `exec_task_start`).
+- **`packages/core/src/exec/task-start.ts`** — `parseTaskStart` for shape, `checkCriteria` for the
+  law: a criterion must be observable and referenced, and every refusal in a batch is reported at
+  once, with the shared good/bad examples. Vague wording is refused before the approval gate opens,
+  so an unexecutable payload never costs a human an approval request.
+- **`packages/core/src/exec/ledger-status.ts`** — `loadLedgerStatus`, the loader PE-2's tool and the
+  panel both read from: six queries for a whole task set, `NOT_FOUND` for an unknown ref.
+- **`apps/api/src/modules/mcp/json-schema.ts`** — `tools/list` now advertises the enforced shape
+  (types, bounds, enums, uuid format, array limits) and `additionalProperties: false` only where the
+  schema is a `strictObject`. Previously every tool was advertised as permissive while the handler
+  rejected unknown keys (D-049).
+
+### Fixed
+
+- **A `text` ref compared against a `uuid` column** surfaced as `INTERNAL` rather than `NOT_FOUND`
+  on the project/task lookups the tools share; the queries now cast the id side, which is also what
+  lets a PRJ-key or a `T-NNN` code be passed anywhere a ref is accepted.
+- **Defaulted tool fields were advertised as required** (`ZodDefault` was not treated as optional),
+  so a client following the advertisement would have sent keys it could have omitted.
+- **`apps/web/e2e.sh` could not run its own specs in a fresh container**: with an extracted
+  `@sparticuz/chromium` binary the browser died at `eglInitialize SwANGLE failed … EGL_NOT_INITIALIZED`,
+  and after the first fix it survived exactly one launch, so every spec after the first failed on
+  "browser has been closed" — which is why D-046 had settled for one spec per invocation. The script
+  now derives the launch flags itself when `CHROMIUM_PATH` is set and the caller passed no
+  `CHROMIUM_ARGS`: drop `--single-process`/`--no-zygote` (the one-launch limit) and the ANGLE/SwANGLE
+  GL flags in favour of `--disable-gpu --disable-software-rasterizer --disable-gpu-compositing`. A
+  caller-supplied `CHROMIUM_ARGS` still wins, so a machine with a GPU changes nothing.
+
+### Gate (honest reporting)
+
+- `local:` unit **297/297** · exec integration **21/21** and tools integration **12/12** on real
+  PostgreSQL 18 (the 12th case is `req_ids` declaring a requirement without ever covering it, D-049
+  #2) · whole integration suite 202/5/2 (Redis and `pg_dump` bounds, unchanged) · lint ·
+  typecheck · build · docs:check · `gen:api:check` (the committed OpenAPI spec and generated client
+  are still up to date — PE-2 adds no REST route) : all pass.
+- `local (panel):` **ran here, and passed** — `bash apps/web/e2e.sh` exits 0 against a real API on
+  :3101, the dev-server on :4200 and Postgres: `chain.spec.ts` **2/2** (the §11 full chain including
+  the board drag, then fa/RTL + axe with no serious/critical violation on six pages) and
+  `flagship.spec.ts` **1/1**; `visual.spec.ts`'s 14 cases stay opt-in skips, which is what the plan
+  prescribes (baselines are a human concern). Running it needed one harness fix, described next; no
+  panel _application_ file is in this change.
+- `local (coverage):` the CI threshold run cannot be reproduced while the Redis-bound files fail
+  (vitest suppresses the report on failure); per-file slices — `task-start.ts` 86.4% lines via
+  integration and 38.8% via unit, `ledger-status.ts` 84.6%, `apps/api/src/modules/exec` 82.87%,
+  `json-schema.ts` 96.6% — clear the 80% floor on the union, with the residual risk in branch detail.
+- `remote:` **pass** — PR #13, run 39120040693: 22/22 steps green, from a fresh session, because the
+  branch PE-2 was committed on (`arena/c216c536-forgepm`) was closed to GitHub operations once its PR
+  was merged. CI has now seen the tree, including the coverage-threshold run that the local half
+  could not reproduce while the Redis-bound files failed.
+- Acceptance §7: B.1–B.8 ticked with their tests; §6 A.1 closed here (the tool over real rows plus the
+  empty-project case).
 
 ## [Unreleased] — Execution control, PE-2 (2026-10-18)
 

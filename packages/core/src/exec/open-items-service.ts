@@ -222,6 +222,39 @@ export async function createOpenItem(
  * with the action it must take instead — and 0010's CHECK is still what makes the
  * same rule true for any other writer (A.3).
  */
+/**
+ * The same closure, addressed by the ITEM's code alone.
+ *
+ * A human on the command line knows `OI-004`, not which task it belongs to;
+ * the item codes are unique per project, so the task can be found from the
+ * code. The law is the same law — this only changes how the item is named.
+ */
+export async function resolveOpenItemByCode(
+  db: DbLike,
+  actor: LedgerActor,
+  itemCode: string,
+  raw: unknown,
+): Promise<OpenItemRow> {
+  const r = await sql<{ task_code: string }>`
+    SELECT t.code AS task_code
+    FROM exec_open_items i JOIN exec_tasks t ON t.id = i.task_id
+    WHERE i.organization_id = ${actor.organizationId}::uuid
+      AND t.project_id = ${actor.projectId}::uuid
+      AND (i.code = ${itemCode} OR i.id::text = ${itemCode})
+    LIMIT 1
+  `.execute(db as never);
+  const taskCode = r.rows[0]?.task_code;
+  if (!taskCode) {
+    throw new AppError('NOT_FOUND', `no open item '${itemCode}' in this project`, {
+      ref: itemCode,
+      needed_action: 'ledger_list_open shows the codes this project has',
+    });
+  }
+  const parsed = parseOpenItemResolve(raw);
+  if (!parsed.ok) throw validationError(parsed);
+  return resolveOpenItem(db, actor, taskCode, { ...parsed.value, item_ref: itemCode });
+}
+
 export async function resolveOpenItem(
   db: DbLike,
   actor: LedgerActor,
