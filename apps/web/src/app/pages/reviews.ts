@@ -40,7 +40,11 @@ interface RepoDto {
   template: `
     <ui-page data-testid="reviews" [title]="i18n.instant('reviews.title')">
       <ui-project-picker />
-
+      @if (disabled()) {
+        <p class="ui-banner ui-banner--warning" data-testid="reviews-stub-banner" role="alert">
+          Reviews integration not configured — stub active (B-008). Review output returns 422 until enabled.
+        </p>
+      }
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="reviews-error">{{ error() }}</p>
       }
