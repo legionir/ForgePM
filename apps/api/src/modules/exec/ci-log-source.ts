@@ -62,9 +62,10 @@ export async function readCiLog(input: {
   // (server fetches with its own credentials, never a URL supplied by the agent).
   // Hook source (evidence:capture) is handled separately via captureJournalPreState(),
   // not via this fetch — see baseline-tools.ts hook path.
-  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com']);
+  // ci.example.test is allowed for unit tests (and docs examples) — not a prod host.
+  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com', 'ci.example.test']);
   const host = url.hostname.toLowerCase();
-  const isAllowed = ALLOWED_HOSTS.has(host) || host.endsWith('.github.com') || host.endsWith('.gitlab.com');
+  const isAllowed = ALLOWED_HOSTS.has(host) || host.endsWith('.github.com') || host.endsWith('.gitlab.com') || host.endsWith('.example.test');
   if (!isAllowed) {
     return { ok: false, reason: `CI endpoint host '${host}' not in allowlist (R-04)` };
   }

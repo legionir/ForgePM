@@ -53,12 +53,15 @@ describe('exec surfaces cannot spawn processes (D-041 / J.7c)', () => {
         const src = readFileSync(file, 'utf8');
         if (file === READ_ONLY_GIT_SOURCE) {
           expect(src).toContain("import { execFile } from 'node:child_process'");
-          expect(src).toMatch(/execFile\(\s*'git',\s*\['-c',\s*'core\.fsmonitor=false'/);
+          expect(src).toContain("core.fsmonitor=false");
+          expect(src).toContain("core.hooksPath=/dev/null");
+          expect(src).toContain("diff.external=false");
           expect(src).toContain("['rev-parse'");
           expect(src).toContain("['ls-files'");
           expect(src).toContain("'diff'");
           expect(src).toContain("['status'");
           expect(src).toContain("'show'");
+          expect(src).toContain("GIT_CONFIG_NOSYSTEM");
           expect(src).toContain("GIT_OPTIONAL_LOCKS = '0'");
           expect(src).not.toMatch(/\bshell\s*:\s*true|\b(execSync|spawnSync|execFileSync|spawn)\s*\(/);
           expect(src).not.toMatch(/\[['"](?:add|commit|checkout|reset|clean|restore|rm|push|fetch|pull|merge|rebase|switch|stash)['"]/);

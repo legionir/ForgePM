@@ -340,6 +340,9 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   (2 runs summary ⇒ 2 publishes updating one comment; `off` ⇒ 0). The real
   octokit writer ships with the phase-7 GitHub panel wiring.
 
+- Reason: keeps core GitHub-free (§1.4) while making the acceptance property
+  directly observable in tests.
+
 ## D-031 — Panel is a standalone npm project (TS 6.x), outside root `verify`
 
 - Context: Phase 7 ships the long-deferred Angular panel (B-005/D-013). Angular
@@ -381,8 +384,6 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   remaining B-005 work tracked there, not silently claimed green here.
 - Reason: never declare a gate green that did not run; ship a real, reproducible
   E2E for what the panel actually renders now.
-- Reason: keeps core GitHub-free (§1.4) while making the acceptance property
-  directly observable in tests.
 
 ## D-034 — Panel i18n: hand-rolled key dictionaries instead of ngx-translate
 
@@ -730,7 +731,7 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   adds scope/gate/audit/idempotency and nothing else. `scripts/ledger-cli.ts` (D‑11) is
   still PE‑later work: it must reuse these services rather than the tools' HTTP shapes.
 
-## D-050 — PE‑3: the gate's two unmeasurable rules are provisional, and say so
+## D-050 — PE-5: the gate's two unmeasurable rules are provisional (was PE-3, harmonized per PE-R), and say so
 
 - Context: plan §8.2's rule 11 compares the work against `allowed_paths` and rule 12
   compares the tests against the recorded baseline — but the machinery that measures
@@ -1027,40 +1028,3 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
 - Reason: periodic state reconciliation is idempotent and bounded per project; it needs no repeated
   per-fact outbox messages or unbounded queue buildup. A subsequent tick safely retries transient
   failures, while the two API lifecycle checks provide immediate detection at decision boundaries.
-
-## D-049 — PE‑2: what the ledger tools may and may not claim
-
-- Context: the five mandatory tools had to be added on top of PE‑1's service without
-  creating a second place where the rules live, and without letting a tool promise
-  something the schema cannot keep.
-- Decision (five separable calls, all recorded because each one is a rule an agent
-  could otherwise game):
-  1. **`tools/list` advertises the enforced shape.** `apps/api/src/modules/mcp/json-schema.ts`
-     maps the real zod types (min/length, enum, uuid, int bounds, array bounds) and sets
-     `additionalProperties: false` exactly when the schema is a `strictObject`; a plain
-     `z.object` is _not_ claimed to be strict. The previous mapper emitted
-     `{type:'string'}` per key plus `additionalProperties: true` for every tool, which
-     invited clients to send keys the handler then refused.
-  2. **`exec_task_start`'s `req_ids` declares; it does not cover.** There is no
-     requirement↔task table in 0010, and inventing one was out of scope; coverage stays
-     what gate rule 8 reads — a criterion _linked_ to the requirement and verified. The
-     declared ids are validated (an unknown one is `NOT_FOUND`) and recorded in the
-     `task.created` event, so the claim is auditable without ever counting as coverage.
-  3. **An agent's `exec_task_start` inherits the work-item approval gate** (it creates a
-     work item, so `work_item.create` policy applies) — and the _checkability_ law runs
-     **before** the gate opens, so a payload that could never execute does not spend a
-     human's approval queue. `pending_approval` writes no ledger row and no event.
-  4. **`work_items.source` keeps its closed CHECK list**: the ledger's work items are
-     created with `source='manual'`. 'exec_ledger' would need a migration and buys no
-     acceptance criterion; provenance lives in `exec_events` + `audit_events`.
-  5. **Project resolution is a rule, not a guess.** `project_ref` (id or PRJ‑key) wins;
-     otherwise a key bound to exactly one project uses it; otherwise `VALIDATION_ERROR`
-     naming both options. For task-scoped tools the project is found _from the task ref_,
-     and a code that matches in two projects is refused rather than disambiguated.
-- Reason: every one of these is the difference between "the tool returned an object" and
-  "the ledger cannot be quietly inflated". B.1's strictness, rule 8's coverage, and the
-  approval gate are exactly where a thin wrapper tends to grow its own opinion.
-- Consequence: `exec/open-items-service.ts` remains the only writer of `exec_open_items`,
-  and `createTask` (core) the only writer of `exec_tasks`+`exec_criteria`; the api layer
-  adds scope/gate/audit/idempotency and nothing else. `scripts/ledger-cli.ts` (D‑11) is
-  still PE‑later work: it must reuse these services rather than the tools' HTTP shapes.
