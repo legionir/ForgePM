@@ -7,15 +7,6 @@ import { buildRegistry } from '../../apps/api/src/app/modules';
 import { ensureWorkflow } from '../../apps/api/src/modules/work-items/states';
 import { createHarness, type Harness } from './harness';
 import { seedApiKey, seedOrg } from './seed';
-async function loginAs(app: FastifyInstance, email: string, password: string): Promise<{ cookie: string; csrf: string }> {
-  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
-  if (res.statusCode !== 200) throw new Error(`login failed ${email}: ${res.body}`);
-  const cookies = res.headers['set-cookie'] as unknown as string[];
-  const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
-  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
-  return { cookie: `${session}; fpm_csrf=${csrf}`, csrf };
-}
-
 
 /**
  * The HUMAN side of the ledger (plan §9.5, acceptance B.15).
@@ -45,6 +36,7 @@ let app: FastifyInstance;
 let orgId: string;
 let projectId: string;
 let userId: string;
+let humanKey: string;
 let agentKey: string;
 let taskId: string;
 let taskCode: string;
@@ -64,6 +56,7 @@ beforeAll(async () => {
   userId = seeded.userId;
   // The human's key may decide; the agent's key may not (D-040: `ledger:decide`
   // is human-only, and B.15 says an agent's key gets FORBIDDEN_SCOPE).
+  humanKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:decide'], [projectId]);
   agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
   const registry = buildRegistry();
   await upsertSetting(db, 'system', null, 'modules.exec.enabled', true);
@@ -179,12 +172,10 @@ afterAll(async () => {
 
 describe('the human decides — and the ledger records it', () => {
   it('answering a question unblocks the task', async () => {
-    const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
-    const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/questions/${questionCode}/answer`,
-      headers: { cookie, 'x-csrf-token': csrf },
+      headers: { authorization: `Bearer ${humanKey}` },
       payload: { answer: 'yes, show it — the drift must be visible' },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -208,12 +199,10 @@ describe('the human decides — and the ledger records it', () => {
       SELECT id::text AS id FROM approval_requests WHERE action = 'exec.decision' AND status = 'pending'
     `.execute(db as never);
     const approvalId = pending.rows[0]?.id as string;
-    const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
-    const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/approvals/${approvalId}/decide`,
-      headers: { cookie, 'x-csrf-token': csrf },
+      headers: { authorization: `Bearer ${humanKey}` },
       payload: { decision: 'approved', reason: 'the old shape stays for one release' },
     });
     expect(res.statusCode, res.body).toBe(200);

@@ -170,7 +170,7 @@ describe('PE-8 measured scope and baseline provenance', () => {
     const cipher = createCipher(Buffer.alloc(32, 23));
     setActiveCipher(cipher);
     await putSecret(db, cipher, orgId, 'ci-readonly', 'read-only-ci-token');
-    await upsertSetting(db, 'project', projectId, 'exec.ci_log_endpoint', 'https://ci.example.test/logs/{sha}');
+    await upsertSetting(db, 'project', projectId, 'exec.ci_log_endpoint', 'https://8.8.8.8/logs/{sha}');
     await upsertSetting(db, 'project', projectId, 'exec.ci_log_secret_name', 'ci-readonly');
     await upsertSetting(db, 'project', projectId, 'exec.protected_test_globs', ['**/*.test.ts']);
     const task = await createTask('CI-backed baseline task');

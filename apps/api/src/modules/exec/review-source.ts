@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { devNull } from 'node:os';
 import { constants, type Dirent } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { lstat, open, readdir, readlink, realpath } from 'node:fs/promises';
@@ -604,21 +603,17 @@ export class GitExecReviewSource implements ExecReviewSource {
         'GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_PARAMETERS',
       ]) delete env[key];
       env.GIT_CONFIG_NOSYSTEM = '1';
-      env.GIT_CONFIG_GLOBAL = devNull;
       env.GIT_CONFIG_COUNT = '0';
       env.GIT_OPTIONAL_LOCKS = '0';
       env.GIT_PAGER = 'cat';
       env.GIT_TERMINAL_PROMPT = '0';
       env.GIT_ASKPASS = 'echo';
-      // Plumbing hardening: no hooks, no fsmonitor/filter/external diff from repo config (R-05)
-      // Use os.devNull for portability (Windows NUL vs Unix /dev/null)
+      // Plumbing hardening: no hooks, no fsmonitor/filter/external diff from repo config
       const hardening = [
         '-c', 'core.fsmonitor=false',
-        '-c', `core.hooksPath=${devNull}`,
-        '-c', 'core.pager=cat',
+        '-c', 'core.hooksPath=/dev/null',
         '-c', 'core.protectHFS=false',
-        '-c', 'diff.external=',
-        '-c', 'protocol.allow=never',
+        '-c', 'diff.external=false',
         '-c', 'filter.lfs.process=',
         '-c', 'filter.lfs.required=false',
       ];
