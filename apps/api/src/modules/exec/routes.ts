@@ -174,12 +174,38 @@ export function registerExecRoutes(app: FastifyInstance, deps: { db: Db; registr
     await requireModule('exec', { organizationId, projectId });
   };
 
-  /** A ledger write is a human write: an agent may not use this path. */
-  const humanOnly = (actor: { type: string }) => {
+  /**
+   * R-02 decision table — human verbs vs agent-allowed (plan §9.5, D-059).
+   * Every mutating ledger route is human-only: the agent may ask/file/prove,
+   * only a human may answer/approve/waive/close. The agent's own API key
+   * (type=agent) and any key that lacks `ledger:decide` must get 403; a
+   * browser session without X-CSRF-Token must get 403-CSRF (csrfGuard).
+   *
+   * | route                              | agent-allowed | scope         | agent key (ledger:decide) | user key (write) | session no CSRF | session+CSRF |
+   * |------------------------------------|---------------|----------------|-------------------------------|----------------------|-----------------|--------------|
+   * | POST /exec/items/:code/resolve     | no            | ledger:decide  | 403 FORBIDDEN                 | 403 FORBIDDEN_SCOPE  | 403 CSRF        | 200          |
+   * | POST /exec/questions/:code/answer  | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/decisions/:code/decide  | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/approvals/:id/decide    | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/criteria/:code/waive    | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/requirements/:code/drop | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/scope/:taskId/expand    | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/tasks/:id/scope/waive   | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/tasks/:id/baseline/waive| no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | POST /exec/facts/:code/promote     | no            | ledger:decide  | 403                           | 403                  | 403 CSRF        | 200          |
+   * | GET  /exec/status, /plan, /approvals, POST /gate | yes | ledger:read | 200 | 200 | 200 | 200 |
+   */
+  const humanOnly = (actor: { type: string; apiKeyId?: string; scopes: string[] }) => {
     if (actor.type === 'agent') {
       throw new AppError('FORBIDDEN', 'this is the human path', {
         needed_action:
           'an agent may not answer, approve or close on a human behalf — the ledger records who decided, and that is you',
+      });
+    }
+    // R-02: a user API key that lacks ledger:decide (e.g. generic write) must also 403
+    if (actor.apiKeyId && !actor.scopes.includes('ledger:decide')) {
+      throw new AppError('FORBIDDEN', 'this is the human path — your API key lacks ledger:decide', {
+        needed_action: 'use a human session (panel/CLI with ledger:decide) or ask an owner for the scope',
       });
     }
   };

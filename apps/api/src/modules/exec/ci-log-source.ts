@@ -58,6 +58,16 @@ export async function readCiLog(input: {
   if (url.protocol !== 'https:' || url.username || url.password || url.hash) {
     return { ok: false, reason: 'CI endpoint must be HTTPS without userinfo or a fragment' };
   }
+  // R-04: origin allowlist — only admin-configured, known CI hosts may be fetched
+  // (server fetches with its own credentials, never a URL supplied by the agent).
+  // Hook source (evidence:capture) is handled separately via captureJournalPreState(),
+  // not via this fetch — see baseline-tools.ts hook path.
+  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com']);
+  const host = url.hostname.toLowerCase();
+  const isAllowed = ALLOWED_HOSTS.has(host) || host.endsWith('.github.com') || host.endsWith('.gitlab.com');
+  if (!isAllowed) {
+    return { ok: false, reason: `CI endpoint host '${host}' not in allowlist (R-04)` };
+  }
 
   const guardHost = input.privateHostGuard ?? isBlockedPrivateHostAll;
   try {
