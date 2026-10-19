@@ -11,6 +11,11 @@ const ciEnvelopeSchema = z.strictObject({
   job: z.string().min(1).max(200),
   provider: z.string().min(1).max(100).optional(),
   log: z.string().min(1).max(MAX_CI_RESPONSE_BYTES),
+  // R-04: server must verify origin — these are checked if present, and the fetcher
+  // must be an admin-configured endpoint that returns them from the official API.
+  conclusion: z.string().min(1).max(100).optional(),
+  workflow: z.string().min(1).max(200).optional(),
+  repo: z.string().min(1).max(200).optional(),
 });
 
 export interface CiLogSnapshot {
@@ -62,8 +67,8 @@ export async function readCiLog(input: {
   // (server fetches with its own credentials, never a URL supplied by the agent).
   // Hook source (evidence:capture) is handled separately via captureJournalPreState(),
   // not via this fetch — see baseline-tools.ts hook path.
-  // R-04: 8.8.8.8 is allowed for integration test https://8.8.8.8/logs/{sha}; ci.example.test is allowed for unit tests (and docs examples) — not a prod host.
-  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com', 'ci.example.test', '8.8.8.8']);
+  // Prod allowlist: no test hosts (8.8.8.8, ci.example.test via suffix only for unit tests).
+  const ALLOWED_HOSTS = new Set(['api.github.com', 'github.com', 'api.buildkite.com', 'gitlab.com', 'circleci.com']);
   const host = url.hostname.toLowerCase();
   const isAllowed = ALLOWED_HOSTS.has(host) || host.endsWith('.github.com') || host.endsWith('.gitlab.com') || host.endsWith('.example.test');
   if (!isAllowed) {
@@ -114,6 +119,17 @@ export async function readCiLog(input: {
   const envelope = parsed.data;
   if (envelope.sha.toLowerCase() !== sha) {
     return { ok: false, reason: 'CI log SHA does not match the requested commit SHA' };
+  }
+  // R-04: verify origin — if provider envelope includes conclusion/workflow, they must be allowlisted.
+  // An envelope that claims failure must not be accepted as baseline.
+  if (envelope.conclusion && !['success', 'completed', 'passed'].includes(envelope.conclusion.toLowerCase())) {
+    return { ok: false, reason: `CI run conclusion '${envelope.conclusion}' is not successful` };
+  }
+  if (envelope.workflow) {
+    const ALLOWED_WORKFLOWS = new Set(['ci', 'verify', 'test', 'build', 'e2e']);
+    if (!ALLOWED_WORKFLOWS.has(envelope.workflow.toLowerCase()) && !envelope.workflow.endsWith('.yml') && !envelope.workflow.endsWith('.yaml')) {
+      return { ok: false, reason: `CI workflow '${envelope.workflow}' not in allowlist` };
+    }
   }
   const snapshot: CiLogSnapshot = {
     provider: envelope.provider ?? 'generic',

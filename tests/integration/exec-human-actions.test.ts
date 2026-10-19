@@ -7,6 +7,15 @@ import { buildRegistry } from '../../apps/api/src/app/modules';
 import { ensureWorkflow } from '../../apps/api/src/modules/work-items/states';
 import { createHarness, type Harness } from './harness';
 import { seedApiKey, seedOrg } from './seed';
+async function loginAs(app: FastifyInstance, email: string, password: string): Promise<{ cookie: string; csrf: string }> {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
+  if (res.statusCode !== 200) throw new Error(`login failed ${email}: ${res.body}`);
+  const cookies = res.headers['set-cookie'] as unknown as string[];
+  const session = cookies.find((c) => c.startsWith('fpm_session='))!.split(';')[0];
+  const csrf = cookies.find((c) => c.startsWith('fpm_csrf='))!.split(';')[0].split('=')[1];
+  return { cookie: `${session}; fpm_csrf=${csrf}`, csrf };
+}
+
 
 /**
  * The human's other verbs (plan §9.5): waive, drop, widen the scope, promote
@@ -37,7 +46,6 @@ let app: FastifyInstance;
 let orgId: string;
 let projectId: string;
 let userId: string;
-let humanKey: string;
 let agentKey: string;
 let taskId: string;
 let taskCode: string;
@@ -57,9 +65,7 @@ beforeAll(async () => {
   orgId = seeded.organizationId;
   projectId = seeded.projectId;
   userId = seeded.userId;
-  await upsertSetting(db, 'project', projectId, 'exec.allowed_repo_roots', ['docs']);
-  humanKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:decide'], [projectId]);
-  agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
+  await upsertSetting(db, 'project', projectId, 'exec.allowed_repo_roots', ['docs']);  agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
   const registry = buildRegistry();
   await upsertSetting(db, 'system', null, 'modules.exec.enabled', true);
   registry.invalidate();
@@ -158,13 +164,18 @@ async function count(table: string, where = ''): Promise<number> {
 }
 
 const asHuman = (key: string) => ({ authorization: `Bearer ${key}` });
+async function asHumanSession(): Promise<{ cookie: string; 'x-csrf-token': string }> {
+  const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
+  const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
+  return { cookie, 'x-csrf-token': csrf };
+}
 
 describe('the human removes a demand', () => {
   it('waives a criterion, and the waiver points at the approval that made it', async () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/criteria/${criterionCode}/waive`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'the requirement behind it is not part of this release' },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -194,7 +205,7 @@ describe('the human removes a demand', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/criteria/${criterionCode}/waive`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'because' },
     });
     expect(res.statusCode).toBe(400);
@@ -243,7 +254,7 @@ describe('the human removes a demand', () => {
     const canceled = await app.inject({
       method: 'POST',
       url,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'human approved cancellation because the requirement moved out of scope' },
     });
     expect(canceled.statusCode, canceled.body).toBe(200);
@@ -258,7 +269,7 @@ describe('the human removes a demand', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/requirements/${requirementCode}/drop`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { reason: 'the product owner moved this promise to the next quarter' },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -289,7 +300,7 @@ describe('the human widens what the task may touch', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/scope/${taskCode}/expand`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { paths: ['apps/api/src/modules/exec/**'], reason: 'the route file has to change too' },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -314,7 +325,7 @@ describe('the human promotes a guess into a fact', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/facts/${factCode}/promote`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: { source: 'docs', source_ref: 'docs/EXECUTION_CONTROL_PLAN.md', reason: 'the plan says so, in writing' },
     });
     expect(res.statusCode, res.body).toBe(200);
@@ -344,10 +355,12 @@ describe('the human promotes a guess into a fact', () => {
         source: 'agent_guess',
       })
       .execute();
+    const u = await db.selectFrom('users').select(['email']).where('id', '=', userId).executeTakeFirstOrThrow();
+    const { cookie, csrf } = await loginAs(app, u.email, 'sup3r-s3cret-pass');
     const res = await app.inject({
       method: 'POST',
       url: '/api/v1/exec/facts/F-002/promote',
-      headers: asHuman(humanKey),
+      headers: { cookie, 'x-csrf-token': csrf },
       payload: { source: 'code', reason: 'the human checked the code and says it is true' },
     });
     expect(res.statusCode).toBe(400);
@@ -361,7 +374,7 @@ describe('the gate, asked without closing anything', () => {
     const res = await app.inject({
       method: 'POST',
       url: `/api/v1/exec/gate/${taskCode}`,
-      headers: asHuman(humanKey),
+      headers: await asHumanSession(),
       payload: {},
     });
     expect(res.statusCode, res.body).toBe(200);

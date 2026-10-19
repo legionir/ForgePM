@@ -97,4 +97,40 @@ describe('readCiLog', () => {
     });
     expect(result).toEqual({ ok: false, reason: 'CI log response exceeded the safe size limit or could not be read' });
   });
+
+  it('R-04: prod build rejects 8.8.8.8 host (not in allowlist, must be injected via config)', async () => {
+    const fetcher = vi.fn();
+    const result = await readCiLog({
+      endpoint: 'https://8.8.8.8/logs/{sha}',
+      sha: SHA,
+      secret: 'secret-value',
+      fetcher: fetcher as typeof fetch,
+      privateHostGuard: async () => false,
+    });
+    expect(result.ok).toBe(false);
+    expect((result as { reason: string }).reason).toMatch(/not in allowlist/);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
+  it('R-04: rejects envelope with failing conclusion and non-allowlisted workflow', async () => {
+    const failFetcher = vi.fn(async () => response({ sha: SHA, run_id: 'run-1', job: 'unit', log: 'x', conclusion: 'failure' }));
+    const failRes = await readCiLog({
+      endpoint: 'https://ci.example.test/logs/{sha}',
+      sha: SHA,
+      secret: 's',
+      fetcher: failFetcher as typeof fetch,
+      privateHostGuard: async () => false,
+    });
+    expect(failRes).toEqual({ ok: false, reason: "CI run conclusion 'failure' is not successful" });
+
+    const wfFetcher = vi.fn(async () => response({ sha: SHA, run_id: 'run-1', job: 'unit', log: 'x', workflow: 'evil' }));
+    const wfRes = await readCiLog({
+      endpoint: 'https://ci.example.test/logs/{sha}',
+      sha: SHA,
+      secret: 's',
+      fetcher: wfFetcher as typeof fetch,
+      privateHostGuard: async () => false,
+    });
+    expect(wfRes).toEqual({ ok: false, reason: "CI workflow 'evil' not in allowlist" });
+  });
 });
