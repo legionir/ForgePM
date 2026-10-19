@@ -102,7 +102,7 @@ export interface UiTableRowAction<T> {
           </thead>
           <tbody>
             @for (row of visible(); track trackKey()(row)) {
-              <tr [attr.data-testid]="rowTestid()?.(row) ?? null">
+              <tr [attr.data-testid]="rowTestid()?.(row) ?? null" [attr.class]="rowClass()?.(row) || null">
                 @if (selectable()) {
                   <td class="ui-dt-check">
                     <input
@@ -212,6 +212,7 @@ export class UiDataTable<T> {
   readonly emptyAction = output<void>();
   readonly testid = input('');
   readonly rowTestid = input<((row: T) => string) | null>(null);
+  readonly rowClass = input<((row: T) => string) | null>(null);
   readonly selectable = input(false);
   readonly pageSize = input(0);
   readonly actions = input<UiTableRowAction<T>[]>([]);
