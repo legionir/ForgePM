@@ -6,7 +6,7 @@ import { newId } from '@forgepm/core';
 
 describe('R-06 exec_action_journal settle (started→unknown→done)', () => {
   let h: Harness;
-  let db: any;
+  let db: Harness['db'];
   let orgId: string;
   let projectId: string;
   let taskId: string;
