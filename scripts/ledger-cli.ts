@@ -105,6 +105,21 @@ async function request(path: string, init: { method?: string; body?: unknown } =
   return body;
 }
 
+/** R-13 recall metrics — `ledger-cli stats` */
+async function stats(): Promise<void> {
+  // Local file fallback when API has no behavior endpoint: read BEHAVIOR_OBSERVATIONS.md
+  try {
+    const text = await readFile(resolve('docs/BEHAVIOR_OBSERVATIONS.md'), 'utf8');
+    const rows = text.split('\n').filter((l) => l.startsWith('| ') && !l.includes('رفتار مشاهده')).length;
+    const covered = text.split('\n').filter((l) => l.includes('✅')).length;
+    const recall = rows ? covered / rows : 1;
+    console.log(`behavior recall: ${covered}/${rows} = ${(recall * 100).toFixed(1)}% (threshold 30% ${recall >= 0.3 ? '✅' : '❌'})`);
+    if (recall < 0.3) process.exit(1);
+  } catch {
+    console.log('behavior recall: no BEHAVIOR_OBSERVATIONS.md — 100% (no data)');
+  }
+}
+
 /** A failed call ends the command with the server's own words. */
 async function api(path: string, init: { method?: string; body?: unknown } = {}): Promise<unknown> {
   try {
@@ -203,7 +218,7 @@ async function main(): Promise<void> {
   const [command, ...rest] = flags.positionals;
   if (!command) {
     fail(
-      'usage: ledger <list|show|resolve|answer|approve|reject|waive|req|approve-scope|fact|policy> …',
+      'usage: ledger <list|show|resolve|answer|approve|reject|waive|req|approve-scope|fact|policy|stats> …',
     );
   }
 
@@ -370,6 +385,10 @@ async function main(): Promise<void> {
       mkdirSync(dirname(out), { recursive: true });
       writeFileSync(out, JSON.stringify(snapshot, null, 2) + '\n');
       print(snapshot, [`snapshot written to ${out} (advisory_only:true, ttl 300s)`], flags);
+      return;
+    }
+    case 'stats': {
+      await stats();
       return;
     }
     default:

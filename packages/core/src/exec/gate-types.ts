@@ -154,6 +154,8 @@ export interface GateContext {
   policy: ExecPolicy;
   require_review: boolean;
   max_review_rounds: number;
+  /** R-13: ledger recall of observed behaviors (0..1, threshold 0.3) */
+  behaviorRecall?: number;
   task: GateTask;
   criteria: GateCriterion[];
   open_items: GateOpenItem[];
