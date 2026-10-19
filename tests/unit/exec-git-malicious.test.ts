@@ -23,7 +23,6 @@ describe('R-05 Git hardening — malicious .git/config must not execute', () => 
       hooksPath: `${markerBase}-hooks`,
     };
     // Create marker scripts that would write files if executed
-    const scriptDir = join(dir, '.git-trap');
     await execFileP('git', ['init', '-q'], { cwd: dir });
     await execFileP('git', ['config', 'user.email', 'test@test.com'], { cwd: dir });
     await execFileP('git', ['config', 'user.name', 'test'], { cwd: dir });
