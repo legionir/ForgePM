@@ -261,7 +261,7 @@ export class ExecTasksPage implements OnInit {
     return [
       { key: 'code', label: this.i18n.instant('exec.code'), sortable: true, link: (r) => ['/exec-tasks', r.code], linkTestid: 'exec-task-link' },
       { key: 'title', label: this.i18n.instant('common.title'), sortable: true },
-      { key: 'status', label: this.i18n.instant('exec.status'), sortable: true, badge: (r) => ({ text: this.i18n.instant('exec.status.' + r.status) === 'exec.status.' + r.status ? r.status : this.i18n.instant('exec.status.' + r.status), variant: r.status === 'blocked' ? 'error' as const : r.status === 'awaiting_human' ? 'warning' as const : 'default' as const }) },
+      { key: 'status', label: this.i18n.instant('exec.status'), sortable: true, badge: (r) => ({ text: r.status, variant: r.status === 'blocked' ? 'error' as const : r.status === 'awaiting_human' ? 'warning' as const : 'default' as const }) },
       { key: 'open_items', label: this.i18n.instant('exec.open_items'), value: (r) => String(r.open_items ?? 0) },
       { key: 'blocked_on', label: this.i18n.instant('exec.blocked_on'), value: (r) => r.blocked_on ?? '—' },
       { key: 'unblock', label: this.i18n.instant('exec.unblock_condition'), value: (r) => r.unblock_condition ?? '—' },
