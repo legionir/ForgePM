@@ -7,7 +7,7 @@ import { buildRegistry } from '../../apps/api/src/app/modules';
 import { ensureWorkflow } from '../../apps/api/src/modules/work-items/states';
 import { createHarness, type Harness } from './harness';
 import { seedApiKey, seedOrg } from './seed';
-async function loginAs(app: any, email: string, password: string): Promise<{ cookie: string; csrf: string }> {
+async function loginAs(app: FastifyInstance, email: string, password: string): Promise<{ cookie: string; csrf: string }> {
   const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
   if (res.statusCode !== 200) throw new Error(`login failed ${email}: ${res.body}`);
   const cookies = res.headers['set-cookie'] as unknown as string[];
@@ -65,6 +65,7 @@ beforeAll(async () => {
   userId = seeded.userId;
   // The human's key may decide; the agent's key may not (D-040: `ledger:decide`
   // is human-only, and B.15 says an agent's key gets FORBIDDEN_SCOPE).
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   humanKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:decide'], [projectId]);
   agentKey = await seedApiKey(db, orgId, userId, ['read', 'write', 'ledger:read', 'ledger:write'], [projectId]);
   const registry = buildRegistry();
