@@ -35,6 +35,7 @@ export interface RedisProbe {
 /** Minimal Redis probe for /health/ready (separate from the BullMQ connection). */
 export function createHealthRedisProbe(url: string): RedisProbe {
   const client = new IORedis(url, { maxRetriesPerRequest: 1, retryStrategy: () => null, lazyConnect: true });
+  client.on('error', () => undefined); // Redis is optional; `available()` reports the state
   return {
     async available() {
       try {

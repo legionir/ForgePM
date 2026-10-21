@@ -26,6 +26,8 @@
     "gen:api:check": "tsx scripts/gen-api.ts --check",
     "rotate-secret": "tsx scripts/rotate-secret.ts",
     "doctor": "tsx scripts/doctor.ts",
+    "start": "node scripts/dev.mjs",
+    "dev": "node scripts/dev.mjs",
     "dev:api": "tsx watch apps/api/src/main.ts",
     "dev:worker": "tsx watch apps/worker/src/main.ts",
     "smoke": "tsx scripts/smoke.ts",

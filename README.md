@@ -23,7 +23,9 @@ curl http://localhost:3001/health/ready
 
 ```bash
 npm install
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres redis
+cp .env.example .env   # set DATABASE_URL, FORGEPM_SECRET_KEY (npm start creates .env if missing)
+npm start              # API :3001 + worker + panel :4200, all in one terminal (alias: npm run dev)
+# individual services:
 npm run dev:api      # http://localhost:3001
 npm run dev:worker
 npm run verify       # lint + typecheck + unit + integration + coverage + build
