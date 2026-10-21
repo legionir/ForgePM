@@ -40,25 +40,33 @@
 - ~~CLI انسانی~~ و ~~R-05~~: رفع شدند (بند ۱، ردیف ۵ تا ۷). برای استفاده: `FORGEPM_URL`, `FORGEPM_EMAIL`, `FORGEPM_PASSWORD` را در env بگذارید.
 - `fact_promote` با scope `ledger:decide` تعریف شده، ولی کلید نمی‌تواند آن را بگیرد؛ فقط مسیر پنل عملی است.
 - سیاست ریسک (`exec.policy`) در settings است نه `policy.json`؛ قابل‌ویرایش از پنل (`pages/exec-policy.ts`) و `ledger-cli policy set`. ویرایش بدون تغییر کد اجرا نشد.
-- سناریوی انتها‌به‌انتها (`scripts/exec-e2e.ts`) اجرا نشد.
-- Redis در این محیط نبود (`FORGEPM_TEST_NO_REDIS=1`)؛ suiteهای وابسته به صف اجرا نشدند. `pg_dump` هم بررسی نشد.
+- Redis محلی (redis-server) و Postgres 18 embedded بالا آمدند؛ فقط `pg_dump` ناسازگار بود (بند ۴).
 
 ## ۴. نتایج اجرا (محلی)
 
-local: **pass برای گام‌های اجراشده** (فقط تغییرات مرتبط، طبق انتخاب انسان؛ `verify` کامل اجرا نشد)
-remote: not-configured (CI اجرا نشده)
+local: **fail — فقط به‌خاطر محیط** (۳ تست pg_dump). remote: not-configured (CI اجرا نشده).
 
 | گام | نتیجه |
 |-----|-------|
-| `npm run lint` | pass |
-| `npm run typecheck -w @forgepm/api` | pass |
-| `npm run test:unit` | 451/451 pass |
-| `migrate`, `schema:check` (Postgres 18 embedded) | pass |
-| `test:integration` برای `exec-*` و `mcp*` | 118/118 pass |
-| `npm run build` کامل، پوشش کد، `exec-e2e.ts`، تمام integration | اجرا نشد |
+| `npm run lint`, `typecheck` (همه workspaceها) | pass |
+| `npm run build` | pass |
+| `npm test` (unit + integration، Postgres 18 + Redis) | 743/746 pass؛ ۳ red: `phase7-backup` ×۲ و `phase7-system` ×۱ |
+| علت ۳ red | `pg_dump` نصب‌شده نسخه 16.15 است و سرور embedded نسخه 18.4؛ pg_dump با «server version mismatch» رد می‌کند. باگ کد نیست؛ با pg_dump 18 باید دوباره اجرا شود |
+| پوشش (همان اجرا بدون این دو فایل، فقط برای سنجش آستانه) | خطوط 86.7٪، شاخه 76.47٪، توابع 89.1٪؛ خطای threshold نداد. اجرای رسمی با `npm test` به‌خاطر red بالا گزارش پوشش نمی‌دهد |
+| `npm run exec:e2e` | **13/13 pass** (بعد از بازنویسی اسکریپت، پایین) |
+
+### اسکریپت exec-e2e از قبل قدیمی بود
+روی کد اصلی (بدون تغییرات من) ۸ صحنه fail می‌شد: اسکریپت با قراردادهای فعلی ابزارها هم‌خوان نبود و چند صحنه با نوشتن مستقیم در DB یا قورت‌دادن خطا «سبز» می‌شدند.
+بازنویسی (`scripts/exec-e2e.ts`): صحنه‌ها حالا از مسیر واقعی ابزارها رد می‌شوند.
+- S2 خطای `REQUIREMENT_UNCOVERED` را از `exec_task_start` تأیید می‌کند. S3 `task_split` واقعی و بلاک‌شدن فرزند و والد.
+- S7 اندازه‌گیری scope با `scope_check` و Rule 11 در Gate. S9 فایل واقعی را تغییر می‌دهد و `fact_verify` آن را stale می‌کند.
+- S10 با `session_start` (reconcile واقعی) و `JOURNAL_UNRESOLVED`. S11 با stub provider. S13 تا `ok:true` می‌رود، با waiver انسانی baseline (D-041).
+- ابزارهای agent با `type:'agent'` صدا زده می‌شوند و انسان فقط از `ctx.ledger`.
+محدودیت‌های باقی‌مانده اسکریپت: S8 فقط تابع خالص `compareBaseline` را می‌سنجد (نه CI واقعی)؛ S12 مسیر انسانی را از سرویس core می‌زند نه از REST؛ شروع تسک با caller نوع `user` است (مثل تست‌های integration، چون start توسط agent منتظر approval می‌ماند).
 
 ## ۵. کارهای بعدی
 
-1. ست‌کردن `exec.ci_log_endpoint` و `exec.ci_log_secret_name` + توکن CI در پنل؛ سپس اجرای `baseline_capture`, `journal_start`, `review_task` در محیط واقعی.
-2. اجرای `scripts/exec-e2e.ts` و `npm run verify` کامل؛ سپس Remote CI.
-3. به‌روزرسانی docs/EXECUTION_CONTROL_PLAN.md §9.5 که هنوز CLI را با `FORGEPM_API_KEY` توصیف می‌کند.
+1. اجرای دوباره `phase7-backup`/`phase7-system` با pg_dump نسخه 18 (یا CI) تا `npm test` کامل سبز شود.
+2. ست‌کردن `exec.ci_log_endpoint` و `exec.ci_log_secret_name` + توکن CI در پنل؛ سپس `baseline_capture`، `journal_start`، `review_task` در محیط واقعی (e2e فعلی با fixture است).
+3. Remote CI روی این شاخه؛ trailer `Ledger-Task:` برای commitها وقتی ابزار ledger در دسترس باشد.
+4. به‌روزرسانی docs/EXECUTION_CONTROL_PLAN.md §9.5 (CLI با session، نه `FORGEPM_API_KEY`).

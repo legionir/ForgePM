@@ -11,6 +11,7 @@ Conventional Commits groupings. Tags map to plan §17.
 - fix(security): neutralize repo-config `filter.*` (clean/smudge/process) in the exec Git source (R-05); the hardening only covered lfs.
 - feat(cli): `ledger-cli` logs in as a human session (`FORGEPM_EMAIL`/`FORGEPM_PASSWORD`, CSRF) — R-02 refuses every API key on deciding verbs.
 - chore(seed): dev seed fills `exec.allowed_repo_roots` when unset.
+- test(e2e): `scripts/exec-e2e.ts` rewritten against current tool contracts (13/13); previously 8 scenes failed or passed by faking state.
 - Open items and limits: `docs/EXEC_CONTROL_FIX_REPORT.md`.
 
 ## [Unreleased] — Execution control, PE-12 panel + E2E (2026-10-19)
