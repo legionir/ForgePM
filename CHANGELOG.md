@@ -3,6 +3,13 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Execution control fixes (2026-10-21)
+
+- fix(exec): every API key is a ledger *agent* (user-owned keys were recorded as `human`).
+- fix(hooks): PreToolUse also guards Write/Edit/MultiEdit of package.json, `.env*`, hook and settings files.
+- fix(exec): clearer error when Git refuses a worktree for ownership; test no longer needs real DNS.
+- Open items and limits: `docs/EXEC_CONTROL_FIX_REPORT.md`.
+
 ## [Unreleased] — Execution control, PE-12 panel + E2E (2026-10-19)
 
 Full panel and 13-scene proof: `pages/exec-tasks.ts` (tree, cursor pagination,
