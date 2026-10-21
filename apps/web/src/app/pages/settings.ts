@@ -6,7 +6,6 @@ import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface DefDto {
   key: string;
@@ -28,14 +27,14 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
 
       <ui-tabs [items]="scopeTabs" [active]="scope()" [ariaLabel]="i18n.instant('settings.scope')" (tabChange)="setScope($event)" />
 
-      @if (scope() === 'project') {
-        <ui-project-picker />
+      @if (scope() === 'project' && ctx.selected(); as p) {
+        <p class="ui-page-sub">{{ p.key }} · {{ p.name }}</p>
       }
 
       <ui-data-table
@@ -65,10 +64,10 @@ export class SettingsPage implements OnInit {
   readonly busy = signal(false);
 
   get scopeTabs(): UiTabItem[] {
-    return [
-      { id: 'system', label: this.i18n.instant('settings.scope_system'), testid: 'scope-system' },
-      { id: 'project', label: this.i18n.instant('settings.scope_project'), testid: 'scope-project' },
-    ];
+    const tabs: UiTabItem[] = [{ id: 'system', label: this.i18n.instant('settings.scope_system'), testid: 'scope-system' }];
+    // Project overrides only make sense once a project is selected.
+    if (this.ctx.hasProject()) tabs.push({ id: 'project', label: this.i18n.instant('settings.scope_project'), testid: 'scope-project' });
+    return tabs;
   }
 
   readonly rows = signal<Row[]>([]);
@@ -108,7 +107,7 @@ export class SettingsPage implements OnInit {
   async ngOnInit(): Promise<void> {
     this.error.set('');
     try {
-      await this.ctx.load();
+      await this.ctx.ensureLoaded();
       this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
       await this.refresh();
     } catch (err) {

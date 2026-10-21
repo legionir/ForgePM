@@ -3,6 +3,16 @@
 All notable changes to ForgePM, per plan phase. Format loosely follows
 Conventional Commits groupings. Tags map to plan §17.
 
+## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
+
+- feat(web): grouped sidebar shell (Workspace → Project → Delivery → Governance → Platform) with a global project switcher, ⌘K search trigger, theme/language controls and an off-canvas mobile drawer.
+- feat(web): step-by-step gating — project-scoped sections (Dashboard, Features, Work items, Planner, Execution, Reviews, GitHub) are hidden and their routes redirect to `/projects` until a project exists and is selected.
+- feat(web): new `/dashboard` — KPI cards, state donut, priority/type bars, feature + milestone progress, items needing attention, latest items, recent audit events, getting-started checklist (dependency-free SVG charts in `ui/charts.ts`).
+- feat(web): redesigned Projects (onboarding hero, project cards, archived group), Features/Milestones (progress cards) and Planner (goal → generate → approve → apply stepper).
+- style(web): refreshed tokens (canvas, soft lines, chart palette, radii/shadows) in light and dark; cards, tables, tabs, board and inputs restyled; contrast and raw-value gates still pass.
+- style(web): remaining pages moved to the card layout — Approvals, AI providers, API keys, Audit/Users, MCP, System (health tiles), Settings (project tab only with a project), Reviews, GitHub, Execution policy, Work items (create form first, toolbar).
+- test(web): shell specs cover gated vs unlocked navigation; e2e `login()` waits for the shell instead of the Projects page. Visual-regression snapshots need regenerating (`apps/web/e2e/visual.spec.ts-snapshots`).
+
 ## [Unreleased] — Execution control fixes (2026-10-21)
 
 - fix(exec): every API key is a ledger *agent* (user-owned keys were recorded as `human`).

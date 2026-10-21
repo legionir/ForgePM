@@ -1,11 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
+import { UiIcon } from '../ui/icon';
+import { UiBadge } from '../ui/badge';
+import { UiProgress } from '../ui/charts';
+import { UiControl, UiField } from '../ui/field';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface FeatureDto {
   id: string;
@@ -28,54 +31,115 @@ interface MilestoneDto {
 @Component({
   selector: 'page-features',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
+  imports: [FormsModule, UiButton, UiPage, UiIcon, UiBadge, UiProgress, UiControl, UiField],
   template: `
     <ui-page data-testid="features" [title]="i18n.instant('features.title')">
-      <ui-project-picker />
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="feature-error">{{ error() }}</p>
       }
-      <ul class="ui-list" data-testid="feature-list">
-        @for (f of features(); track f.id) {
-          <li data-testid="feature-row">
-            {{ f.key }} · {{ f.title }} — {{ f.lifecycle_status }}
-            <span data-testid="feature-progress">{{ i18n.instant('features.work_progress') }}: {{ f.work_progress }}%</span>
-            <span data-testid="feature-readiness">{{ i18n.instant('features.release_readiness') }}: {{ f.release_readiness }}%</span>
-          </li>
-        } @empty {
-          <li data-testid="feature-empty">{{ i18n.instant('common.empty') }}</li>
-        }
-      </ul>
-      <form (ngSubmit)="createFeature()" data-testid="feature-new">
-        <label>{{ i18n.instant('common.key') }}<input name="fkey" [(ngModel)]="fkey" required data-testid="feature-key" /></label>
-        <label>{{ i18n.instant('common.title') }}<input name="ftitle" [(ngModel)]="ftitle" required data-testid="feature-title" /></label>
-        <label>
-          {{ i18n.instant('features.ac') }}
-          <input name="fac" [(ngModel)]="facText" data-testid="feature-ac" />
-        </label>
-        <button type="submit" ui-button variant="primary">{{ i18n.instant('features.new') }}</button>
-      </form>
+
+      <div class="ui-grid ui-grid--split">
+        <section class="ui-card">
+          <header class="ui-card-head">
+            <h2>{{ i18n.instant('features.title') }}</h2>
+            <span class="ui-card-sub">{{ features().length }}</span>
+          </header>
+          <ul class="ui-rows" data-testid="feature-list">
+            @for (f of features(); track f.id) {
+              <li class="ui-row-progress ui-row-progress--lg" data-testid="feature-row">
+                <div class="ui-row-main">
+                  <span class="ui-row-key">{{ f.key }}</span>
+                  <span class="ui-row-title">{{ f.title }}</span>
+                  <ui-badge size="sm">{{ f.lifecycle_status.replace('_', ' ') }}</ui-badge>
+                </div>
+                <div class="ui-row-meter">
+                  <span class="ui-row-meter-label">{{ i18n.instant('features.work_progress') }}</span>
+                  <ui-progress [value]="f.work_progress" [label]="i18n.instant('features.work_progress')" />
+                  <span class="ui-row-pct" data-testid="feature-progress">{{ f.work_progress }}%</span>
+                </div>
+                <div class="ui-row-meter">
+                  <span class="ui-row-meter-label">{{ i18n.instant('features.release_readiness') }}</span>
+                  <ui-progress [value]="f.release_readiness" [label]="i18n.instant('features.release_readiness')" />
+                  <span class="ui-row-pct" data-testid="feature-readiness">{{ f.release_readiness }}%</span>
+                </div>
+              </li>
+            } @empty {
+              <li class="ui-card-empty" data-testid="feature-empty">
+                <ui-icon name="layers" [size]="20" /> {{ i18n.instant('features.empty') }}
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-card">
+          <header class="ui-card-head"><h2>{{ i18n.instant('features.new') }}</h2></header>
+          <form class="ui-stack" (ngSubmit)="createFeature()" data-testid="feature-new">
+            <ui-field [label]="i18n.instant('common.key')" required>
+              <input uiControl name="fkey" [(ngModel)]="fkey" required maxlength="12" placeholder="AUTH" data-testid="feature-key" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('common.title')" required>
+              <input uiControl name="ftitle" [(ngModel)]="ftitle" required data-testid="feature-title" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('features.ac')">
+              <input uiControl name="fac" [(ngModel)]="facText" data-testid="feature-ac" />
+            </ui-field>
+            <button type="submit" ui-button variant="primary">
+              <ui-icon name="plus" [size]="14" /> {{ i18n.instant('features.new') }}
+            </button>
+          </form>
+        </section>
+      </div>
 
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="features-error">{{ error() }}</p>
       }
 
-      <h2>{{ i18n.instant('milestones.title') }}</h2>
-      <ul class="ui-list" data-testid="milestone-list">
-        @for (m of milestones(); track m.id) {
-          <li data-testid="milestone-row">{{ m.name }} — {{ m.status }} ({{ m.progress }}%)</li>
-        } @empty {
-          <li data-testid="milestone-empty">{{ i18n.instant('common.empty') }}</li>
-        }
-      </ul>
-      <form (ngSubmit)="createMilestone()" data-testid="milestone-new">
-        <label>{{ i18n.instant('common.name') }}<input name="mname" [(ngModel)]="mname" required data-testid="milestone-name" /></label>
-        <button type="submit" ui-button variant="primary">{{ i18n.instant('milestones.new') }}</button>
-      </form>
+      <div class="ui-grid ui-grid--split">
+        <section class="ui-card">
+          <header class="ui-card-head">
+            <h2>{{ i18n.instant('milestones.title') }}</h2>
+            <span class="ui-card-sub">{{ milestones().length }}</span>
+          </header>
+          <ul class="ui-rows" data-testid="milestone-list">
+            @for (m of milestones(); track m.id) {
+              <li class="ui-row-progress" data-testid="milestone-row">
+                <div class="ui-row-main">
+                  <ui-icon name="flag" [size]="14" />
+                  <span class="ui-row-title">{{ m.name }}</span>
+                  @if (m.target_date) {
+                    <span class="ui-row-date">{{ m.target_date.slice(0, 10) }}</span>
+                  }
+                  <ui-badge size="sm">{{ m.status }}</ui-badge>
+                </div>
+                <div class="ui-row-meter">
+                  <ui-progress [value]="m.progress" [label]="m.name" />
+                  <span class="ui-row-pct">{{ m.progress }}%</span>
+                </div>
+              </li>
+            } @empty {
+              <li class="ui-card-empty" data-testid="milestone-empty">
+                <ui-icon name="flag" [size]="20" /> {{ i18n.instant('milestones.empty') }}
+              </li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-card">
+          <header class="ui-card-head"><h2>{{ i18n.instant('milestones.new') }}</h2></header>
+          <form class="ui-stack" (ngSubmit)="createMilestone()" data-testid="milestone-new">
+            <ui-field [label]="i18n.instant('common.name')" required>
+              <input uiControl name="mname" [(ngModel)]="mname" required data-testid="milestone-name" />
+            </ui-field>
+            <button type="submit" ui-button variant="primary" [loading]="busy()">
+              <ui-icon name="plus" [size]="14" /> {{ i18n.instant('milestones.new') }}
+            </button>
+          </form>
+        </section>
+      </div>
     </ui-page>
   `,
 })
-export class FeaturesPage implements OnInit {
+export class FeaturesPage {
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly ctx = inject(ProjectContext);
@@ -84,14 +148,16 @@ export class FeaturesPage implements OnInit {
   readonly milestones = signal<MilestoneDto[]>([]);
   readonly error = signal('');
   readonly busy = signal(false);
-  fkey = 'FEAT';
-  ftitle = 'First feature';
-  facText = 'it works';
-  mname = 'v1';
+  fkey = '';
+  ftitle = '';
+  facText = '';
+  mname = '';
 
-  async ngOnInit(): Promise<void> {
-    await this.ctx.load();
-    await this.load();
+  constructor() {
+    // Follow the sidebar project switcher.
+    effect(() => {
+      if (this.ctx.selectedId()) void this.load();
+    });
   }
 
   async load(): Promise<void> {
@@ -112,8 +178,9 @@ export class FeaturesPage implements OnInit {
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/features`, {
         key: this.fkey,
         title: this.ftitle,
-        acceptance_criteria: [{ text: this.facText, done: false }],
+        acceptance_criteria: this.facText ? [{ text: this.facText, done: false }] : [],
       });
+      this.fkey = this.ftitle = this.facText = '';
       await this.load();
     } catch (err) {
       this.error.set((err as Error).message);
@@ -125,6 +192,7 @@ export class FeaturesPage implements OnInit {
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/milestones`, { name: this.mname });
+      this.mname = '';
       await this.load();
     } catch (err) {
       this.error.set((err as Error).message);

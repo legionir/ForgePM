@@ -5,8 +5,11 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
+import { UiIcon } from '../ui/icon';
+import { UiBadge } from '../ui/badge';
+import { UiControl, UiField } from '../ui/field';
+import { computed } from '@angular/core';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface PlanDto {
   id: string;
@@ -31,46 +34,74 @@ interface ApplyReport {
 @Component({
   selector: 'page-planner',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, JsonPipe, ProjectPickerCmp, UiButton, UiPage],
+  imports: [FormsModule, JsonPipe, UiButton, UiPage, UiIcon, UiBadge, UiControl, UiField],
   template: `
     <ui-page data-testid="planner" [title]="i18n.instant('planner.title')">
-      <ui-project-picker />
+      <ol class="ui-stepper" [attr.aria-label]="i18n.instant('planner.steps')" data-testid="plan-steps">
+        @for (s of stepKeys; track s; let i = $index) {
+          <li [class.done]="i < stepIndex()" [class.current]="i === stepIndex()" [attr.aria-current]="i === stepIndex() ? 'step' : null">
+            <span class="ui-stepper-dot">
+              @if (i < stepIndex()) {
+                <ui-icon name="check" [size]="12" [inline]="false" />
+              } @else {
+                {{ i + 1 }}
+              }
+            </span>
+            <span class="ui-stepper-label">{{ stepLabel(s) }}</span>
+          </li>
+        }
+      </ol>
 
-      <form (ngSubmit)="create()" data-testid="plan-new">
-        <label>{{ i18n.instant('planner.goal') }}
-          <input name="goal" [(ngModel)]="goal" required data-testid="plan-goal" />
-        </label>
-        <label>{{ i18n.instant('planner.constraints') }}
-          <input name="cons" [(ngModel)]="constraints" />
-        </label>
-        <button type="submit" ui-button variant="primary" data-testid="plan-create">{{ i18n.instant('planner.create') }}</button>
-      </form>
+      @if (!plan()) {
+        <section class="ui-card">
+          <header class="ui-card-head"><h2>{{ i18n.instant('planner.step.goal') }}</h2></header>
+          <form class="ui-stack" (ngSubmit)="create()" data-testid="plan-new">
+            <ui-field [label]="i18n.instant('planner.goal')" required [hint]="i18n.instant('planner.goal_hint')">
+              <input uiControl name="goal" [(ngModel)]="goal" required data-testid="plan-goal" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('planner.constraints')">
+              <input uiControl name="cons" [(ngModel)]="constraints" />
+            </ui-field>
+            <div>
+              <button type="submit" ui-button variant="primary" data-testid="plan-create">
+                <ui-icon name="compass" [size]="14" /> {{ i18n.instant('planner.create') }}
+              </button>
+            </div>
+          </form>
+        </section>
+      }
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="plan-error">{{ error() }}</p>
       }
 
       @if (plan(); as p) {
-        <div data-testid="plan-view">
-          <h2>{{ p.goal }}</h2>
-          <p>
-            {{ i18n.instant('planner.status') }}:
-            <strong data-testid="plan-status">{{ p.status }}</strong>
-          </p>
-          @if (p.status === 'generating' || p.status === 'generation_failed') {
-            <button type="button" ui-button (click)="generate()" [disabled]="busy()" data-testid="plan-generate">
-              {{ i18n.instant('planner.generate') }}
-            </button>
-          }
-          @if (p.status === 'ready') {
-            <button type="button" ui-button (click)="approve()" [disabled]="busy()" data-testid="plan-approve">{{ i18n.instant('planner.approve') }}</button>
-          }
-          @if (p.status === 'approved') {
-            <button type="button" ui-button (click)="apply()" [disabled]="busy()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
-          }
+        <section class="ui-card" data-testid="plan-view">
+          <header class="ui-card-head">
+            <h2>{{ p.goal }}</h2>
+            <span>
+              {{ i18n.instant('planner.status') }}:
+              <ui-badge [variant]="statusVariant(p.status)"><span data-testid="plan-status">{{ p.status }}</span></ui-badge>
+            </span>
+          </header>
+          <p class="ui-card-sub">{{ hint(p.status) }}</p>
+          <div class="ui-row-actions">
+            @if (p.status === 'generating' || p.status === 'generation_failed') {
+              <button type="button" ui-button variant="primary" (click)="generate()" [loading]="busy()" data-testid="plan-generate">
+                {{ i18n.instant('planner.generate') }}
+              </button>
+            }
+            @if (p.status === 'ready') {
+              <button type="button" ui-button variant="primary" (click)="approve()" [loading]="busy()" data-testid="plan-approve">{{ i18n.instant('planner.approve') }}</button>
+            }
+            @if (p.status === 'approved') {
+              <button type="button" ui-button variant="primary" (click)="apply()" [loading]="busy()" data-testid="plan-apply">{{ i18n.instant('planner.apply') }}</button>
+            }
+            <button type="button" ui-button variant="ghost" (click)="reset()">{{ i18n.instant('planner.new_plan') }}</button>
+          </div>
           @if (report()) {
             <pre class="ui-report" data-testid="plan-report">{{ report() | json }}</pre>
           }
-        </div>
+        </section>
       }
     </ui-page>
   `,
@@ -84,8 +115,45 @@ export class PlannerPage implements OnInit {
   readonly report = signal<ApplyReport | null>(null);
   readonly error = signal('');
   readonly busy = signal(false);
-  goal = 'Ship the login flow';
+  goal = '';
   constraints = '';
+
+  readonly stepKeys = ['goal', 'generate', 'approve', 'apply'] as const;
+  /** Position in goal → generate → approve → apply (done when past the end). */
+  readonly stepIndex = computed(() => {
+    const st = this.plan()?.status;
+    if (!st) return 0;
+    if (st === 'generating' || st === 'generation_failed') return 1;
+    if (st === 'ready') return 2;
+    if (st === 'approved') return 3;
+    return 4;
+  });
+
+  statusVariant(status: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
+    if (status === 'applied') return 'success';
+    if (status === 'generation_failed') return 'error';
+    if (status === 'ready' || status === 'approved') return 'info';
+    return 'default';
+  }
+
+  /** i18n hint bucket for the current status. */
+  hintKey(status: string): string {
+    return ['generating', 'generation_failed', 'ready', 'approved'].includes(status) ? status : 'applied';
+  }
+
+  stepLabel(step: string): string {
+    return this.i18n.instant(`planner.step.${step}`);
+  }
+
+  hint(status: string): string {
+    return this.i18n.instant(`planner.hint.${this.hintKey(status)}`);
+  }
+
+  reset(): void {
+    this.plan.set(null);
+    this.report.set(null);
+    this.error.set('');
+  }
 
   constructor() {
     effect(() => {
@@ -94,7 +162,7 @@ export class PlannerPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
   }
 
   async create(): Promise<void> {
@@ -147,11 +215,9 @@ export class PlannerPage implements OnInit {
     this.error.set('');
     this.busy.set(true);
     try {
-    const p = this.plan();
-    if (!p) return;
-    const rep = await this.api.post<ApplyReport>(`/api/v1/plans/${p.id}/apply`, {
-      idempotency_key: `panel-${Date.now()}`,
-    });
+      const rep = await this.api.post<ApplyReport>(`/api/v1/plans/${p.id}/apply`, {
+        idempotency_key: `panel-${Date.now()}`,
+      });
       this.report.set(rep);
       this.plan.set({ ...p, status: (rep as { status?: string }).status ?? 'applied' });
     } catch (err) {

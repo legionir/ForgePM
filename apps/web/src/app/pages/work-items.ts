@@ -11,7 +11,6 @@ import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
 import { stateVariant } from '../ui/logic';
@@ -53,11 +52,35 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource],
+  imports: [FormsModule, RouterLink, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
-      <ui-project-picker />
 
+      <section class="ui-card">
+        <header class="ui-card-head"><h2>{{ i18n.instant('work_items.new') }}</h2></header>
+      <form class="ui-new" (ngSubmit)="create()" data-testid="wi-new">
+        <ui-field [label]="i18n.instant('common.title')" required>
+          <input uiControl #titleInput name="tkey" [(ngModel)]="title" required data-testid="wi-title" />
+        </ui-field>
+        <ui-field [label]="i18n.instant('work_items.type')">
+          <select uiControl name="ttype" [(ngModel)]="type">
+            @for (ty of types; track ty) {
+              <option [value]="ty">{{ ty }}</option>
+            }
+          </select>
+        </ui-field>
+        <ui-field [label]="i18n.instant('work_items.state')">
+          <select uiControl name="tstate" [(ngModel)]="stateId" data-testid="wi-state">
+            @for (st of states(); track st.id) {
+              <option [value]="st.id">{{ st.name }}</option>
+            }
+          </select>
+        </ui-field>
+        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
+      </form>
+      </section>
+
+      <div class="ui-toolbar">
       <ui-tabs [items]="viewTabs" [active]="view()" [ariaLabel]="i18n.instant('work_items.view')" (tabChange)="setView($event)" />
 
       <ui-field [label]="i18n.instant('work_items.filter_state')">
@@ -68,6 +91,7 @@ interface ItemDto {
           }
         </select>
       </ui-field>
+      </div>
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="wi-error">{{ error() }}</p>
       }
@@ -177,26 +201,6 @@ interface ItemDto {
         </div>
       }
 
-      <form class="ui-new" (ngSubmit)="create()" data-testid="wi-new">
-        <ui-field [label]="i18n.instant('common.title')" required>
-          <input uiControl #titleInput name="tkey" [(ngModel)]="title" required data-testid="wi-title" />
-        </ui-field>
-        <ui-field [label]="i18n.instant('work_items.type')">
-          <select uiControl name="ttype" [(ngModel)]="type">
-            @for (ty of types; track ty) {
-              <option [value]="ty">{{ ty }}</option>
-            }
-          </select>
-        </ui-field>
-        <ui-field [label]="i18n.instant('work_items.state')">
-          <select uiControl name="tstate" [(ngModel)]="stateId" data-testid="wi-state">
-            @for (st of states(); track st.id) {
-              <option [value]="st.id">{{ st.name }}</option>
-            }
-          </select>
-        </ui-field>
-        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
-      </form>
     </ui-page>
   `,
 })
@@ -319,7 +323,7 @@ export class WorkItemsPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
     const id = this.route.snapshot.queryParamMap.get('project');
     if (id) this.ctx.select(id);
     await this.load();

@@ -4,6 +4,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
+import { UiIcon } from '../ui/icon';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { UiToastService } from '../ui/toast';
 
@@ -35,13 +36,24 @@ interface HealthDto {
 @Component({
   selector: 'page-system',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage, UiDataTable],
+  imports: [FormsModule, UiButton, UiPage, UiDataTable, UiIcon],
   template: `
     <ui-page data-testid="system" [title]="i18n.instant('system.title')">
-      <p data-testid="sys-db">{{ i18n.instant('system.database') }}: {{ health()?.database ?? '…' }}</p>
-      <p data-testid="sys-redis">{{ i18n.instant('system.redis') }}: {{ health()?.redis ?? '…' }}</p>
+      <div class="ui-kpis">
+        <article class="ui-kpi" data-testid="sys-db">
+          <span class="ui-kpi-icon ui-kpi-icon--ok"><ui-icon name="server" [size]="16" [inline]="false" /></span>
+          <span class="ui-kpi-label">{{ i18n.instant('system.database') }}</span>
+          <strong class="ui-kpi-value">{{ health()?.database ?? '…' }}</strong>
+        </article>
+        <article class="ui-kpi" data-testid="sys-redis">
+          <span class="ui-kpi-icon ui-kpi-icon--info"><ui-icon name="activity" [size]="16" [inline]="false" /></span>
+          <span class="ui-kpi-label">{{ i18n.instant('system.redis') }}</span>
+          <strong class="ui-kpi-value">{{ health()?.redis ?? '…' }}</strong>
+        </article>
+      </div>
 
-      <h2>{{ i18n.instant('system.modules') }}</h2>
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('system.modules') }}</h2></header>
       <ul class="ui-list" data-testid="module-list">
         @for (m of health()?.modules ?? []; track m.name) {
           <li data-testid="module-row">
@@ -52,8 +64,10 @@ interface HealthDto {
           </li>
         }
       </ul>
+      </section>
 
-      <h2>{{ i18n.instant('system.jobs') }}</h2>
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('system.jobs') }}</h2></header>
       <ui-data-table
         testid="job-list"
         emptyTestid="job-empty"
@@ -66,9 +80,12 @@ interface HealthDto {
         [rowTestid]="jobRowTestid"
         [actions]="jobActions"
       />
+      </section>
 
-      <h2>{{ i18n.instant('system.backups') }}</h2>
-      <button type="button" ui-button (click)="backup()" [disabled]="busy()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button>
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('system.backups') }}</h2></header>
+      <div><button type="button" ui-button (click)="backup()" [disabled]="busy()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button></div>
+      </section>
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="system-error">{{ error() }}</p>
       }

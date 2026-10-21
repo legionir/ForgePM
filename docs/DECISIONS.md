@@ -1050,3 +1050,9 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
   `filter.*` names and overrides each with empty `clean`/`smudge`/`process` and `required=false`.
 - Reason: keeps R-02 intact (no new key type, no exception) and closes a code-execution path without
   guessing filter names. The seed fills only non-sensitive `exec.allowed_repo_roots`; CI endpoint/token stay manual.
+
+## D-067 — Project-gated navigation and a dashboard home
+
+- Context: the flat 15-link top nav showed project pages that cannot work without a project.
+- Decision: a sidebar grouped by workflow stage; project-scoped groups render only when `ProjectContext.hasProject()`, and a `hasProject` route guard redirects those routes to `/projects`. `/` now resolves to `/dashboard` (guard falls back to `/projects`). The in-page project pickers were removed in favour of the shell switcher. Charts are inline SVG/CSS, no chart dependency.
+- Reason: guides users step by step, keeps the 500 KB initial-bundle budget, and needs no API change (the dashboard derives everything from existing list endpoints).

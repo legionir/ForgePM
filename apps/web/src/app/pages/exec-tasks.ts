@@ -1,15 +1,13 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
-import { UiBadge } from '../ui/badge';
 import { UiField, UiControl } from '../ui/field';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface PlanNode {
   id: string;
@@ -43,11 +41,10 @@ interface ExecStatusDto {
 @Component({
   selector: 'page-exec-tasks',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiPage, UiField, UiControl, UiBadge, UiDataTable],
+  imports: [FormsModule, UiButton, UiPage, UiField, UiControl, UiDataTable],
   styles: [`.ui-row--blocked{border-inline-start:4px solid var(--color-error)} .ui-row--awaiting{border-inline-start:4px solid var(--color-warning)}`],
   template: `
     <ui-page data-testid="exec-tasks" [title]="i18n.instant('exec.title')">
-      <ui-project-picker />
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="exec-error">{{ error() }}</p>
       }
@@ -280,7 +277,7 @@ export class ExecTasksPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
     const code = this.route.snapshot.paramMap.get('code');
     if (code) await this.openDrawer(code);
     await this.load();
