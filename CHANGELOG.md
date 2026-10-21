@@ -8,6 +8,9 @@ Conventional Commits groupings. Tags map to plan §17.
 - fix(exec): every API key is a ledger *agent* (user-owned keys were recorded as `human`).
 - fix(hooks): PreToolUse also guards Write/Edit/MultiEdit of package.json, `.env*`, hook and settings files.
 - fix(exec): clearer error when Git refuses a worktree for ownership; test no longer needs real DNS.
+- fix(security): neutralize repo-config `filter.*` (clean/smudge/process) in the exec Git source (R-05); the hardening only covered lfs.
+- feat(cli): `ledger-cli` logs in as a human session (`FORGEPM_EMAIL`/`FORGEPM_PASSWORD`, CSRF) — R-02 refuses every API key on deciding verbs.
+- chore(seed): dev seed fills `exec.allowed_repo_roots` when unset.
 - Open items and limits: `docs/EXEC_CONTROL_FIX_REPORT.md`.
 
 ## [Unreleased] — Execution control, PE-12 panel + E2E (2026-10-19)
