@@ -6,7 +6,6 @@ import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiField, UiControl } from '../ui/field';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 // local minimal validation mirrors execPolicySchema: version:number, rules:array
 const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
   if (!v || typeof v !== 'object') return { ok: false, msg: 'must be object' };
@@ -19,11 +18,10 @@ const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
 @Component({
   selector: 'page-exec-policy',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage, UiField, UiControl],
+  imports: [FormsModule, UiButton, UiPage, UiField, UiControl],
   template: `
     <ui-page data-testid="exec-policy" [title]="i18n.instant('exec.policy_title')">
       <p data-testid="exec-policy-desc">{{ i18n.instant('exec.policy_desc') }}</p>
-      <ui-project-picker />
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="exec-policy-error">{{ error() }}</p>
       }
@@ -56,7 +54,7 @@ export class ExecPolicyPage implements OnInit {
   private original = '';
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
     await this.load();
   }
 

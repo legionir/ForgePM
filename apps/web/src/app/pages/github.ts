@@ -6,7 +6,6 @@ import { UiButton } from '../ui/button';
 import { UiToastService } from '../ui/toast';
 import { UiPage } from '../ui/page';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface RepoDto {
   id: string;
@@ -29,7 +28,7 @@ interface StatusDto {
 @Component({
   selector: 'page-github',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
     <ui-page data-testid="github" [title]="i18n.instant('github.title')">
       @if (!status()?.enabled) {
@@ -53,7 +52,6 @@ interface StatusDto {
       }
 
       @if (status()?.enabled) {
-        <ui-project-picker />
         <h2>{{ i18n.instant('github.repos') }}</h2>
         <ul class="ui-list" data-testid="gh-repos">
           @for (r of repos(); track r.id) {
@@ -97,7 +95,7 @@ export class GithubPage implements OnInit {
   webhookSecret = '';
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
     await this.load();
   }
 

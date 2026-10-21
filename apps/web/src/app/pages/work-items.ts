@@ -11,7 +11,6 @@ import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
 import { stateVariant } from '../ui/logic';
@@ -53,10 +52,9 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, ProjectPickerCmp, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource],
+  imports: [FormsModule, RouterLink, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
-      <ui-project-picker />
 
       <ui-tabs [items]="viewTabs" [active]="view()" [ariaLabel]="i18n.instant('work_items.view')" (tabChange)="setView($event)" />
 
@@ -319,7 +317,7 @@ export class WorkItemsPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
     const id = this.route.snapshot.queryParamMap.get('project');
     if (id) this.ctx.select(id);
     await this.load();

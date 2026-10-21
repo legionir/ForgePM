@@ -247,7 +247,8 @@ function stubApi(): Partial<ApiClient> {
 }
 
 describe('UiShell', () => {
-  it('renders nav testids, who-area, burger toggle and registers palette commands', async () => {
+  it('without a project: only workspace/governance/platform nav is rendered; burger toggles the drawer', async () => {
+    localStorage.removeItem('fpm_project');
     TestBed.configureTestingModule({
       imports: [ShellHost],
       providers: [provideRouter(ROUTES), { provide: Session, useValue: stubSession() }, { provide: ApiClient, useValue: stubApi() }],
@@ -255,16 +256,43 @@ describe('UiShell', () => {
     const f = TestBed.createComponent(ShellHost);
     await flush(f);
     const el = f.nativeElement as HTMLElement;
-    expect(el.querySelectorAll('[data-testid="nav"] a').length).toBe(15);
+    expect(el.querySelectorAll('[data-testid="nav"] a').length).toBe(8);
     expect(el.querySelector('[data-testid="nav-projects"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="nav-work-items"]')).toBeNull();
+    expect(el.querySelector('[data-testid="nav-dashboard"]')).toBeNull();
+    expect(el.querySelector('[data-testid="shell-create-project"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="who"]')?.textContent).toContain('Ada');
-    const header = el.querySelector('header')!;
-    expect(header.classList.contains('nav-open')).toBe(false);
+    const root = el.querySelector('.ui-shell')!;
+    expect(root.classList.contains('nav-open')).toBe(false);
     (el.querySelector('[data-testid="nav-toggle"]') as HTMLButtonElement).click();
     f.detectChanges();
-    expect(header.classList.contains('nav-open')).toBe(true);
+    expect(root.classList.contains('nav-open')).toBe(true);
 
-    expect(TestBed.inject(CommandPalette).commands().length).toBeGreaterThanOrEqual(17);
+    expect(TestBed.inject(CommandPalette).commands().length).toBe(11);
+  });
+
+  it('with a project: the project-scoped sections unlock (16 destinations)', async () => {
+    localStorage.removeItem('fpm_project');
+    const api: Partial<ApiClient> = {
+      get: async <T = unknown>(): Promise<T> => ({ items: [{ id: 'p1', key: 'P', name: 'Proj', status: 'active' }] }) as T,
+      post: async <T = unknown>(): Promise<T> => ({}) as T,
+    };
+    TestBed.configureTestingModule({
+      imports: [ShellHost],
+      providers: [provideRouter(ROUTES), { provide: Session, useValue: stubSession() }, { provide: ApiClient, useValue: api }],
+    });
+    const f = TestBed.createComponent(ShellHost);
+    await flush(f);
+    await f.whenStable();
+    f.detectChanges();
+    const el = f.nativeElement as HTMLElement;
+    expect(el.querySelectorAll('[data-testid="nav"] a').length).toBe(16);
+    for (const id of ['nav-dashboard', 'nav-features', 'nav-work-items', 'nav-planner', 'nav-exec-tasks', 'nav-reviews', 'nav-github']) {
+      expect(el.querySelector(`[data-testid="${id}"]`), id).toBeTruthy();
+    }
+    expect(el.querySelector('[data-testid="shell-project-select"]')).toBeTruthy();
+    expect(TestBed.inject(CommandPalette).commands().length).toBe(20);
+    localStorage.removeItem('fpm_project');
   });
 
   it('theme + lang toggles mutate tokens/i18n; logout routes to /login', async () => {

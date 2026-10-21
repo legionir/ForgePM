@@ -6,7 +6,6 @@ import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiToastService } from '../ui/toast';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface RunDto {
   id: string;
@@ -36,10 +35,9 @@ interface RepoDto {
 @Component({
   selector: 'page-reviews',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiButton, UiPage],
+  imports: [FormsModule, UiButton, UiPage],
   template: `
     <ui-page data-testid="reviews" [title]="i18n.instant('reviews.title')">
-      <ui-project-picker />
       @if (disabled()) {
         <p class="ui-banner ui-banner--warning" data-testid="reviews-stub-banner" role="alert">
           Reviews integration not configured — stub active (B-008). Review output returns 422 until enabled.
@@ -112,7 +110,7 @@ export class ReviewsPage implements OnInit {
   prNumber = 1;
 
   async ngOnInit(): Promise<void> {
-    await this.ctx.load();
+    await this.ctx.ensureLoaded();
     await this.load();
   }
 

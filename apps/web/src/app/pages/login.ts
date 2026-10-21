@@ -64,7 +64,7 @@ export class LoginPage {
     this.busy.set(true);
     try {
       await this.session.login(this.email, this.password);
-      await this.router.navigate(['/projects']);
+      await this.router.navigate(['/']);
     } catch (err) {
       this.error.set((err as Error).message);
     } finally {

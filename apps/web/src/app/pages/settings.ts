@@ -6,7 +6,6 @@ import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
-import { ProjectPickerCmp } from '../ui/project-picker';
 
 interface DefDto {
   key: string;
@@ -28,14 +27,13 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, ProjectPickerCmp, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, UiPage, UiTabs, UiDataTable],
   template: `
     <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
 
       <ui-tabs [items]="scopeTabs" [active]="scope()" [ariaLabel]="i18n.instant('settings.scope')" (tabChange)="setScope($event)" />
 
       @if (scope() === 'project') {
-        <ui-project-picker />
       }
 
       <ui-data-table
@@ -108,7 +106,7 @@ export class SettingsPage implements OnInit {
   async ngOnInit(): Promise<void> {
     this.error.set('');
     try {
-      await this.ctx.load();
+      await this.ctx.ensureLoaded();
       this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
       await this.refresh();
     } catch (err) {

@@ -13,5 +13,6 @@ export async function login(page: Page): Promise<void> {
   await page.getByTestId('field-email').fill(EMAIL);
   await page.getByTestId('field-password').fill(PASSWORD);
   await page.getByTestId('login-submit').click();
-  await expect(page.getByTestId('projects')).toBeVisible();
+  // Lands on the dashboard when a project exists, else on /projects.
+  await expect(page.getByTestId('nav')).toBeVisible();
 }
