@@ -21,10 +21,11 @@ const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
   imports: [FormsModule, UiButton, UiPage, UiField, UiControl],
   template: `
     <ui-page data-testid="exec-policy" [title]="i18n.instant('exec.policy_title')">
-      <p data-testid="exec-policy-desc">{{ i18n.instant('exec.policy_desc') }}</p>
+      <p class="ui-page-sub ui-page-sub--flow" data-testid="exec-policy-desc">{{ i18n.instant('exec.policy_desc') }}</p>
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="exec-policy-error">{{ error() }}</p>
       }
+      <section class="ui-card">
       <ui-field [label]="i18n.instant('exec.policy_json')">
         <textarea uiControl name="policy" [(ngModel)]="jsonText" rows="20" data-testid="exec-policy-input"></textarea>
       </ui-field>
@@ -34,9 +35,12 @@ const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
       @if (diff()) {
         <pre data-testid="exec-policy-diff">{{ diff() }}</pre>
       }
+      <div class="ui-row-actions">
       <button type="button" ui-button variant="secondary" (click)="validate()" data-testid="exec-policy-validate">{{ i18n.instant('exec.validate') }}</button>
       <button type="button" ui-button variant="primary" (click)="save()" [disabled]="!!validation() || !jsonText.trim()" [loading]="busy()" data-testid="exec-policy-save">{{ i18n.instant('common.save') }}</button>
-      @if (saved()) { <p data-testid="exec-policy-saved">{{ i18n.instant('common.saved') }}</p> }
+      </div>
+      @if (saved()) { <p class="ui-ok" data-testid="exec-policy-saved">{{ i18n.instant('common.saved') }}</p> }
+      </section>
     </ui-page>
   `,
 })

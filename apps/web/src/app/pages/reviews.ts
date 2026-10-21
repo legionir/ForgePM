@@ -50,7 +50,9 @@ interface RepoDto {
       @if (disabled()) {
         <p class="ui-hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
       } @else {
-        <form (ngSubmit)="runCode()" data-testid="review-run-form">
+        <section class="ui-card">
+        <header class="ui-card-head"><h2>{{ i18n.instant('reviews.run') }}</h2></header>
+        <form class="ui-new" (ngSubmit)="runCode()" data-testid="review-run-form">
           <label>Repo
             <select name="repo" [(ngModel)]="repoId" data-testid="review-repo">
               @for (r of repos(); track r.id) {
@@ -61,8 +63,10 @@ interface RepoDto {
           <label>{{ i18n.instant('reviews.pr') }}<input name="pr" type="number" [(ngModel)]="prNumber" required data-testid="review-pr" /></label>
           <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="review-run">{{ i18n.instant('reviews.run') }}</button>
         </form>
+        </section>
 
-        <h2>{{ i18n.instant('reviews.runs') }}</h2>
+        <section class="ui-card">
+        <header class="ui-card-head"><h2>{{ i18n.instant('reviews.runs') }}</h2><span class="ui-card-sub">{{ runs().length }}</span></header>
         <ul class="ui-list" data-testid="run-list">
           @for (r of runs(); track r.id) {
             <li data-testid="run-row">{{ r.kind }} · {{ r.target }} · {{ r.status }}</li>
@@ -70,8 +74,10 @@ interface RepoDto {
             <li data-testid="run-empty">{{ i18n.instant('common.empty') }}</li>
           }
         </ul>
+        </section>
 
-        <h2>{{ i18n.instant('reviews.findings') }}</h2>
+        <section class="ui-card">
+        <header class="ui-card-head"><h2>{{ i18n.instant('reviews.findings') }}</h2><span class="ui-card-sub">{{ findings().length }}</span></header>
         <ul class="ui-list" data-testid="finding-list">
           @for (f of findings(); track f.id) {
             <li data-testid="finding-row">
@@ -90,6 +96,7 @@ interface RepoDto {
             <li data-testid="finding-empty">{{ i18n.instant('common.empty') }}</li>
           }
         </ul>
+        </section>
       }
     </ui-page>
   `,

@@ -42,7 +42,9 @@ interface ExecApprovalDto {
   imports: [FormsModule, RouterLink, UiButton, UiPage],
   template: `
     <ui-page data-testid="approvals" [title]="i18n.instant('approvals.title')">
-      <ul class="ui-list" data-testid="approval-list">
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('approvals.title') }}</h2><span class="ui-card-sub">{{ items().length }}</span></header>
+      <ul class="ui-list ui-list--actions" data-testid="approval-list">
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
             <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
@@ -57,8 +59,10 @@ interface ExecApprovalDto {
           <li data-testid="approval-empty">{{ i18n.instant('approvals.empty') }}</li>
         }
       </ul>
-      <h2 data-testid="exec-approvals-title">{{ i18n.instant('approvals.ledger.title') }}</h2>
-      <ul class="ui-list" data-testid="exec-approval-list">
+      </section>
+      <section class="ui-card">
+      <header class="ui-card-head"><h2 data-testid="exec-approvals-title">{{ i18n.instant('approvals.ledger.title') }}</h2><span class="ui-card-sub">{{ execItems().length }}</span></header>
+      <ul class="ui-list ui-list--actions" data-testid="exec-approval-list">
         @for (a of execItems(); track a.id) {
           <li data-testid="exec-approval-row">
             <span>
@@ -82,6 +86,7 @@ interface ExecApprovalDto {
           <li data-testid="exec-approval-empty">{{ i18n.instant('approvals.ledger.empty') }}</li>
         }
       </ul>
+      </section>
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="approval-error">{{ error() }}</p>
       }

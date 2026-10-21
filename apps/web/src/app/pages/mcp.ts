@@ -25,8 +25,9 @@ interface CallDto {
   imports: [FormsModule, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="mcp" [title]="i18n.instant('mcp.title')">
-      <h2>{{ i18n.instant('mcp.calls') }}</h2>
-      <label>
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('mcp.calls') }}</h2></header>
+      <label class="ui-filter">
         {{ i18n.instant('mcp.outcome') }}
         <select name="oc" [(ngModel)]="outcome" (ngModelChange)="load()" data-testid="mcp-filter">
           <option value="">*</option>
@@ -47,6 +48,7 @@ interface CallDto {
         [rowTestid]="mcpRowTestid"
         [pageSize]="25"
       />
+      </section>
     </ui-page>
   `,
 })

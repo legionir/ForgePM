@@ -39,7 +39,27 @@ interface ProviderDto {
         <p class="ui-dt-empty">{{ i18n.instant('ai_providers.editing', { name: editingName() }) }}</p>
       }
 
-      <form (ngSubmit)="save()" data-testid="provider-new">
+      <div class="ui-grid ui-grid--split">
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('ai_providers.title') }}</h2><span class="ui-card-sub">{{ providers().length }}</span></header>
+      <ul class="ui-list" data-testid="provider-list">
+        @for (p of providers(); track p.id) {
+          <li data-testid="provider-row">
+            <span>{{ p.name }} · {{ p.kind }}@if (p.default_model) {<span> · {{ p.default_model }}</span>} · {{ p.enabled ? 'on' : 'off' }} · last4 {{ p.key_last4 ?? '—' }}</span>
+            <span class="ui-row-actions">
+              <button type="button" ui-button size="sm" (click)="startEdit(p)" data-testid="provider-edit">{{ i18n.instant('common.edit') }}</button>
+              <button type="button" ui-button size="sm" (click)="test(p.id)" data-testid="provider-test">{{ i18n.instant('ai_providers.test') }}</button>
+            </span>
+          </li>
+        } @empty {
+          <li data-testid="provider-empty">{{ i18n.instant('common.empty') }}</li>
+        }
+      </ul>
+      </section>
+
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ editId() ? i18n.instant('common.edit') : i18n.instant('common.create') }}</h2></header>
+      <form class="ui-stack" (ngSubmit)="save()" data-testid="provider-new">
         <ui-field [label]="i18n.instant('common.name')" required>
           <input uiControl name="n" [(ngModel)]="name" required data-testid="provider-name" />
         </ui-field>
@@ -89,20 +109,8 @@ interface ProviderDto {
           <button type="button" ui-button (click)="cancelEdit()" data-testid="provider-cancel">{{ i18n.instant('common.cancel') }}</button>
         }
       </form>
-
-      <ul class="ui-list" data-testid="provider-list">
-        @for (p of providers(); track p.id) {
-          <li data-testid="provider-row">
-            <span>{{ p.name }} · {{ p.kind }}@if (p.default_model) {<span> · {{ p.default_model }}</span>} · {{ p.enabled ? 'on' : 'off' }} · last4 {{ p.key_last4 ?? '—' }}</span>
-            <span class="ui-row-actions">
-              <button type="button" ui-button size="sm" (click)="startEdit(p)" data-testid="provider-edit">{{ i18n.instant('common.edit') }}</button>
-              <button type="button" ui-button size="sm" (click)="test(p.id)" data-testid="provider-test">{{ i18n.instant('ai_providers.test') }}</button>
-            </span>
-          </li>
-        } @empty {
-          <li data-testid="provider-empty">{{ i18n.instant('common.empty') }}</li>
-        }
-      </ul>
+      </section>
+      </div>
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="provider-error">{{ error() }}</p>
       }

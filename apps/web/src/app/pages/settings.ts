@@ -33,7 +33,8 @@ interface EffDto {
 
       <ui-tabs [items]="scopeTabs" [active]="scope()" [ariaLabel]="i18n.instant('settings.scope')" (tabChange)="setScope($event)" />
 
-      @if (scope() === 'project') {
+      @if (scope() === 'project' && ctx.selected(); as p) {
+        <p class="ui-page-sub">{{ p.key }} · {{ p.name }}</p>
       }
 
       <ui-data-table
@@ -63,10 +64,10 @@ export class SettingsPage implements OnInit {
   readonly busy = signal(false);
 
   get scopeTabs(): UiTabItem[] {
-    return [
-      { id: 'system', label: this.i18n.instant('settings.scope_system'), testid: 'scope-system' },
-      { id: 'project', label: this.i18n.instant('settings.scope_project'), testid: 'scope-project' },
-    ];
+    const tabs: UiTabItem[] = [{ id: 'system', label: this.i18n.instant('settings.scope_system'), testid: 'scope-system' }];
+    // Project overrides only make sense once a project is selected.
+    if (this.ctx.hasProject()) tabs.push({ id: 'project', label: this.i18n.instant('settings.scope_project'), testid: 'scope-project' });
+    return tabs;
   }
 
   readonly rows = signal<Row[]>([]);

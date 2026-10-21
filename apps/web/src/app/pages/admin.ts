@@ -33,6 +33,8 @@ interface UserDto {
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="admin-error">{{ error() }}</p>
       }
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('users.title') }}</h2><span class="ui-card-sub">{{ users().length }}</span></header>
       <ui-data-table
         testid="user-list"
         emptyTestid="user-empty"
@@ -45,8 +47,10 @@ interface UserDto {
         [rowTestid]="userRowTestid"
         [pageSize]="25"
       />
+      </section>
 
-      <h2>{{ i18n.instant('audit.title') }}</h2>
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('audit.title') }}</h2></header>
       <ui-data-table
         testid="audit-list"
         emptyTestid="audit-empty"
@@ -59,6 +63,7 @@ interface UserDto {
         [rowTestid]="auditRowTestid"
         [pageSize]="25"
       />
+      </section>
     </ui-page>
   `,
 })

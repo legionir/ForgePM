@@ -24,6 +24,8 @@ interface ApiKeyDto {
   imports: [FormsModule, UiButton, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="api-keys" [title]="i18n.instant('nav.api_keys')">
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('common.create_key') }}</h2></header>
       <form class="ui-new" (ngSubmit)="create()">
         <label
           >{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name"
@@ -49,6 +51,7 @@ interface ApiKeyDto {
       @if (rawKey()) {
         <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
       }
+      </section>
       @if (error()) {
         <p class="ui-error" role="alert" data-testid="apikey-error">{{ error() }}</p>
       }

@@ -36,7 +36,9 @@ interface StatusDto {
           GitHub integration not configured — stub active (B-008). Review output returns 422 until configured.
         </p>
       }
-      <form (ngSubmit)="save()" data-testid="gh-config">
+      <section class="ui-card">
+      <header class="ui-card-head"><h2>{{ i18n.instant('github.title') }}</h2></header>
+      <form class="ui-stack" (ngSubmit)="save()" data-testid="gh-config">
         <label>{{ i18n.instant('github.app_id') }}<input name="appId" [(ngModel)]="appId" data-testid="gh-app-id" /></label>
         <label>{{ i18n.instant('github.private_key') }}
           <textarea name="pk" [(ngModel)]="privateKey" rows="3" data-testid="gh-private-key"></textarea>
@@ -50,9 +52,11 @@ interface StatusDto {
           s.webhook_secret_set }} enabled={{ s.enabled }}
         </p>
       }
+      </section>
 
       @if (status()?.enabled) {
-        <h2>{{ i18n.instant('github.repos') }}</h2>
+        <section class="ui-card">
+        <header class="ui-card-head"><h2>{{ i18n.instant('github.repos') }}</h2></header>
         <ul class="ui-list" data-testid="gh-repos">
           @for (r of repos(); track r.id) {
             <li data-testid="gh-repo-row">
@@ -65,6 +69,7 @@ interface StatusDto {
             <li data-testid="gh-repos-empty">{{ i18n.instant('common.empty') }}</li>
           }
         </ul>
+        </section>
       } @else {
         <p class="ui-hint" data-testid="gh-disabled">
           {{ i18n.instant('github.disabled') }} — {{ i18n.instant('common.disabled_hint') }}
