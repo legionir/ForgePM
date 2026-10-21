@@ -632,7 +632,7 @@ export class GitExecReviewSource implements ExecReviewSource {
           timeout: GIT_TIMEOUT_MS,
           env,
         },
-        (error, stdout) => {
+        (error, stdout, stderr) => {
           const out = Buffer.isBuffer(stdout) ? stdout : Buffer.from(stdout ?? '');
           if (!error) {
             resolveOutput(out);
@@ -643,7 +643,17 @@ export class GitExecReviewSource implements ExecReviewSource {
             resolveOutput(Buffer.isBuffer(partial) ? partial : Buffer.from(partial));
             return;
           }
-          reject(unavailable('Git could not safely read the configured worktree'));
+          // Global git config is ignored on purpose (hardening), so `safe.directory` cannot
+          // help: the worktree must be owned by the user the API runs as. Say so, but never
+          // echo git's raw stderr (it can carry paths).
+          const dubious = /dubious ownership/i.test(Buffer.isBuffer(stderr) ? stderr.toString('utf8') : String(stderr ?? ''));
+          reject(
+            unavailable(
+              dubious
+                ? 'Git refused the worktree: it is owned by a different user than the API process; run the API as the repository owner'
+                : 'Git could not safely read the configured worktree',
+            ),
+          );
         },
       );
     });

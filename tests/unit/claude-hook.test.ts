@@ -70,6 +70,24 @@ describe('Claude Code PreToolUse policy hook (PE-5 F.9)', () => {
     });
   });
 
+  it.each([
+    ['Write', 'package.json'],
+    ['MultiEdit', 'apps/web/package.json'],
+    ['Edit', '.claude/settings.json'],
+    ['Write', 'scripts/hooks/ledger-stop.mjs'],
+    ['Write', '.env'],
+  ])('asks before %s of the guarded file %s', async (tool_name, file_path) => {
+    const output = await runInput({ hook_event_name: 'PreToolUse', tool_name, tool_input: { file_path } });
+    expect(output.hookSpecificOutput).toMatchObject({ permissionDecision: 'ask' });
+  });
+
+  it('lets .env.example and ordinary source files through', async () => {
+    for (const file_path of ['.env.example', 'apps/api/src/app.ts']) {
+      const output = await runInput({ hook_event_name: 'PreToolUse', tool_name: 'Write', tool_input: { file_path } });
+      expect(output).toEqual({});
+    }
+  });
+
   it('passes unrelated tools with an empty JSON response', async () => {
     const output = await runInput({
       hook_event_name: 'PreToolUse',

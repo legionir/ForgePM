@@ -85,11 +85,21 @@ export async function projectForTask(db: DbLike, actor: Actor, taskRef: string, 
   });
 }
 
+/**
+ * A machine caller is never the human (R-02): every API key is an agent for the
+ * ledger, including a user-owned one, because humans decide only through a panel
+ * session. Without this a user-owned key was recorded as `human` and slipped
+ * past the agent-only rules (an agent may not soft-close a blocking item).
+ */
+function isHuman(actor: Actor): boolean {
+  return actor.type !== 'agent' && !actor.apiKeyId;
+}
+
 export function ledgerActor(actor: Actor, projectId: string, tool: string): LedgerActor {
   return {
     organizationId: actor.organizationId,
     projectId,
-    actorType: actor.type === 'agent' ? 'agent' : 'human',
+    actorType: isHuman(actor) ? 'human' : 'agent',
     actorId: actor.id,
     tool,
   };

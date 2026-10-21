@@ -1,3 +1,4 @@
+import { promises as dns } from 'node:dns';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   ModuleRegistry,
@@ -181,6 +182,9 @@ describe('PE-8 measured scope and baseline provenance', () => {
     const skippedLog = '↓ auth > logs in (1ms)\nTests 1 skipped (1)';
     let startCaptureCount = 0;
     let currentCaptureCount = 0;
+    // The SSRF guard resolves the CI host; `.test` never resolves, so without a stub this
+    // test depends on the sandbox's DNS and fails closed offline. A public address keeps the guard honest.
+    const lookupSpy = vi.spyOn(dns, 'lookup').mockResolvedValue([{ address: '93.184.216.34', family: 4 }] as never);
     const fetchStub = vi.fn(async (input: Parameters<typeof fetch>[0], init?: Parameters<typeof fetch>[1]) => {
       const url = new URL(String(input));
       const sha = url.pathname.split('/').at(-1) ?? '';
@@ -219,6 +223,7 @@ describe('PE-8 measured scope and baseline provenance', () => {
       repeated = json(await call('baseline_capture', { task_ref: task.code as string }));
     } finally {
       vi.unstubAllGlobals();
+      lookupSpy.mockRestore();
     }
     expect(repeated).toMatchObject({ ok: true, start_captured: false });
     expect(repeated.provenance).toMatchObject({ start: { run_id: 'start-run-1' }, current: { run_id: 'current-run-2' } });
