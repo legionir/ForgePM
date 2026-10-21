@@ -56,8 +56,8 @@ beforeAll(async () => {
   h = await createHarness();
   db = h.db;
   const seeded = await seedOrg(db, {
-    email: `pe4-cli-${process.pid}-${Date.now()}@example.invalid`,
-    password: 'sup3r-s3cret-pass',
+    email: HUMAN_EMAIL,
+    password: HUMAN_PASSWORD,
   });
   orgId = seeded.organizationId;
   projectId = seeded.projectId;
@@ -133,11 +133,20 @@ afterAll(async () => {
   await h?.cleanup();
 });
 
+const HUMAN = 'human-session';
+const HUMAN_EMAIL = `pe4-cli-${process.pid}-${Date.now()}@example.invalid`;
+const HUMAN_PASSWORD = 'sup3r-s3cret-pass';
+
+/** `HUMAN` logs in with email+password (R-02: the deciding path is a session); any other value is an API key. */
 async function cli(args: string[], key: string): Promise<{ code: number; stdout: string; stderr: string }> {
+  const auth =
+    key === HUMAN
+      ? { FORGEPM_EMAIL: HUMAN_EMAIL, FORGEPM_PASSWORD: HUMAN_PASSWORD, FORGEPM_API_KEY: '' }
+      : { FORGEPM_API_KEY: key, FORGEPM_EMAIL: '', FORGEPM_PASSWORD: '' };
   try {
     const res = await run(TSX, [join(ROOT, 'scripts', 'ledger-cli.ts'), ...args], {
       cwd: ROOT,
-      env: { ...process.env, FORGEPM_URL: baseUrl, FORGEPM_API_KEY: key },
+      env: { ...process.env, FORGEPM_URL: baseUrl, ...auth },
     });
     return { code: 0, stdout: res.stdout, stderr: res.stderr };
   } catch (err) {
@@ -170,7 +179,7 @@ describe('the CLI is the human path (B.14/B.15)', () => {
   it('B.14 a human closes an item from the command line, and the ledger says who', async () => {
     const res = await cli(
       ['resolve', 'OI-001', '--status', 'deferred', '--note', 'the migration moves to the next release, by decision'],
-      humanKey,
+      HUMAN,
     );
     expect(res.code, res.stderr).toBe(0);
 
@@ -188,6 +197,15 @@ describe('the CLI is the human path (B.14/B.15)', () => {
       )
     `.execute(db as never);
     expect(Number(audits.rows[0]?.n)).toBe(1);
+  });
+
+  it('R-02 a user-owned key, even with ledger:decide, cannot decide from the CLI', async () => {
+    const res = await cli(
+      ['resolve', 'OI-001', '--status', 'resolved', '--note', 'a key tries to decide on the human path'],
+      humanKey,
+    );
+    expect(res.code).not.toBe(0);
+    expect(res.stderr).toMatch(/FORBIDDEN/);
   });
 
   it('B.15 the same command with an AGENT key is refused', async () => {
@@ -212,13 +230,13 @@ describe('the CLI is the human path (B.14/B.15)', () => {
       await writeFile(file, JSON.stringify(customPolicy, null, 2));
       const set = await cli(
         ['policy', 'set', '--from', file, '--scope', 'organization', '--scope-id', 'me'],
-        humanKey,
+        HUMAN,
       );
       expect(set.code, set.stderr).toBe(0);
 
       // getEffective is a direct settings read (there is no stale policy cache).
       expect(await policyCheck()).toMatchObject({ level: 'approval', required: { tool_to_call: 'ledger_record_decision' } });
-      const printed = await cli(['policy', 'print', '--scope', 'organization', '--scope-id', 'me', '--json'], humanKey);
+      const printed = await cli(['policy', 'print', '--scope', 'organization', '--scope-id', 'me', '--json'], HUMAN);
       expect(printed.code, printed.stderr).toBe(0);
       expect(JSON.parse(printed.stdout)).toMatchObject({ source: 'organization', value: { rules: expect.arrayContaining([
         expect.objectContaining({ category: 'deps_add', level: 'approval' }),
@@ -244,7 +262,7 @@ describe('the CLI is the human path (B.14/B.15)', () => {
       .execute();
     const waived = await cli(
       ['waive', 'C-001', '--reason', 'the requirement behind it moved to the next release'],
-      humanKey,
+      HUMAN,
     );
     expect(waived.code, waived.stderr).toBe(0);
     const row = await sql<{ status: string; waiver_approval_id: string | null }>`
@@ -268,7 +286,7 @@ describe('the CLI is the human path (B.14/B.15)', () => {
       .execute();
     const promoted = await cli(
       ['fact', 'promote', 'F-001', '--source', 'human', '--reason', 'the human checked it and says it is true'],
-      humanKey,
+      HUMAN,
     );
     expect(promoted.code, promoted.stderr).toBe(0);
     const fact = await sql<{ kind: string; source: string }>`
@@ -279,13 +297,13 @@ describe('the CLI is the human path (B.14/B.15)', () => {
   });
 
   it('the CLI refuses a waiver with no reason', async () => {
-    const res = await cli(['waive', 'C-001', '--reason', 'because'], humanKey);
+    const res = await cli(['waive', 'C-001', '--reason', 'because'], HUMAN);
     expect(res.code).not.toBe(0);
     expect(res.stderr).toMatch(/--reason/);
   });
 
   it('the CLI refuses a closure without a note', async () => {
-    const res = await cli(['resolve', 'OI-001', '--status', 'resolved'], humanKey);
+    const res = await cli(['resolve', 'OI-001', '--status', 'resolved'], HUMAN);
     expect(res.code).not.toBe(0);
     expect(res.stderr).toMatch(/--note/);
   });

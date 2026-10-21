@@ -27,10 +27,21 @@ function asksForRecursiveDelete(command) {
   return false;
 }
 
-function editsPackageJson(filePath) {
-  if (typeof filePath !== 'string') return false;
+const FILE_TOOLS = new Set(['Edit', 'Write', 'MultiEdit']);
+
+/** What a human must approve before the agent changes it: manifests, secrets, the guard rails themselves. */
+function guardedFileReason(filePath) {
+  if (typeof filePath !== 'string') return null;
   const normalized = filePath.replaceAll('\\', '/');
-  return posixPath.basename(normalized) === 'package.json';
+  const base = posixPath.basename(normalized);
+  if (base === 'package.json') return 'editing package.json requires explicit human approval';
+  if (base === '.env' || (base.startsWith('.env.') && base !== '.env.example')) {
+    return 'editing an environment file requires explicit human approval';
+  }
+  if (/(^|\/)\.claude\/settings(\.local)?\.json$/.test(normalized) || /(^|\/)scripts\/hooks\//.test(normalized)) {
+    return 'editing the agent guard rails requires explicit human approval';
+  }
+  return null;
 }
 
 /** Return a Claude Code PreToolUse response; unrelated actions return {}. */
@@ -48,8 +59,9 @@ export function evaluateHookInput(input) {
       return decision('ask', 'git push requires explicit human approval');
     }
   }
-  if (toolName === 'Edit' && editsPackageJson(toolInput.file_path)) {
-    return decision('ask', 'editing package.json requires explicit human approval');
+  if (FILE_TOOLS.has(toolName)) {
+    const reason = guardedFileReason(toolInput.file_path);
+    if (reason) return decision('ask', reason);
   }
   return {};
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mkdtemp, writeFile, mkdir, rm, access } from 'node:fs/promises';
-import { tmpdir, devNull } from 'node:os';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -40,8 +40,11 @@ describe('R-05 Git hardening — malicious .git/config must not execute', () => 
     await mkdir(join(dir, 'src'), { recursive: true });
     await writeFile(join(dir, 'src', 'hello.txt'), 'hello world', 'utf8');
     await writeFile(join(dir, '.gitattributes'), '*.txt filter=plant diff=plant', 'utf8');
-    await execFileP('git', ['add', 'src/hello.txt', '.gitattributes'], { cwd: dir });
-    await execFileP('git', ['commit', '-qm', 'init'], { cwd: dir });
+    // The fixture itself must not run the planted filters: plain git would execute `clean` on add and
+    // commit an empty blob, so the "before" side would never contain the original text.
+    const inert = ['-c', 'filter.plant.clean=', '-c', 'filter.plant.smudge=', '-c', 'core.fsmonitor=false'];
+    await execFileP('git', [...inert, 'add', 'src/hello.txt', '.gitattributes'], { cwd: dir });
+    await execFileP('git', [...inert, 'commit', '-qm', 'init'], { cwd: dir });
     // Modify file to trigger diff with filters
     await writeFile(join(dir, 'src', 'hello.txt'), 'hello world modified', 'utf8');
 
@@ -77,7 +80,9 @@ describe('R-05 Git hardening — malicious .git/config must not execute', () => 
       const { readFileSync } = await import('node:fs');
       const srcCode = readFileSync(join(process.cwd(), 'apps/api/src/modules/exec/review-source.ts'), 'utf8');
       expect(srcCode).toContain('core.fsmonitor=false');
-      expect(srcCode).toContain(`core.hooksPath=${devNull}`);
+      // the source interpolates os.devNull, so match its template text, not the value
+      expect(srcCode).toContain('core.hooksPath=${devNull}');
+      expect(srcCode).toContain('filter.${name}.clean=');
       expect(srcCode).toContain('diff.external=');
       expect(srcCode).toContain('protocol.allow=never');
       expect(srcCode).toContain('GIT_CONFIG_GLOBAL');

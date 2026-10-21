@@ -1028,3 +1028,25 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
 - Reason: periodic state reconciliation is idempotent and bounded per project; it needs no repeated
   per-fact outbox messages or unbounded queue buildup. A subsequent tick safely retries transient
   failures, while the two API lifecycle checks provide immediate detection at decision boundaries.
+
+## D-065 — Every API key is a ledger agent; hooks guard file writes too
+
+- Context: a user-owned API key (no `agent_id`) resolved to `actor.type='user'`, so `ledgerActor`
+  recorded it as `human` and the agent-only closure rules did not apply. The PreToolUse hook matched
+  only `Bash`, so its package.json guard never ran.
+- Decision: `ledgerActor` treats any actor with an `apiKeyId` as an agent; only a panel session is the
+  human (consistent with R-02). The hook matcher is `Bash|Edit|Write|MultiEdit` and asks before touching
+  package.json, `.env*` (not `.env.example`), `.claude/settings*.json` and `scripts/hooks/`.
+- Reason: the safest default for a sensitive boundary; no permission is widened. The CLI's API-key
+  auth conflict with R-02 is left open for a human decision (see EXEC_CONTROL_FIX_REPORT.md §3).
+
+## D-066 — Human CLI authenticates with a session; Git filters from repo config are blanked
+
+- Context: R-02 rejects every API key on human-only routes, so the key-based CLI could never decide.
+  Separately, the Git hardening listed fixed config keys but `git diff` still ran any repo-defined
+  `filter.<name>.clean` (reproduced with a marker file).
+- Decision: (human-chosen) the CLI logs in with email+password from the environment and sends the session
+  cookie plus `x-csrf-token`; API keys stay read-only there. The review source lists configured
+  `filter.*` names and overrides each with empty `clean`/`smudge`/`process` and `required=false`.
+- Reason: keeps R-02 intact (no new key type, no exception) and closes a code-execution path without
+  guessing filter names. The seed fills only non-sensitive `exec.allowed_repo_roots`; CI endpoint/token stay manual.
