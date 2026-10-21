@@ -596,7 +596,37 @@ export class GitExecReviewSource implements ExecReviewSource {
     }
   }
 
-  private git(args: string[], maxBuffer: number, allowTruncate = false): Promise<Buffer> {
+  private filterOverrides?: Promise<string[]>;
+
+  /**
+   * Repo config can name content filters (`filter.<name>.clean|smudge|process`) that Git runs on
+   * `diff`/`status`/`add` for any path a `.gitattributes` maps to them (R-05). Reading config
+   * executes nothing, so list the configured names and blank every one of them.
+   */
+  private neutralizeFilters(): Promise<string[]> {
+    this.filterOverrides ??= this.exec(['config', '--name-only', '--get-regexp', '^filter\\.'], 1024 * 1024, true)
+      .then((out) => {
+        const names = new Set<string>();
+        for (const key of out.toString('utf8').split('\n')) {
+          const m = /^filter\.(.+)\.(clean|smudge|process|required)$/i.exec(key.trim());
+          if (m?.[1]) names.add(m[1]);
+        }
+        return [...names].flatMap((name) => [
+          '-c', `filter.${name}.clean=`,
+          '-c', `filter.${name}.smudge=`,
+          '-c', `filter.${name}.process=`,
+          '-c', `filter.${name}.required=false`,
+        ]);
+      })
+      .catch(() => []); // `git config` exits 1 when nothing matches
+    return this.filterOverrides;
+  }
+
+  private async git(args: string[], maxBuffer: number, allowTruncate = false): Promise<Buffer> {
+    return this.exec(args, maxBuffer, allowTruncate, await this.neutralizeFilters());
+  }
+
+  private exec(args: string[], maxBuffer: number, allowTruncate = false, extra: string[] = []): Promise<Buffer> {
     return new Promise((resolveOutput, reject) => {
       const env = { ...process.env };
       for (const key of [
@@ -624,7 +654,7 @@ export class GitExecReviewSource implements ExecReviewSource {
       ];
       execFile(
         'git',
-        [...hardening, ...args],
+        [...hardening, ...extra, ...args],
         {
           cwd: this.root,
           encoding: 'buffer',

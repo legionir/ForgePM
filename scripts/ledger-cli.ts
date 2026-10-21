@@ -7,8 +7,11 @@ import { resolve } from 'node:path';
  * (docs/EXECUTION_CONTROL_PLAN.md §9.5, acceptance B.14/B.15, D-11).
  *
  * The CLI is a THIN client: it speaks to the same REST routes the panel uses
- * (`/api/v1/exec/*`) with `FORGEPM_URL` + `FORGEPM_API_KEY`, and it never
- * touches the database. That is deliberate — a tool that connects to the
+ * (`/api/v1/exec/*`) as a HUMAN session: `FORGEPM_EMAIL` + `FORGEPM_PASSWORD`
+ * log in (session cookie + CSRF token, exactly like the panel), because R-02
+ * forbids every API key on the deciding verbs. `FORGEPM_API_KEY` alone is
+ * accepted for read-only verbs; a deciding verb with a key is refused by the
+ * server. It never touches the database. That is deliberate — a tool that connects to the
  * database directly can do things the human's key is not allowed to do, and
  * then the ledger records a decision nobody was allowed to make.
  *
@@ -30,6 +33,8 @@ import { resolve } from 'node:path';
 
 const URL_BASE = (process.env.FORGEPM_URL ?? 'http://127.0.0.1:3000').replace(/\/$/, '');
 const API_KEY = process.env.FORGEPM_API_KEY ?? '';
+const EMAIL = process.env.FORGEPM_EMAIL ?? '';
+const PASSWORD = process.env.FORGEPM_PASSWORD ?? '';
 const MAX_LINES = 40;
 
 /** The flags that take a value. Anything else with `--` is a mistake. */
@@ -80,13 +85,49 @@ function fail(message: string): never {
   process.exit(2);
 }
 
+interface HumanSession {
+  cookie: string;
+  csrf: string;
+}
+
+let session: HumanSession | undefined;
+
+/** Log in once per process; the password is read from the environment, never from argv. */
+async function humanSession(): Promise<HumanSession> {
+  if (session) return session;
+  const res = await fetch(`${URL_BASE}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+  });
+  if (!res.ok) throw new Error(`${res.status} login failed: check FORGEPM_EMAIL / FORGEPM_PASSWORD`);
+  const jar = new Map<string, string>();
+  for (const line of res.headers.getSetCookie()) {
+    const [pair] = line.split(';');
+    const at = (pair ?? '').indexOf('=');
+    if (at > 0) jar.set((pair as string).slice(0, at), (pair as string).slice(at + 1));
+  }
+  const csrf = jar.get('fpm_csrf');
+  if (!jar.get('fpm_session') || !csrf) throw new Error('login did not return a session and csrf token');
+  session = { cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; '), csrf };
+  return session;
+}
+
+async function authHeaders(): Promise<Record<string, string>> {
+  if (EMAIL && PASSWORD) {
+    const s = await humanSession();
+    return { cookie: s.cookie, 'x-csrf-token': s.csrf };
+  }
+  if (API_KEY) return { authorization: `Bearer ${API_KEY}` };
+  throw new Error('set FORGEPM_EMAIL and FORGEPM_PASSWORD (the CLI is the human path; API keys cannot decide)');
+}
+
 /** The request itself: it throws, so a caller may decide what a failure means. */
 async function request(path: string, init: { method?: string; body?: unknown } = {}): Promise<unknown> {
-  if (!API_KEY) throw new Error('FORGEPM_API_KEY is not set (the CLI needs a HUMAN key: ledger:decide)');
   const res = await fetch(`${URL_BASE}${path}`, {
     method: init.method ?? 'GET',
     headers: {
-      authorization: `Bearer ${API_KEY}`,
+      ...(await authHeaders()),
       'content-type': 'application/json',
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
