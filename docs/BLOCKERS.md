@@ -225,3 +225,20 @@ schema:check` against a live schema and `npm run test:integration` (including
 - Status: OPEN (environment). PE-1 does not merge on the strength of one green run alone being
   "lucky" — its local gates (unit 268/268, exec integration 21/21 on Postgres 18, E2E gate green
   in-sandbox) are independent evidence, and `236af36` carries the full CI set.
+
+## B-014 — [environment] `pg_dump` 16 cannot dump the Postgres 18 test server
+
+- Context: `phase7-backup` (×2) and `phase7-system` (×1) call `scripts/backup.sh`; the sandbox has `pg_dump` 16.15 while the embedded server is 18.4, so it aborts with "server version mismatch". The embedded package ships no `pg_dump`.
+- Status: OPEN (environment). `npm test` is 743/746 here; the three must be re-run with a `pg_dump` 18 or in CI before `local: pass` can be claimed.
+
+## B-015 — [configuration] Execution-control settings still to be set by a human in the real environment
+
+- `exec.ci_log_endpoint`, `exec.ci_log_secret_name` and the read-only CI token (secrets store): without them `baseline_capture` returns `BASELINE_UNAVAILABLE` and Rule 12 needs a human waiver (D-041).
+- `exec.allowed_repo_roots`: seeded only for dev (`npm run seed`); set the real read-only roots per project.
+- The API process must run as the user that owns the repository; `safe.directory` is deliberately ignored (global git config is disabled).
+- Until these are set, `baseline_capture`, `journal_start`, `review_task` and file-backed facts are verified only against fixtures (`scripts/exec-e2e.ts`).
+
+## B-016 — [process] Ledger tools were unavailable in the fixing session
+
+- Work proceeded outside the ledger on explicit human authorization (AGENTS.md "Blocked"). No ledger state was faked. Commits carry no `Ledger-Task:` trailer, so the `ledger-gate` CI job is expected to fail until a human adds an exempt/ledger trailer.
+- Also open: `docs/EXECUTION_CONTROL_PLAN.md` §9.5 still describes the CLI with `FORGEPM_API_KEY` (it now logs in with `FORGEPM_EMAIL`/`FORGEPM_PASSWORD`); unverified items: AGENTS.md size (87 lines vs ~80), editing `exec.policy` without a code change, and file-backed fact verification against a real repository mount.
