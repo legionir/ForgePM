@@ -23,6 +23,7 @@ import { allocateNumber, ensureWorkflow } from '../work-items/states';
 import { insertWorkItem } from '../work-items/items-repository';
 import { gateAgentOperation } from '../work-items/service';
 import { auditIn, ledgerActor, parseTool, projectForTask, projectRefSchema, resolveProject } from './context';
+import { resolveWorkItemLinks } from './catalog-tools';
 
 /**
  * The service behind PE-2's five ledger tools (plan §7). Thin on purpose: every ledger
@@ -84,9 +85,10 @@ export async function startTask(db: Db, actor: Actor, raw: unknown): Promise<Tas
   }
   const projectId = await resolveProject(db, actor, parsed.value.projectRef, 'project:write');
   await assertRequirementsAssigned(db, { organizationId: actor.organizationId, projectId }, parsed.value.reqIds);
+  const links = await resolveWorkItemLinks(db, projectId, { featureRef: parsed.value.featureRef, milestoneRef: parsed.value.milestoneRef });
   const gate = await gateAgentOperation(db, actor, projectId, 'work_item.create', {
-    item_type: 'task',
-    priority: 'none',
+    item_type: parsed.value.type ?? 'task',
+    priority: parsed.value.priority ?? 'none',
   });
   if (gate) return { ...gate };
 
@@ -128,7 +130,10 @@ export async function startTask(db: Db, actor: Actor, raw: unknown): Promise<Tas
         {
           organization_id: actor.organizationId,
           project_id: projectId,
-          type: 'task',
+          type: parsed.value.type ?? 'task',
+          priority: parsed.value.priority ?? 'none',
+          feature_id: links.feature_id,
+          milestone_id: links.milestone_id,
           title: parsed.value.title,
           description: parsed.value.description,
           state_id: first.id,

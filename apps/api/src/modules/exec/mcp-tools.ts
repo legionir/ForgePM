@@ -54,6 +54,16 @@ import {
 import { sessionStartTool, sessionStartToolSchema } from './session-tools';
 import { ledgerProjectsTool, projectsToolSchema } from './project-tools';
 import {
+  featureCreateToolSchema,
+  featuresToolSchema,
+  ledgerFeatureCreateTool,
+  ledgerFeaturesTool,
+  ledgerMilestoneCreateTool,
+  ledgerMilestonesTool,
+  milestoneCreateToolSchema,
+  milestonesToolSchema,
+} from './catalog-tools';
+import {
   execLedgerReconcileTool,
   execLedgerReconcileToolSchema,
   journalDoneTool,
@@ -98,7 +108,7 @@ export function buildExecTools(db: Db): Tool[] {
     {
       name: 'exec_task_start',
       description:
-        'Start a ledger task: creates the work item, the exec_tasks row and one exec_criteria row per acceptance criterion in ONE transaction, plus the audit row and the ledger event. Criteria are refused unless they are checkable (an observable outcome plus a reference such as test:NAME, file:path, commit:sha or cmd:…). allowed_paths is required because the scope of a task must be knowable from its start, not from its diff.',
+        'Start a ledger task: creates the work item (optionally with type, priority, milestone_ref and feature_ref; defaults are task, none and no links), the exec_tasks row and one exec_criteria row per acceptance criterion in ONE transaction, plus the audit row and the ledger event. Criteria are refused unless they are checkable (an observable outcome plus a reference such as test:NAME, file:path, commit:sha or cmd:…). allowed_paths is required because the scope of a task must be knowable from its start, not from its diff.',
       inputSchema: taskStartInputSchema,
       scopes: WRITE_SCOPES,
       annotations: { destructiveHint: false, idempotentHint: true },
@@ -124,6 +134,42 @@ export function buildExecTools(db: Db): Tool[] {
       annotations: { readOnlyHint: true },
       module: 'exec',
       handler: (args, ctx) => ledgerProjectsTool(db, actorOf(ctx), args),
+    },
+    {
+      name: 'ledger_features',
+      description: 'List the features of the project (id, key, title, lifecycle status, milestone). Use a key as feature_ref in exec_task_start and task_split. Read-only.',
+      inputSchema: featuresToolSchema,
+      scopes: READ_SCOPES,
+      annotations: { readOnlyHint: true },
+      module: 'exec',
+      handler: (args, ctx) => ledgerFeaturesTool(db, actorOf(ctx), args),
+    },
+    {
+      name: 'ledger_milestones',
+      description: 'List the milestones of the project (id, name, status, target date). Use a name or id as milestone_ref in exec_task_start and task_split. Read-only.',
+      inputSchema: milestonesToolSchema,
+      scopes: READ_SCOPES,
+      annotations: { readOnlyHint: true },
+      module: 'exec',
+      handler: (args, ctx) => ledgerMilestonesTool(db, actorOf(ctx), args),
+    },
+    {
+      name: 'ledger_feature_create',
+      description: 'Create a feature in the project so tasks can be grouped under it (check ledger_features first; a duplicate key is refused). Audited like the panel.',
+      inputSchema: featureCreateToolSchema,
+      scopes: WRITE_SCOPES,
+      annotations: { destructiveHint: false },
+      module: 'exec',
+      handler: (args, ctx) => ledgerFeatureCreateTool(db, actorOf(ctx), args),
+    },
+    {
+      name: 'ledger_milestone_create',
+      description: 'Create a milestone in the project (check ledger_milestones first; a duplicate name is refused). Audited like the panel.',
+      inputSchema: milestoneCreateToolSchema,
+      scopes: WRITE_SCOPES,
+      annotations: { destructiveHint: false },
+      module: 'exec',
+      handler: (args, ctx) => ledgerMilestoneCreateTool(db, actorOf(ctx), args),
     },
     {
       name: 'journal_start',

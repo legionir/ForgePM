@@ -23,6 +23,29 @@ const CODE = /^[A-Z]{1,3}-\d{1,4}$/;
 export const ledgerCodeSchema = z.string().regex(CODE, 'expected a ledger code such as T-001, OI-014, D-007');
 export const idOrCodeSchema = z.string().min(3).max(64);
 
+/**
+ * Work item fields an agent may set when it starts a task. The state is not one of them: the ledger
+ * owns it (a new task starts in the project's first state and the ledger moves it).
+ */
+const WORK_ITEM_TYPE_VALUES = ['task', 'bug', 'feature_task', 'improvement', 'refactor', 'research', 'chore'] as const;
+const WORK_ITEM_PRIORITY_VALUES = ['none', 'low', 'medium', 'high', 'urgent'] as const;
+export const taskWorkItemFields = {
+  type: z.enum(WORK_ITEM_TYPE_VALUES).optional().describe('Work item type (default task): task, bug, feature_task, improvement, refactor, research or chore.'),
+  priority: z.enum(WORK_ITEM_PRIORITY_VALUES).optional().describe('Priority (default none): none, low, medium, high or urgent.'),
+  milestone_ref: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Milestone id or exact unique milestone name in this project. ledger_milestones lists them; ledger_milestone_create makes one.'),
+  feature_ref: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Feature key (any letter case), feature id or exact unique feature title in this project. ledger_features lists them; ledger_feature_create makes one.'),
+};
+
 /** Ledger refs as the agent sees them in tools/list: what the value is and where to get one. */
 export const taskRefSchema = idOrCodeSchema.describe('Ledger task code such as T-004 (or its id). Create one with exec_task_start; list them with exec_ledger_status without task_ref.');
 export const criterionRefSchema = idOrCodeSchema.describe('Acceptance criterion code such as C-12 (or its id), shown by exec_ledger_status.');
@@ -325,6 +348,7 @@ export const taskStartInputSchema = z.strictObject({
    *  *verified criterion* linked to the requirement (see D-049). */
   req_ids: z.array(z.string().min(3).max(64)).max(100).default([]),
   allowed_paths: z.array(z.string().min(1).max(200)).min(1).max(200).describe('Paths or globs the task may change, for example apps/web/src/** . Anything outside is a scope deviation.'),
+  ...taskWorkItemFields,
   project_ref: z
     .string()
     .min(1)
@@ -600,6 +624,7 @@ const taskSplitChildSchema = z.strictObject({
   req_ids: z.array(idOrCodeSchema).max(100).default([]),
   allowed_paths: z.array(z.string().min(1).max(200)).min(1).max(200),
   depends_on: z.array(z.string().min(1).max(64)).max(50).default([]),
+  ...taskWorkItemFields,
 });
 
 export const taskSplitInputSchema = z.strictObject({

@@ -28,6 +28,11 @@ export interface TaskStartValue {
   allowedPaths: string[];
   idempotencyKey?: string;
   projectRef?: string;
+  /** Work item fields; the API resolves the refs and applies them to the work item. */
+  type?: TaskStartInput['type'];
+  priority?: TaskStartInput['priority'];
+  milestoneRef?: string;
+  featureRef?: string;
 }
 
 export interface TaskCreatedRow {
@@ -85,6 +90,10 @@ export function parseTaskStart(raw: unknown): ParseResult<TaskStartValue> {
       allowedPaths: [...v.allowed_paths],
       ...(v.idempotency_key ? { idempotencyKey: v.idempotency_key } : {}),
       ...(v.project_ref ? { projectRef: v.project_ref } : {}),
+      ...(v.type ? { type: v.type } : {}),
+      ...(v.priority ? { priority: v.priority } : {}),
+      ...(v.milestone_ref ? { milestoneRef: v.milestone_ref } : {}),
+      ...(v.feature_ref ? { featureRef: v.feature_ref } : {}),
     },
   };
 }
