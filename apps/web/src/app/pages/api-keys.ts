@@ -60,7 +60,12 @@ const KEY_STATUS = {
           >{{ i18n.instant('common.name') }}<input name="name" [(ngModel)]="name" required data-testid="apikey-name"
         /></label>
         <fieldset class="ui-scopes" data-testid="apikey-scopes">
-          <legend>{{ i18n.instant('api_keys.scopes') }}</legend>
+          <legend>
+            {{ i18n.instant('api_keys.scopes') }}
+            <button type="button" ui-button variant="ghost" size="sm" (click)="useMcpPreset()" data-testid="apikey-mcp-preset">
+              <ui-icon name="plug" [size]="14" /> {{ i18n.instant('api_keys.mcp_preset') }}
+            </button>
+          </legend>
           @for (s of scopeChoices; track s) {
             <label class="ui-scope-choice">
               <input type="checkbox" [name]="'scope-' + s" [checked]="isTicked(s)" (change)="toggleScope(s)" [attr.data-testid]="'apikey-scope-' + s" />
@@ -80,6 +85,24 @@ const KEY_STATUS = {
       @if (rawKey()) {
         <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
       }
+      </section>
+
+      <section class="ui-card" data-testid="mcp-card">
+        <header class="ui-card-head">
+          <h2><ui-icon name="plug" [size]="18" [inline]="false" /> {{ i18n.instant('api_keys.mcp_title') }}</h2>
+        </header>
+        <p class="ui-hint">{{ i18n.instant('api_keys.mcp_hint') }}</p>
+        @for (sample of samples(); track sample.id) {
+          <div class="ui-code-block" [attr.data-testid]="'mcp-sample-' + sample.id">
+            <div class="ui-code-head">
+              <strong>{{ sample.title }}</strong>
+              <button type="button" ui-button variant="ghost" size="sm" (click)="copy(sample.text)" [attr.data-testid]="'mcp-copy-' + sample.id">
+                <ui-icon name="check-square" [size]="14" /> {{ i18n.instant('common.copy') }}
+              </button>
+            </div>
+            <pre><code [attr.data-testid]="'mcp-code-' + sample.id">{{ sample.text }}</code></pre>
+          </div>
+        }
       </section>
 
       <section class="ui-card">
@@ -144,6 +167,21 @@ export class ApiKeysPage implements OnInit {
   readonly scopeChoices = KEY_SCOPES;
   name = '';
 
+  /** Where an MCP client reaches ForgePM: the panel origin proxies /mcp to the API. */
+  readonly mcpUrl = `${window.location.origin}/mcp`;
+
+  /** Connection samples; they carry the raw key only for the moment right after it was created. */
+  readonly samples = computed(() => {
+    const key = this.rawKey() || 'fpm_REPLACE_WITH_SECRET';
+    const url = this.mcpUrl;
+    const json = JSON.stringify({ mcpServers: { forgepm: { type: 'http', url, headers: { Authorization: `Bearer ${key}` } } } }, null, 2);
+    return [
+      { id: 'cli', title: this.i18n.instant('api_keys.mcp_cli'), text: `claude mcp add --transport http forgepm ${url} --header "Authorization: Bearer ${key}"` },
+      { id: 'json', title: this.i18n.instant('api_keys.mcp_json'), text: json },
+      { id: 'smoke', title: this.i18n.instant('api_keys.mcp_smoke'), text: `FORGEPM_URL=${window.location.origin} FORGEPM_API_KEY=${key} npm run mcp:smoke` },
+    ];
+  });
+
   readonly visible = computed(() => (this.showRevoked() ? this.keys() : this.keys().filter((k) => keyStatus(k) !== 'revoked')));
 
   readonly keyOf = (k: ApiKeyDto): string => k.id;
@@ -155,6 +193,20 @@ export class ApiKeysPage implements OnInit {
 
   isTicked(scope: string): boolean {
     return this.scopes().includes(scope);
+  }
+
+  /** The two scopes an execution-ledger agent needs; ledger:decide stays human-only. */
+  useMcpPreset(): void {
+    this.scopes.set(['ledger:read', 'ledger:write']);
+  }
+
+  async copy(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+      this.toast.ok(this.i18n.instant('api_keys.copied'));
+    } catch {
+      this.toast.error(this.i18n.instant('api_keys.copy_failed'));
+    }
   }
 
   toggleScope(scope: string): void {

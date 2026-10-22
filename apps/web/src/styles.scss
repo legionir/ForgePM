@@ -3325,3 +3325,27 @@ ul.ui-list--actions li > :first-child {
   color: var(--color-muted);
   font-size: var(--font-size-caption);
 }
+
+/* Copy-ready code samples */
+.ui-code-block {
+  display: grid;
+  gap: var(--space-1);
+  margin-block-start: var(--space-3);
+}
+
+.ui-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ui-code-block pre {
+  margin: 0;
+  padding: var(--space-3);
+  overflow-x: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-caption);
+}

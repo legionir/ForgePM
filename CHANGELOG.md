@@ -5,6 +5,9 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- fix(api): keyset pagination (jobs, audit, MCP calls, users, projects, work items) no longer skips rows that share a cursor millisecond — the cursor now keeps microsecond precision; ISO cursors from before still work.
+- feat(web): the API keys page shows copy-ready MCP connection samples (Claude Code command, `.mcp.json`, smoke test) and an "MCP agent scopes" preset.
+
 - feat(web): API keys page — several scopes per key (checkboxes, no `ledger:decide`), Active/Revoked/Expired badges, revoked keys hidden behind a switch, revoke asks for confirmation. Revoke itself always worked (it sets `revoked_at`); the list just did not show it.
 - feat(web): saved acceptance criteria are shown on each feature row and can be ticked.
 

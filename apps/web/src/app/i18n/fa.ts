@@ -363,4 +363,13 @@ export const FA: Record<string, string> = {
   'api_keys.revoke_title': 'این کلید باطل شود؟',
   'api_keys.revoke_confirm': '{name} ({prefix}…) فوراً از کار می‌افتد و بازگردانی نمی‌شود. اگر دوباره لازم شد، کلید جدید بسازید.',
   'api_keys.revoked_done': 'کلید {name} باطل شد.',
+  'api_keys.mcp_title': 'اتصال کلاینت MCP',
+  'api_keys.mcp_hint': 'بالا یک کلید بسازید (برای عامل اجرایی LedgerRead و LedgerWrite را تیک بزنید) و یکی از این نمونه‌ها را در کلاینت MCP بگذارید. کلید فقط بلافاصله بعد از ساخت اینجا دیده می‌شود.',
+  'api_keys.mcp_cli': 'Claude Code',
+  'api_keys.mcp_json': 'پیکربندی MCP (.mcp.json)',
+  'api_keys.mcp_smoke': 'تست سریع اتصال',
+  'api_keys.mcp_preset': 'دسترسی‌های عامل MCP',
+  'api_keys.copied': 'کپی شد.',
+  'api_keys.copy_failed': 'کپی نشد؛ متن را انتخاب و دستی کپی کنید.',
+  'common.copy': 'کپی',
 };

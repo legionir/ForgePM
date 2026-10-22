@@ -363,4 +363,13 @@ export const EN: Record<string, string> = {
   'api_keys.revoke_title': 'Revoke this key?',
   'api_keys.revoke_confirm': '{name} ({prefix}…) stops working immediately and cannot be restored. Create a new key if it is needed again.',
   'api_keys.revoked_done': 'Key {name} revoked.',
+  'api_keys.mcp_title': 'Connect an MCP client',
+  'api_keys.mcp_hint': 'Create a key above (tick LedgerRead and LedgerWrite for an execution agent), then paste one of these into your MCP client. The key shows here only right after it is created.',
+  'api_keys.mcp_cli': 'Claude Code',
+  'api_keys.mcp_json': 'MCP config (.mcp.json)',
+  'api_keys.mcp_smoke': 'Smoke test',
+  'api_keys.mcp_preset': 'MCP agent scopes',
+  'api_keys.copied': 'Copied.',
+  'api_keys.copy_failed': 'Could not copy; select the text and copy it by hand.',
+  'common.copy': 'Copy',
 };

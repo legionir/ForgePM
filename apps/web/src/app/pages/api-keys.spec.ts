@@ -143,4 +143,48 @@ describe('ApiKeysPage', () => {
     expect(chips).toContain('LedgerWrite');
     expect(chips).toContain('Write');
   });
+
+  it('mcp samples: the CLI command, the JSON config and the smoke test use the panel origin plus /mcp', async () => {
+    const { el } = await mount();
+    const url = `${window.location.origin}/mcp`;
+    const cli = q(el, 'mcp-code-cli').textContent ?? '';
+    expect(cli).toContain('claude mcp add --transport http forgepm ' + url);
+    expect(cli).toContain('Bearer fpm_REPLACE_WITH_SECRET');
+    const json = JSON.parse(q(el, 'mcp-code-json').textContent ?? '{}');
+    expect(json.mcpServers.forgepm).toEqual({ type: 'http', url, headers: { Authorization: 'Bearer fpm_REPLACE_WITH_SECRET' } });
+    expect(q(el, 'mcp-code-smoke').textContent).toContain('npm run mcp:smoke');
+  });
+
+  it('mcp samples use raw key: right after creating a key the samples carry it, and a reload does not', async () => {
+    const { f, el } = await mount();
+    type(q<HTMLInputElement>(el, 'apikey-name'), 'mcp');
+    q<HTMLButtonElement>(el, 'apikey-mcp-preset').click();
+    await settle(f);
+    q<HTMLButtonElement>(el, 'apikey-create').click();
+    await settle(f);
+    expect(q(el, 'mcp-code-cli').textContent).toContain('Bearer fpm_raw_once');
+    expect(JSON.parse(q(el, 'mcp-code-json').textContent ?? '{}').mcpServers.forgepm.headers.Authorization).toBe('Bearer fpm_raw_once');
+    expect(q(el, 'mcp-code-cli').textContent).not.toContain('REPLACE_WITH_SECRET');
+  });
+
+  it('copy sample: each copy button writes its text to the clipboard and toasts', async () => {
+    const written: string[] = [];
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t: string) => void written.push(t) }, configurable: true });
+    const { f, el } = await mount();
+    q<HTMLButtonElement>(el, 'mcp-copy-cli').click();
+    q<HTMLButtonElement>(el, 'mcp-copy-json').click();
+    await settle(f);
+    expect(written.length).toBe(2);
+    expect(written[0]).toBe(q(el, 'mcp-code-cli').textContent);
+    expect(written[1]).toBe(q(el, 'mcp-code-json').textContent);
+    expect(TestBed.inject(UiToastService).toasts().filter((t) => t.kind === 'ok').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('mcp preset: ticks exactly ledger:read and ledger:write', async () => {
+    const { f, el } = await mount();
+    q<HTMLButtonElement>(el, 'apikey-mcp-preset').click();
+    await settle(f);
+    const ticked = Array.from(el.querySelectorAll<HTMLInputElement>('[data-testid="apikey-scopes"] input:checked')).map((i) => i.getAttribute('data-testid'));
+    expect(ticked).toEqual(['apikey-scope-ledger:read', 'apikey-scope-ledger:write']);
+  });
 });
