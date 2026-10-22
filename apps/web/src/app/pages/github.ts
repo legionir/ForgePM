@@ -46,12 +46,6 @@ interface StatusDto {
         <label>{{ i18n.instant('github.webhook_secret') }}<input name="ws" [(ngModel)]="webhookSecret" data-testid="gh-webhook-secret" /></label>
         <button type="submit" ui-button variant="primary" [disabled]="busy()" data-testid="gh-save">{{ i18n.instant('github.save') }}</button>
       </form>
-      @if (status(); as s) {
-        <p data-testid="gh-status">
-          {{ i18n.instant('github.status') }}: app={{ s.app_id_set }} key={{ s.private_key_set }} hook={{
-          s.webhook_secret_set }} enabled={{ s.enabled }}
-        </p>
-      }
       </section>
 
       @if (status()?.enabled) {

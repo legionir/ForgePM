@@ -131,7 +131,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await page.getByTestId('gh-webhook-secret').fill('whsec_e2e');
   await page.getByTestId('gh-save').click();
   await expect(page.getByTestId('gh-msg')).toContainText('github.app_id');
-  await page.getByTestId('nav-system').click();
+  await page.getByTestId('nav-settings').click();
   await page.getByTestId('module-row').filter({ hasText: 'github' }).getByTestId('module-toggle').click();
 
   // connect a repo through the manual PR path (same core the webhook feeds).
@@ -154,8 +154,8 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await expect(page.getByTestId('gh-repo-row')).toContainText('e2e/repo');
 
   // 9) Code review with the fake provider: enable module → run → completed run
-  await page.getByTestId('nav-system').click();
-  await page.getByTestId('module-row').filter({ hasText: 'code_review' }).getByTestId('module-toggle').click();
+  await page.getByTestId('nav-settings').click();
+  await page.getByTestId('module-row').filter({ hasText: 'CodeReview' }).getByTestId('module-toggle').click();
   await page.getByTestId('nav-reviews').click();
   await expect(page.getByTestId('review-run-form')).toBeVisible();
   await expect(page.getByTestId('review-repo')).toContainText('e2e/repo');
@@ -175,7 +175,7 @@ test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
     ['/features', 'features'],
     ['/planner', 'planner'],
     ['/api-keys', 'api-keys'],
-    ['/system', 'system'],
+    ['/settings', 'settings'],
   ] as const) {
     await page.goto(path);
     await expect(page.getByTestId(testid)).toBeVisible();
@@ -187,11 +187,12 @@ test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
   }
 
   // Persian + RTL: toggle flips the document and the nav is translated.
-  await page.getByTestId('lang-toggle').click();
+  await page.goto('/settings');
+  await page.getByTestId('lang-select').selectOption('fa');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'fa');
   await expect(page.getByTestId('nav-projects')).toContainText('پروژه‌ها');
-  await page.getByTestId('lang-toggle').click();
+  await page.getByTestId('lang-select').selectOption('en');
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
   // §11: no horizontal overflow at 360 and 1280 px on the major pages.
@@ -201,7 +202,7 @@ test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
       ['/projects', 'projects'],
       ['/work-items', 'work-items'],
       ['/features', 'features'],
-      ['/system', 'system'],
+      ['/settings', 'settings'],
     ] as const) {
       await page.goto(path);
       await expect(page.getByTestId(testid)).toBeVisible();

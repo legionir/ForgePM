@@ -28,7 +28,7 @@ const PAGES: [string, string][] = [
   ['/projects', 'projects'],
   ['/work-items', 'work-items'],
   ['/approvals', 'approvals'],
-  ['/system', 'system'],
+  ['/settings', 'settings'],
   ['/design-system', 'design-system'],
 ];
 

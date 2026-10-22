@@ -17,7 +17,8 @@ interface Calls { patch: unknown[][]; post: unknown[][] }
 async function mount(over: { patch?: ApiClient['patch'] } = {}) {
   const calls: Calls = { patch: [], post: [] };
   const api: Partial<ApiClient> = {
-    get: async <T = unknown>(): Promise<T> => ({ items: [ACTIVE, ARCHIVED] }) as T,
+    get: async <T = unknown>(url?: string): Promise<T> =>
+      (url?.endsWith('/system/health') ? { database: 'ok', redis: 'down', modules: [] } : { items: [ACTIVE, ARCHIVED] }) as T,
     post: async <T = unknown>(...a: unknown[]): Promise<T> => (calls.post.push(a), {} as T),
     patch: over.patch ?? (async <T = unknown>(...a: unknown[]): Promise<T> => (calls.patch.push(a), {} as T)),
   };
@@ -79,6 +80,14 @@ describe('ProjectsPage', () => {
     f.detectChanges();
     expect(TestBed.inject(UiToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['error', 'boom']]);
     expect(q(el, 'project-edit-form')).not.toBeNull();
+  });
+
+  it('health cards on projects: database and redis cards show their status', async () => {
+    const { el } = await mount();
+    expect(q(el, 'sys-db').classList.contains('ui-health--ok')).toBe(true);
+    expect(q(el, 'sys-redis').classList.contains('ui-health--down')).toBe(true);
+    expect(q(el, 'sys-redis').textContent).toContain('Redis');
+    expect(q(el, 'sys-redis').textContent).toContain('Down');
   });
 
   it('restore archived: the Restore button calls the unarchive endpoint', async () => {

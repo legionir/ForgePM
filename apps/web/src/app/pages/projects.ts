@@ -11,6 +11,7 @@ import { UiToastService } from '../ui/toast';
 import { UiBadge } from '../ui/badge';
 import { UiIcon } from '../ui/icon';
 import { UiLoading } from '../ui/loading';
+import { HealthCards } from './health-cards';
 
 /**
  * Projects — step 1 of the workflow. Create a project (or open an existing
@@ -20,9 +21,10 @@ import { UiLoading } from '../ui/loading';
 @Component({
   selector: 'page-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiField, UiControl, UiPage, UiBadge, UiIcon, UiLoading],
+  imports: [FormsModule, UiButton, UiField, UiControl, UiPage, UiBadge, UiIcon, UiLoading, HealthCards],
   template: `
     <ui-page data-testid="projects" [title]="i18n.instant('projects.title')">
+      <health-cards />
       @if (!ctx.hasProject() && !ctx.loading()) {
         <section class="ui-hero" data-testid="projects-onboarding">
           <h2>{{ i18n.instant('projects.hero_title') }}</h2>
