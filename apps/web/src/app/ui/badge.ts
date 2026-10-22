@@ -11,8 +11,8 @@ export type UiBadgeSize = 'sm' | 'md';
  *
  * Plain use projects its content (counts, labels). With `status` set the badge
  * resolves its own variant and icon from the value and shows the label in
- * CamelCase (`in_progress` → `InProgress`); `label` overrides the shown text and
- * `variant`/`icon` still win when given explicitly.
+ * CamelCase (`in_progress` → `InProgress`). `label` alone shows a CamelCase label with no status
+ * meaning; `label` with `status` overrides the shown text. `variant`/`icon` still win when given.
  */
 @Component({
   selector: 'ui-badge',
@@ -22,7 +22,7 @@ export type UiBadgeSize = 'sm' | 'md';
     @if (iconName()) {
       <ui-icon [name]="iconName()" [size]="12" [inline]="false" />
     }
-    @if (status()) {
+    @if (status() || label()) {
       <span class="ui-badge-text">{{ text() }}</span>
     } @else {
       <ng-content />

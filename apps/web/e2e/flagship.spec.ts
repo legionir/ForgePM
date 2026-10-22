@@ -25,6 +25,7 @@ test('setup → project → api key → logout → login', async ({ page }) => {
 
   // 2) land on Projects, create one
   await expect(page.getByTestId('projects')).toBeVisible();
+  await page.getByTestId('project-new-open').click();
   await page.getByTestId('project-key').fill('EPRJ');
   await page.getByTestId('project-name').fill('E2E Project');
   await page.getByTestId('project-create').click();

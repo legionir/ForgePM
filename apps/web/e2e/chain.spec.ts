@@ -32,6 +32,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
 
   // 2) create a project
   await expect(page.getByTestId('projects')).toBeVisible();
+  await page.getByTestId('project-new-open').click();
   await page.getByTestId('project-key').fill('EPRJ');
   await page.getByTestId('project-name').fill('E2E Project');
   await page.getByTestId('project-create').click();
@@ -40,15 +41,17 @@ test('§11 full chain: setup → project → items → board → plan → key �
   // 3) feature + five work items
   await page.getByTestId('nav-features').click();
   await expect(page.getByTestId('features')).toBeVisible();
+  await page.getByTestId('feature-new-open').click();
   await page.getByTestId('feature-key').fill('FEAT');
   await page.getByTestId('feature-title').fill('Login flow');
   await page.getByTestId('feature-ac').fill('user can sign in');
-  await page.getByTestId('feature-new').getByRole('button').click();
+  await page.getByTestId('feature-create').click();
   await expect(page.getByTestId('feature-row')).toHaveCount(1);
 
   await page.getByTestId('nav-work-items').click();
   await expect(page.getByTestId('work-items')).toBeVisible();
   for (let i = 1; i <= 5; i++) {
+    await page.getByTestId('wi-new-open').click();
     await page.getByTestId('wi-title').fill(`Item ${i}`);
     await page.getByTestId('wi-create').click();
     await expect(page.getByTestId('wi-list').getByTestId('wi-link')).toHaveCount(i);
@@ -74,6 +77,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
 
   // 5) fake AI provider + plan: create → generate → approve → apply (separate)
   await page.getByTestId('nav-ai-providers').click();
+  await page.getByTestId('provider-new-open').click();
   await page.getByTestId('provider-name').fill('fake-e2e');
   await page.getByTestId('provider-kind').selectOption('fake');
   await page.getByTestId('provider-create').click();

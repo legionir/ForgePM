@@ -346,4 +346,10 @@ export const FA: Record<string, string> = {
   'settings.search_placeholder': 'فیلتر تنظیمات بر اساس کلید، منبع یا مقدار',
   'github.configured': 'پیکربندی‌شده',
   'github.missing': 'تنظیم‌نشده',
+  'features.no_milestone': 'بدون نقطه‌عطف',
+  'features.ac_add': 'افزودن معیار',
+  'work_items.no_feature': 'بدون ویژگی',
+  'ai_providers.new': 'ارائه‌دهندهٔ جدید',
+  'projects.active': 'فعال',
+  'projects.no_description': 'هنوز توضیحی ثبت نشده است.',
 };

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { ApiClient } from '../api';
@@ -11,20 +11,25 @@ import { UiToastService } from '../ui/toast';
 import { UiBadge } from '../ui/badge';
 import { UiIcon } from '../ui/icon';
 import { UiLoading } from '../ui/loading';
+import { UiModal } from '../ui/modal';
+import { CamelPipe } from '../ui/camel';
 import { HealthCards } from './health-cards';
 
 /**
- * Projects — step 1 of the workflow. Create a project (or open an existing
- * one) to unlock the project sections of the panel. Cards show the active
- * project, archived ones are tucked away; archive keeps its undo toast.
+ * Projects — step 1 of the workflow. Create a project (modal) or open an
+ * existing one to unlock the project sections of the panel. Cards are large
+ * portrait tiles (image on top, details and actions below); the active
+ * project has its own border colour and an "Active" label on its image.
+ * Archived projects are tucked away and can be restored.
  */
 @Component({
   selector: 'page-projects',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiField, UiControl, UiPage, UiBadge, UiIcon, UiLoading, HealthCards],
+  imports: [FormsModule, UiButton, UiField, UiControl, UiPage, UiBadge, UiIcon, UiLoading, UiModal, CamelPipe, HealthCards],
   template: `
     <ui-page data-testid="projects" [title]="i18n.instant('projects.title')">
       <health-cards />
+
       @if (!ctx.hasProject() && !ctx.loading()) {
         <section class="ui-hero" data-testid="projects-onboarding">
           <h2>{{ i18n.instant('projects.hero_title') }}</h2>
@@ -38,43 +43,47 @@ import { HealthCards } from './health-cards';
         </section>
       }
 
-      <section class="ui-card">
-        <header class="ui-card-head"><h2>{{ i18n.instant('projects.new') }}</h2></header>
-        <form class="ui-new" (ngSubmit)="create()">
-          <ui-field [label]="i18n.instant('common.key')" required [hint]="i18n.instant('projects.key_hint')">
-            <input uiControl #keyInput name="key" [(ngModel)]="key" required maxlength="8" data-testid="project-key" />
-          </ui-field>
-          <ui-field [label]="i18n.instant('common.name')" required>
-            <input uiControl name="name" [(ngModel)]="name" required data-testid="project-name" />
-          </ui-field>
-          <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="project-create">
-            <ui-icon name="plus" [size]="14" /> {{ i18n.instant('common.create') }}
-          </button>
-        </form>
-      </section>
+      <header class="ui-card-head">
+        <div class="ui-card-title">
+          <h2><ui-icon name="folder" [size]="18" [inline]="false" /> {{ i18n.instant('projects.title') }}</h2>
+          <ui-badge size="sm" data-testid="projects-count">{{ active().length }}</ui-badge>
+        </div>
+        <button type="button" ui-button variant="primary" size="sm" (click)="openNew()" data-testid="project-new-open">
+          <ui-icon name="plus" [size]="14" /> {{ i18n.instant('projects.new') }}
+        </button>
+      </header>
 
       @if (ctx.loading() && !ctx.loaded()) {
-        <div class="ui-grid ui-grid--3"><ui-loading kind="card" /><ui-loading kind="card" /></div>
+        <div class="ui-grid ui-grid--3"><ui-loading kind="card" /><ui-loading kind="card" /><ui-loading kind="card" /></div>
       } @else {
-        <div class="ui-grid ui-grid--3" data-testid="projects-list">
+        <div class="ui-grid ui-grid--3 ui-project-grid" data-testid="projects-list">
           @for (p of active(); track p.id) {
             <article class="ui-project-card" [class.current]="p.id === ctx.selectedId()" data-testid="project-card">
-              <header>
-                <span class="ui-project-key" aria-hidden="true">{{ p.key.slice(0, 3) }}</span>
+              <div class="ui-project-image" [style.--hue]="hue(p.key)" data-testid="project-image">
+                <span class="ui-project-initials" aria-hidden="true">{{ p.key.slice(0, 3) }}</span>
+                @if (p.id === ctx.selectedId()) {
+                  <ui-badge class="ui-project-active" variant="success" icon="check-circle" data-testid="project-active">{{ i18n.instant('projects.active') }}</ui-badge>
+                }
+              </div>
+              <div class="ui-project-body">
                 <div class="ui-project-id">
                   <strong class="ui-project-name" data-testid="project-name-text">{{ p.key }} · {{ p.name }}</strong>
-                  @if (p.id === ctx.selectedId()) {
-                    <ui-badge size="sm" variant="info">{{ i18n.instant('projects.current') }}</ui-badge>
-                  }
+                  <ui-badge size="sm" [status]="p.priority ?? 'none'" />
                 </div>
-              </header>
-              <footer>
+                <p class="ui-project-desc">{{ p.description || i18n.instant('projects.no_description') }}</p>
+                @if (p.start_date || p.target_date) {
+                  <p class="ui-project-dates">
+                    <ui-icon name="clock" [size]="12" [inline]="false" /> {{ p.start_date ?? '—' }} → {{ p.target_date ?? '—' }}
+                  </p>
+                }
+              </div>
+              <footer class="ui-project-actions">
                 <button type="button" ui-button variant="primary" size="sm" (click)="open(p)" data-testid="project-open">
                   {{ i18n.instant('projects.open') }}
                   <ui-icon name="chevron-right" [size]="14" />
                 </button>
                 <button type="button" ui-button variant="ghost" size="sm" (click)="startEdit(p)" data-testid="project-edit">
-                  {{ i18n.instant('common.edit') }}
+                  <ui-icon name="edit" [size]="14" /> {{ i18n.instant('common.edit') }}
                 </button>
                 <button type="button" ui-button variant="ghost" size="sm" (click)="archive(p.id)" data-testid="project-archive">
                   <ui-icon name="archive" [size]="14" /> {{ i18n.instant('projects.archive') }}
@@ -85,53 +94,23 @@ import { HealthCards } from './health-cards';
             <div class="ui-empty-card" data-testid="projects-empty">
               <ui-icon name="folder" [size]="28" [inline]="false" />
               <p>{{ i18n.instant('projects.empty') }}</p>
-              <button type="button" ui-button variant="secondary" size="sm" (click)="focusKeyInput()">{{ i18n.instant('projects.create_first') }}</button>
+              <button type="button" ui-button variant="secondary" size="sm" (click)="openNew()">{{ i18n.instant('projects.create_first') }}</button>
             </div>
           }
         </div>
 
-        @if (editing(); as e) {
-          <section class="ui-card" data-testid="project-edit-form">
-            <header class="ui-card-head"><h2>{{ i18n.instant('projects.edit_title') }} · {{ e.key }}</h2></header>
-            <form class="ui-edit-grid" (ngSubmit)="saveEdit()">
-              <ui-field [label]="i18n.instant('common.key')" [hint]="i18n.instant('projects.key_locked')" readOnly>
-                <input uiControl name="edit-key" [value]="e.key" data-testid="edit-key" />
-              </ui-field>
-              <ui-field [label]="i18n.instant('common.name')" required>
-                <input uiControl name="edit-name" [(ngModel)]="form.name" required maxlength="200" data-testid="edit-name" />
-              </ui-field>
-              <ui-field [label]="i18n.instant('projects.priority')">
-                <select uiControl name="edit-priority" [(ngModel)]="form.priority" data-testid="edit-priority">
-                  @for (pr of priorities; track pr) {
-                    <option [value]="pr">{{ i18n.instant(priorityKey[pr]) }}</option>
-                  }
-                </select>
-              </ui-field>
-              <ui-field [label]="i18n.instant('projects.start_date')">
-                <input uiControl type="date" name="edit-start" [(ngModel)]="form.start_date" data-testid="edit-start" />
-              </ui-field>
-              <ui-field [label]="i18n.instant('projects.target_date')">
-                <input uiControl type="date" name="edit-target" [(ngModel)]="form.target_date" data-testid="edit-target" />
-              </ui-field>
-              <ui-field class="ui-edit-wide" [label]="i18n.instant('projects.description')">
-                <textarea uiControl name="edit-description" [(ngModel)]="form.description" rows="4" maxlength="20000" data-testid="edit-description"></textarea>
-              </ui-field>
-              <div class="ui-edit-actions">
-                <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="edit-save">{{ i18n.instant('common.save') }}</button>
-                <button type="button" ui-button variant="ghost" (click)="cancelEdit()" data-testid="edit-cancel">{{ i18n.instant('common.cancel') }}</button>
-              </div>
-            </form>
-          </section>
-        }
-
         @if (archived().length) {
           <details class="ui-archived" data-testid="projects-archived">
-            <summary>{{ i18n.instant('projects.archived') }} ({{ archived().length }})</summary>
+            <summary>
+              <ui-icon name="archive" [size]="14" [inline]="false" /> {{ i18n.instant('projects.archived') }}
+              <ui-badge size="sm">{{ archived().length }}</ui-badge>
+            </summary>
             <ul class="ui-rows">
               @for (p of archived(); track p.id) {
                 <li class="ui-row-item">
                   <span class="ui-row-key">{{ p.key }}</span>
                   <span class="ui-row-title">{{ p.name }}</span>
+                  <ui-badge size="sm" status="archived" />
                   <button type="button" ui-button variant="ghost" size="sm" (click)="undoArchive(p.id)" data-testid="project-restore">{{ i18n.instant('projects.restore') }}</button>
                 </li>
               }
@@ -139,6 +118,56 @@ import { HealthCards } from './health-cards';
           </details>
         }
       }
+
+      <ui-modal [(open)]="newOpen" [title]="i18n.instant('projects.new')" icon="folder">
+        <form class="ui-stack" (ngSubmit)="create()" id="project-form" data-testid="project-new">
+          <ui-field [label]="i18n.instant('common.key')" required [hint]="i18n.instant('projects.key_hint')">
+            <input uiControl name="key" [(ngModel)]="key" required maxlength="8" data-testid="project-key" />
+          </ui-field>
+          <ui-field [label]="i18n.instant('common.name')" required>
+            <input uiControl name="name" [(ngModel)]="name" required data-testid="project-name" />
+          </ui-field>
+        </form>
+        <div uiModalFooter>
+          <button type="button" ui-button variant="ghost" (click)="newOpen.set(false)">{{ i18n.instant('common.cancel') }}</button>
+          <button type="submit" form="project-form" ui-button variant="primary" [loading]="busy()" data-testid="project-create">
+            <ui-icon name="plus" [size]="14" /> {{ i18n.instant('common.create') }}
+          </button>
+        </div>
+      </ui-modal>
+
+      <ui-modal [open]="!!editing()" (openChange)="$event || cancelEdit()" [title]="i18n.instant('projects.edit_title') + (editing() ? ' · ' + editing()!.key : '')" icon="edit">
+        @if (editing(); as e) {
+          <form class="ui-edit-grid" (ngSubmit)="saveEdit()" id="project-edit-form-el" data-testid="project-edit-form">
+            <ui-field [label]="i18n.instant('common.key')" [hint]="i18n.instant('projects.key_locked')" readOnly>
+              <input uiControl name="edit-key" [value]="e.key" data-testid="edit-key" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('common.name')" required>
+              <input uiControl name="edit-name" [(ngModel)]="form.name" required maxlength="200" data-testid="edit-name" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('projects.priority')">
+              <select uiControl name="edit-priority" [(ngModel)]="form.priority" data-testid="edit-priority">
+                @for (pr of priorities; track pr) {
+                  <option [value]="pr">{{ pr | camel }}</option>
+                }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('projects.start_date')">
+              <input uiControl type="date" name="edit-start" [(ngModel)]="form.start_date" data-testid="edit-start" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('projects.target_date')">
+              <input uiControl type="date" name="edit-target" [(ngModel)]="form.target_date" data-testid="edit-target" />
+            </ui-field>
+            <ui-field class="ui-edit-wide" [label]="i18n.instant('projects.description')">
+              <textarea uiControl name="edit-description" [(ngModel)]="form.description" rows="4" maxlength="20000" data-testid="edit-description"></textarea>
+            </ui-field>
+          </form>
+        }
+        <div uiModalFooter>
+          <button type="button" ui-button variant="ghost" (click)="cancelEdit()" data-testid="edit-cancel">{{ i18n.instant('common.cancel') }}</button>
+          <button type="submit" form="project-edit-form-el" ui-button variant="primary" [loading]="busy()" data-testid="edit-save">{{ i18n.instant('common.save') }}</button>
+        </div>
+      </ui-modal>
     </ui-page>
   `,
 })
@@ -150,26 +179,27 @@ export class ProjectsPage implements OnInit {
   private readonly toast = inject(UiToastService);
 
   readonly busy = signal(false);
+  readonly newOpen = signal(false);
   key = '';
   name = '';
   readonly editing = signal<Project | null>(null);
   readonly priorities = ['none', 'low', 'medium', 'high', 'urgent'] as const;
-  readonly priorityKey = {
-    none: 'projects.priority.none',
-    low: 'projects.priority.low',
-    medium: 'projects.priority.medium',
-    high: 'projects.priority.high',
-    urgent: 'projects.priority.urgent',
-  } as const;
   form = { name: '', description: '', priority: 'none' as string, start_date: '', target_date: '' };
 
   readonly active = computed(() => this.ctx.projects().filter((p) => p.status === 'active'));
   readonly archived = computed(() => this.ctx.projects().filter((p) => p.status === 'archived'));
 
-  private readonly keyInput = viewChild<ElementRef<HTMLInputElement>>('keyInput');
+  /** Stable colour per project key for the card image. */
+  hue(key: string): number {
+    let h = 0;
+    for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    return h;
+  }
 
-  focusKeyInput(): void {
-    this.keyInput()?.nativeElement.focus();
+  openNew(): void {
+    this.key = '';
+    this.name = '';
+    this.newOpen.set(true);
   }
 
   async ngOnInit(): Promise<void> {
@@ -187,6 +217,7 @@ export class ProjectsPage implements OnInit {
       const created = await this.api.post<Project | undefined>('/api/v1/projects', { key: this.key.toUpperCase(), name: this.name });
       this.key = '';
       this.name = '';
+      this.newOpen.set(false);
       this.toast.ok(this.i18n.instant('projects.created'));
       await this.ctx.load();
       // First project unlocks the workspace: select it right away.

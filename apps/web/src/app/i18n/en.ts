@@ -346,4 +346,10 @@ export const EN: Record<string, string> = {
   'settings.search_placeholder': 'Filter settings by key, source or value',
   'github.configured': 'Configured',
   'github.missing': 'Missing',
+  'features.no_milestone': 'No milestone',
+  'features.ac_add': 'Add criterion',
+  'work_items.no_feature': 'No feature',
+  'ai_providers.new': 'New provider',
+  'projects.active': 'Active',
+  'projects.no_description': 'No description yet.',
 };
