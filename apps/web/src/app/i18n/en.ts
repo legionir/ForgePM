@@ -372,4 +372,11 @@ export const EN: Record<string, string> = {
   'api_keys.copied': 'Copied.',
   'api_keys.copy_failed': 'Could not copy; select the text and copy it by hand.',
   'common.copy': 'Copy',
+  'exec.pick': 'Choose…',
+  'exec.paths': 'Paths',
+  'exec.paths_hint': 'Comma separated paths or globs to add to the task scope.',
+  'exec.fact_code': 'Fact code',
+  'exec.fact_source': 'Source',
+  'exec.fact_source_ref': 'Source reference',
+  'exec.min_chars': '{n}/{min} characters',
 };

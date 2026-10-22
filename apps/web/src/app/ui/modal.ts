@@ -22,6 +22,7 @@ let seq = 0;
       <div
         #dialog
         class="ui-modal"
+        [class.ui-modal--lg]="size() === 'lg'"
         role="dialog"
         aria-modal="true"
         tabindex="-1"
@@ -52,6 +53,8 @@ export class UiModal {
   readonly open = model(false);
   readonly title = input('');
   readonly icon = input('');
+  /** `lg` for detail views with long content (about 60rem); forms stay `md`. */
+  readonly size = input<'md' | 'lg'>('md');
   readonly closed = output<void>();
 
   readonly titleId = `fpm-modal-${++seq}`;

@@ -372,4 +372,11 @@ export const FA: Record<string, string> = {
   'api_keys.copied': 'کپی شد.',
   'api_keys.copy_failed': 'کپی نشد؛ متن را انتخاب و دستی کپی کنید.',
   'common.copy': 'کپی',
+  'exec.pick': 'انتخاب کنید…',
+  'exec.paths': 'مسیرها',
+  'exec.paths_hint': 'مسیرها یا الگوهای جداشده با ویرگول برای افزودن به دامنه‌ی تسک.',
+  'exec.fact_code': 'کد fact',
+  'exec.fact_source': 'منبع',
+  'exec.fact_source_ref': 'مرجع منبع',
+  'exec.min_chars': '{n}/{min} نویسه',
 };

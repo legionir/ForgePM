@@ -5,6 +5,8 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- fix(web): Execution tasks details open in a modal driven by the route, so closing and opening another task works; the raw JSON previews are gone; resolve status and fact source are selects, the code fields list the task's own open items, questions, decisions, criteria and requirements, and reasons show the API minimum.
+
 - feat(mcp): `exec_task_start` and `task_split` accept `type`, `priority`, `milestone_ref` and `feature_ref` (refs by key, id or unique name, with choices listed on a miss); new tools `ledger_features`, `ledger_milestones`, `ledger_feature_create` and `ledger_milestone_create` so a ledger-only key can plan work properly. The approval gate now sees the real type and priority.
 
 - fix(exec): `req_add` no longer fails with `internal error` when a second project in the organisation adds its first requirement — requirement codes are now numbered per organisation (they are unique per organisation).
