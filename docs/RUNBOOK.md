@@ -1,5 +1,15 @@
 # Runbook
 
+## Start the stack with `forgepm`
+
+Once, from the repository root: `npm run build && npm run build --prefix apps/web` and `npm link` (undo with
+`npm unlink -g forgepm`). Afterwards `forgepm` in any terminal runs the **built** stack — API (`:3001`) and worker
+from `dist/`, the panel's static build on `:4200` with `/api/`, `/health/` and `/mcp` proxied to the API — with no
+build step and no file watchers. `forgepm --build` rebuilds everything first. `npm start` / `npm run dev` remain
+the watch-mode developer stack (`--dev`). `FORGEPM_PANEL_PORT` overrides the panel port. It needs PostgreSQL
+reachable at `DATABASE_URL`; Redis is optional (without it the worker runs degraded and webhook deliveries are not
+processed).
+
 ## Backup & restore
 
 - `scripts/backup.sh` — `pg_dump` (custom format, compressed) into
