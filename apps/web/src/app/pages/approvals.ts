@@ -87,9 +87,6 @@ interface ExecApprovalDto {
         }
       </ul>
       </section>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="approval-error">{{ error() }}</p>
-      }
     </ui-page>
   `,
 })
@@ -98,7 +95,6 @@ export class ApprovalsPage implements OnInit {
   readonly i18n = inject(I18n);
   readonly items = signal<ApprovalDto[]>([]);
   readonly execItems = signal<ExecApprovalDto[]>([]);
-  readonly error = signal('');
   private readonly toast = inject(UiToastService);
   readonly busy = signal(false);
 
@@ -107,11 +103,12 @@ export class ApprovalsPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.error.set('');
+    let failed = false;
     try {
       this.items.set((await this.api.get<{ items: ApprovalDto[] }>('/api/v1/approvals')).items);
     } catch (err) {
-      this.error.set((err as Error).message);
+      failed = true;
+      this.toast.error((err as Error).message);
     }
     try {
       const exec = await this.api.get<{ items: ExecApprovalDto[] }>('/api/v1/exec/approvals');
@@ -120,7 +117,7 @@ export class ApprovalsPage implements OnInit {
       // The ledger's rows are extra: a project without the exec module on
       // must still show the ordinary queue.
       this.execItems.set([]);
-      if (!this.error()) this.error.set((err as Error).message);
+      if (!failed) this.toast.error((err as Error).message);
     }
   }
 
@@ -132,14 +129,13 @@ export class ApprovalsPage implements OnInit {
   }
 
   async decide(id: string, decision: 'approved' | 'rejected'): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/approvals/${id}/decide`, { decision });
       this.toast.ok(`#${id.slice(0, 8)} ${decision}`);
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

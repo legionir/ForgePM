@@ -6,6 +6,7 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiControl, UiField } from '../ui/field';
 import { UiIcon } from '../ui/icon';
+import { UiToastService } from '../ui/toast';
 
 /** First-run setup: create the organization + admin user (plan §5.2). */
 @Component({
@@ -48,9 +49,6 @@ import { UiIcon } from '../ui/icon';
           {{ i18n.instant('common.create') }}
         </button>
       </form>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="error">{{ error() }}</p>
-      }
       <p class="ui-auth-footer">
         <a routerLink="/login" data-testid="go-login">{{ i18n.instant('login.title') }}</a>
       </p>
@@ -58,6 +56,7 @@ import { UiIcon } from '../ui/icon';
   `,
 })
 export class SetupPage {
+  private readonly toast = inject(UiToastService);
   readonly i18n = inject(I18n);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
@@ -66,11 +65,9 @@ export class SetupPage {
   password = '';
   org = '';
   dname = '';
-  readonly error = signal('');
   readonly busy = signal(false);
 
   async submit(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.session.setup({
@@ -81,7 +78,7 @@ export class SetupPage {
       });
       await this.router.navigate(['/projects']);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

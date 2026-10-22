@@ -14,6 +14,7 @@ import { UiIcon } from '../ui/icon';
 import { UiMarkdown } from '../ui/markdown';
 import { stateVariant } from './work-items';
 import { ProjectContext } from '../project-context';
+import { UiToastService } from '../ui/toast';
 
 interface ItemDto {
   id: string;
@@ -87,9 +88,6 @@ interface MilestoneDto {
         <ui-breadcrumbs [items]="[{ label: i18n.instant('nav.projects'), link: '/projects' }, { label: i18n.instant('nav.work_items'), link: '/work-items' }, { label: it.key }]" />
         <a routerLink="/work-items" class="ui-back" data-testid="wi-back"><ui-icon name="arrow-left" [size]="14" /> {{ i18n.instant('common.back') }}</a>
 
-        @if (error()) {
-          <p class="ui-error" role="alert" data-testid="wi-detail-error">{{ error() }}</p>
-        }
 
         <div class="ui-detail">
           <div class="ui-detail-main">
@@ -288,6 +286,7 @@ interface MilestoneDto {
   `,
 })
 export class WorkItemDetailPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   private readonly ctx = inject(ProjectContext);
   readonly i18n = inject(I18n);
@@ -301,7 +300,6 @@ export class WorkItemDetailPage implements OnInit {
   readonly execGateOk = signal<boolean | null>(null);
   readonly execBlockedBy = signal<string[]>([]);
   readonly execEvents = signal<{ action: string; actor_type: string; created_at: string }[]>([]);
-  readonly error = signal('');
   readonly busy = signal(false);
   readonly tab = signal('conversation');
   comment = '';
@@ -333,7 +331,6 @@ export class WorkItemDetailPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const key = location.pathname.split('/').pop() ?? '';
-    this.error.set('');
     try {
       await this.ctx.load();
       const pid = this.ctx.selectedId();
@@ -347,7 +344,7 @@ export class WorkItemDetailPage implements OnInit {
       }
       await this.reload(key);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
@@ -403,13 +400,12 @@ export class WorkItemDetailPage implements OnInit {
   async patchField(fields: Partial<ItemDto>): Promise<void> {
     const key = this.item()?.key;
     if (!key) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.patch(`/api/v1/work-items/${key}`, fields);
       await this.reload(key);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -436,14 +432,13 @@ export class WorkItemDetailPage implements OnInit {
   async addComment(): Promise<void> {
     const key = this.item()?.key;
     if (!key) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/work-items/${key}/comments`, { body: this.comment });
       this.comment = '';
       await this.reload(key);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -452,13 +447,12 @@ export class WorkItemDetailPage implements OnInit {
   async move(): Promise<void> {
     const key = this.item()?.key;
     if (!key || !this.toState) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/work-items/${key}/transition`, { to_state_id: this.toState });
       await this.reload(key);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

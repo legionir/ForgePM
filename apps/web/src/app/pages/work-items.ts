@@ -92,9 +92,6 @@ interface ItemDto {
         </select>
       </ui-field>
       </div>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="wi-error">{{ error() }}</p>
-      }
 
       @if (view() === 'list') {
         <ui-data-table
@@ -104,7 +101,6 @@ interface ItemDto {
           [rows]="items()"
           [trackKey]="keyOf"
           [loading]="loadingList()"
-          [error]="error()"
           [emptyMessage]="i18n.instant('common.empty')"
           [emptyActionLabel]="i18n.instant('work_items.create_first')"
           (emptyAction)="focusTitleInput()"
@@ -212,7 +208,6 @@ export class WorkItemsPage implements OnInit {
 
   readonly items = signal<ItemDto[]>([]);
   readonly states = signal<StateDto[]>([]);
-  readonly error = signal('');
   readonly busy = signal(false);
   readonly loadingList = signal(true);
   private readonly toast = inject(UiToastService);
@@ -264,7 +259,6 @@ export class WorkItemsPage implements OnInit {
   async quickAdd(stateId: string): Promise<void> {
     const t = this.quickTitle.trim();
     if (!t) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/work-items`, {
@@ -277,7 +271,7 @@ export class WorkItemsPage implements OnInit {
       this.toast.ok(this.i18n.instant('work_items.created'));
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -345,14 +339,13 @@ export class WorkItemsPage implements OnInit {
       this.items.set(res.items);
       if (!this.stateId && st.items[0]) this.stateId = st.items[0].id;
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.loadingList.set(false);
     }
   }
 
   async create(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       if (!this.stateId) await this.load(); // form can be used before the first fetch resolved
@@ -365,7 +358,7 @@ export class WorkItemsPage implements OnInit {
       this.toast.ok(this.i18n.instant('work_items.created'));
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -405,12 +398,11 @@ export class WorkItemsPage implements OnInit {
   }
 
   async transition(key: string, toStateId: string): Promise<void> {
-    this.error.set('');
     try {
       await this.api.post(`/api/v1/work-items/${key}/transition`, { to_state_id: toStateId });
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message); // surfaces BLOCKED_BY_OPEN_ITEMS etc.
+      this.toast.error((err as Error).message); // surfaces BLOCKED_BY_OPEN_ITEMS etc.
     }
   }
 }

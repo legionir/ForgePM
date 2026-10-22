@@ -8,6 +8,7 @@ import { UiPage } from '../ui/page';
 import { UiField, UiControl } from '../ui/field';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
+import { UiToastService } from '../ui/toast';
 
 interface PlanNode {
   id: string;
@@ -45,9 +46,6 @@ interface ExecStatusDto {
   styles: [`.ui-row--blocked{border-inline-start:4px solid var(--color-error)} .ui-row--awaiting{border-inline-start:4px solid var(--color-warning)}`],
   template: `
     <ui-page data-testid="exec-tasks" [title]="i18n.instant('exec.title')">
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="exec-error">{{ error() }}</p>
-      }
 
       <!-- Plan tree table -->
       <div class="ui-exec-toolbar">
@@ -64,7 +62,6 @@ interface ExecStatusDto {
         [rows]="flatRows()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
         [rowTestid]="rowTestid"
         [rowClass]="rowClass"
@@ -227,12 +224,12 @@ interface ExecStatusDto {
   `,
 })
 export class ExecTasksPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   private readonly ctx = inject(ProjectContext);
   private readonly route = inject(ActivatedRoute);
 
-  readonly error = signal('');
   readonly loading = signal(false);
   readonly gateLoading = signal(false);
   readonly roots = signal<PlanNode[]>([]);
@@ -287,14 +284,13 @@ export class ExecTasksPage implements OnInit {
     const pid = this.ctx.selectedId();
     if (!pid) return;
     this.loading.set(true);
-    this.error.set('');
     try {
       const res = await this.api.get<{ roots: PlanNode[]; task_count: number; next_cursor: string | null }>(`/api/v1/exec/plan?project_ref=${pid}`);
       this.roots.set(res.roots);
       this.taskCount.set(res.task_count);
       this.nextCursor.set(res.next_cursor);
     } catch (e) {
-      this.error.set((e as Error).message);
+      this.toast.error((e as Error).message);
     } finally {
       this.loading.set(false);
     }
@@ -309,7 +305,7 @@ export class ExecTasksPage implements OnInit {
       const res = await this.api.get<{ roots: PlanNode[]; next_cursor: string | null }>(`/api/v1/exec/plan?project_ref=${pid}&cursor=${cur}`);
       this.roots.update(r => [...r, ...res.roots]);
       this.nextCursor.set(res.next_cursor);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
     finally { this.loading.set(false); }
   }
 
@@ -320,7 +316,7 @@ export class ExecTasksPage implements OnInit {
       const qs = pid ? `?project_ref=${pid}&task_ref=${code}` : `?task_ref=${code}`;
       const detail = await this.api.get<ExecStatusDto>(`/api/v1/exec/status${qs}`);
       this.statusDetail.set(detail);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   closeDrawer(): void {
@@ -336,7 +332,7 @@ export class ExecTasksPage implements OnInit {
     try {
       const res = await this.api.post<{ ok: boolean; blocked_by: { rule: number; ref: string; title: string; tool_to_call: string }[] }>(`/api/v1/exec/gate/${code}`, {});
       this.gateResult.set(res);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
     finally { this.gateLoading.set(false); }
   }
 
@@ -345,7 +341,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/items/${this.formResolve.code}/resolve`, { status: this.formResolve.status, note: this.formResolve.note });
       await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   async answerQuestion(): Promise<void> {
@@ -353,7 +349,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/questions/${this.formAnswer.code}/answer`, { answer: this.formAnswer.answer });
       await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   async decideDecision(decision?: 'approved'|'rejected'): Promise<void> {
@@ -362,7 +358,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/decisions/${this.formDecide.code}/decide`, { decision: dec, reason: this.formDecide.reason });
       await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   async waiveCriterion(): Promise<void> {
@@ -370,7 +366,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/criteria/${this.formWaive.code}/waive`, { reason: this.formWaive.reason });
       await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   async dropRequirement(): Promise<void> {
@@ -378,7 +374,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/requirements/${this.formDrop.code}/drop`, { reason: this.formDrop.reason });
       await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   async approveScope(): Promise<void> {
@@ -389,7 +385,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/scope/${task}/expand`, { paths, reason: this.formScope.reason });
       await this.openDrawer(task);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 
   async promoteFact(): Promise<void> {
@@ -397,7 +393,7 @@ export class ExecTasksPage implements OnInit {
     try {
       await this.api.post(`/api/v1/exec/facts/${this.formPromote.code}/promote`, { source: this.formPromote.source, source_ref: this.formPromote.source_ref, reason: this.formPromote.reason });
       await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.error.set((e as Error).message); }
+    } catch (e) { this.toast.error((e as Error).message); }
   }
 }
 

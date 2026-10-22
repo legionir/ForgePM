@@ -10,6 +10,7 @@ import { UiLoading } from '../ui/loading';
 import { UiButton } from '../ui/button';
 import { UiBars, UiChartDatum, UiDonut, UiProgress } from '../ui/charts';
 import { stateVariant } from '../ui/logic';
+import { UiToastService } from '../ui/toast';
 
 interface StateDto {
   id: string;
@@ -92,9 +93,6 @@ const CLOSED = new Set(['completed', 'canceled']);
 
       @if (ctx.selected(); as p) {
         <p class="ui-page-sub" data-testid="dash-project">{{ p.key }} · {{ p.name }}</p>
-      }
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="dash-error">{{ error() }}</p>
       }
 
       @if (loading() && !loadedOnce()) {
@@ -296,13 +294,13 @@ const CLOSED = new Set(['completed', 'canceled']);
   `,
 })
 export class DashboardPage {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly ctx = inject(ProjectContext);
 
   readonly loading = signal(true);
   readonly loadedOnce = signal(false);
-  readonly error = signal('');
   readonly states = signal<StateDto[]>([]);
   readonly items = signal<ItemDto[]>([]);
   readonly features = signal<FeatureDto[]>([]);
@@ -388,7 +386,6 @@ export class DashboardPage {
     const pid = this.ctx.selectedId();
     if (!pid) return;
     this.loading.set(true);
-    this.error.set('');
     const get = <T>(path: string): Promise<T> => this.api.get<T>(path);
     const [states, items, features, milestones, approvals, audit, providers] = await Promise.allSettled([
       get<{ items: StateDto[] }>(`/api/v1/projects/${pid}/states`),
@@ -407,7 +404,7 @@ export class DashboardPage {
     this.pendingApprovals.set(approvals.status === 'fulfilled' ? approvals.value.items.filter((a) => a.status === 'pending').length : 0);
     this.events.set(audit.status === 'fulfilled' ? audit.value.items : []);
     this.providerCount.set(providers.status === 'fulfilled' ? providers.value.items.length : 0);
-    if (items.status === 'rejected') this.error.set((items.reason as Error).message);
+    if (items.status === 'rejected') this.toast.error((items.reason as Error).message);
     this.loading.set(false);
     this.loadedOnce.set(true);
   }

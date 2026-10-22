@@ -18,8 +18,7 @@ import { UiEmptyState } from './empty-state';
       @if (ctx.loading()) {
         <ui-loading kind="lines" [label]="i18n.instant('common.loading')" />
       } @else if (ctx.error()) {
-        <p class="ui-error" role="alert" data-testid="project-picker-error">{{ ctx.error() }}</p>
-        <button type="button" class="ui-btn ui-btn--secondary ui-btn--sm" (click)="ctx.load()">
+        <button data-testid="project-picker-error" type="button" class="ui-btn ui-btn--secondary ui-btn--sm" (click)="ctx.load()">
           {{ i18n.instant('common.retry') }}
         </button>
       } @else if (ctx.projects().length === 0) {

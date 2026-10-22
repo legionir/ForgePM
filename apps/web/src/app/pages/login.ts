@@ -6,6 +6,7 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiControl, UiField } from '../ui/field';
 import { UiIcon } from '../ui/icon';
+import { UiToastService } from '../ui/toast';
 
 /**
  * Sign in (httpOnly cookie + CSRF, plan §5.3) — auth template: brand row,
@@ -40,9 +41,6 @@ import { UiIcon } from '../ui/icon';
           {{ i18n.instant('login.title') }}
         </button>
       </form>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="error">{{ error() }}</p>
-      }
       <p class="ui-auth-footer">
         <a routerLink="/setup" data-testid="go-setup">{{ i18n.instant('login.first_run') }}</a>
       </p>
@@ -50,23 +48,22 @@ import { UiIcon } from '../ui/icon';
   `,
 })
 export class LoginPage {
+  private readonly toast = inject(UiToastService);
   readonly i18n = inject(I18n);
   private readonly session = inject(Session);
   private readonly router = inject(Router);
 
   email = '';
   password = '';
-  readonly error = signal('');
   readonly busy = signal(false);
 
   async submit(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.session.login(this.email, this.password);
       await this.router.navigate(['/']);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

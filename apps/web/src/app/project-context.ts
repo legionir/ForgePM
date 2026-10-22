@@ -1,11 +1,16 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { ApiClient } from './api';
+import { UiToastService } from './ui/toast';
 
 export interface Project {
   id: string;
   key: string;
   name: string;
   status: 'active' | 'archived';
+  description?: string | null;
+  priority?: 'none' | 'low' | 'medium' | 'high' | 'urgent';
+  start_date?: string | null;
+  target_date?: string | null;
 }
 
 /**
@@ -19,6 +24,7 @@ export interface Project {
 @Injectable({ providedIn: 'root' })
 export class ProjectContext {
   private readonly api = inject(ApiClient);
+  private readonly toast = inject(UiToastService);
 
   readonly projects = signal<Project[]>([]);
   readonly selectedId = signal<string | null>(localStorage.getItem('fpm_project') ?? null);
@@ -45,6 +51,7 @@ export class ProjectContext {
       }
     } catch (err) {
       this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.loading.set(false);
       this.loaded.set(true);

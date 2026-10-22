@@ -4,6 +4,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiPage } from '../ui/page';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
+import { UiToastService } from '../ui/toast';
 
 interface CallDto {
   id: string;
@@ -43,7 +44,6 @@ interface CallDto {
         [rows]="calls()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
         [rowTestid]="mcpRowTestid"
         [pageSize]="25"
@@ -53,11 +53,11 @@ interface CallDto {
   `,
 })
 export class McpPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
 
   readonly calls = signal<CallDto[]>([]);
-  readonly error = signal('');
   readonly loading = signal(true);
   outcome = '';
 
@@ -77,12 +77,11 @@ export class McpPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.error.set('');
     this.loading.set(true);
     try {
       await this.loadInner();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.loading.set(false);
     }

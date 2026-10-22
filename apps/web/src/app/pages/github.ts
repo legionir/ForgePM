@@ -78,9 +78,6 @@ interface StatusDto {
       @if (msg()) {
         <p class="ui-ok" data-testid="gh-msg">{{ msg() }}</p>
       }
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="gh-error">{{ error() }}</p>
-      }
     </ui-page>
   `,
 })
@@ -92,7 +89,6 @@ export class GithubPage implements OnInit {
   readonly status = signal<StatusDto | null>(null);
   readonly repos = signal<RepoDto[]>([]);
   readonly msg = signal('');
-  readonly error = signal('');
   readonly busy = signal(false);
   private readonly toast = inject(UiToastService);
   appId = '';
@@ -105,7 +101,6 @@ export class GithubPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.error.set('');
     try {
       this.status.set(await this.api.get<StatusDto>('/api/v1/integrations/github/status'));
       if (this.status()?.enabled) {
@@ -115,13 +110,12 @@ export class GithubPage implements OnInit {
       // Module off => 503 MODULE_DISABLED: the disabled hint branch handles it.
       const e = err as { status?: number; message?: string };
       if (e.status !== 503 && !/MODULE_DISABLED/i.test(e.message ?? '')) {
-        this.error.set(e.message ?? 'error');
+        this.toast.error(e.message ?? 'error');
       }
     }
   }
 
   async save(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       const body: { app_id?: string; app_private_key?: string; webhook_secret?: string } = {};
@@ -135,20 +129,19 @@ export class GithubPage implements OnInit {
       this.webhookSecret = '';
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
   }
 
   async link(repositoryId: string): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/repositories`, { repository_id: repositoryId });
       this.msg.set('linked');
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

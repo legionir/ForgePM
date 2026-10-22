@@ -10,6 +10,7 @@ import { UiBadge } from '../ui/badge';
 import { UiControl, UiField } from '../ui/field';
 import { computed } from '@angular/core';
 import { ProjectContext } from '../project-context';
+import { UiToastService } from '../ui/toast';
 
 interface PlanDto {
   id: string;
@@ -70,9 +71,6 @@ interface ApplyReport {
           </form>
         </section>
       }
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="plan-error">{{ error() }}</p>
-      }
 
       @if (plan(); as p) {
         <section class="ui-card" data-testid="plan-view">
@@ -107,13 +105,13 @@ interface ApplyReport {
   `,
 })
 export class PlannerPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly ctx = inject(ProjectContext);
 
   readonly plan = signal<PlanDto | null>(null);
   readonly report = signal<ApplyReport | null>(null);
-  readonly error = signal('');
   readonly busy = signal(false);
   goal = '';
   constraints = '';
@@ -152,7 +150,6 @@ export class PlannerPage implements OnInit {
   reset(): void {
     this.plan.set(null);
     this.report.set(null);
-    this.error.set('');
   }
 
   constructor() {
@@ -166,7 +163,6 @@ export class PlannerPage implements OnInit {
   }
 
   async create(): Promise<void> {
-    this.error.set('');
     try {
       this.plan.set(
         await this.api.post<PlanDto>(`/api/v1/projects/${this.ctx.selectedId()}/plans`, {
@@ -175,20 +171,19 @@ export class PlannerPage implements OnInit {
         }),
       );
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
   async generate(): Promise<void> {
     const p = this.plan();
     if (!p) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       const res = await this.api.post<{ status: string }>(`/api/v1/plans/${p.id}/generate`);
       this.plan.set({ ...p, status: res.status });
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -197,13 +192,12 @@ export class PlannerPage implements OnInit {
   async approve(): Promise<void> {
     const p = this.plan();
     if (!p) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/plans/${p.id}/approve`);
       this.plan.set({ ...p, status: 'approved' });
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -212,7 +206,6 @@ export class PlannerPage implements OnInit {
   async apply(): Promise<void> {
     const p = this.plan();
     if (!p) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       const rep = await this.api.post<ApplyReport>(`/api/v1/plans/${p.id}/apply`, {
@@ -221,7 +214,7 @@ export class PlannerPage implements OnInit {
       this.report.set(rep);
       this.plan.set({ ...p, status: (rep as { status?: string }).status ?? 'applied' });
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
