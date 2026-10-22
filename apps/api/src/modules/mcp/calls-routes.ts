@@ -4,6 +4,7 @@ import { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { listQuerySchema, encodeCursor, decodeCursor } from '@forgepm/shared';
 import type { AppDeps } from '../../app/app';
 import { guard, requireActor } from '../../app/guards';
+import { cursorTs, rowCursorTs, tsParam } from '../../app/keyset';
 
 /**
  * GET /api/v1/mcp/calls — the §8.11 panel requirement "صفحه‌ی لاگ
@@ -40,15 +41,15 @@ export function registerMcpCallsRoutes(app: FastifyInstance, deps: AppDeps): voi
     },
     async (req) => {
       const actor = requireActor(req);
-      let q = db.selectFrom('mcp_tool_calls').selectAll().where('organization_id', '=', actor.organizationId);
+      let q = db.selectFrom('mcp_tool_calls').selectAll().select(cursorTs()).where('organization_id', '=', actor.organizationId);
       if (req.query.tool) q = q.where('tool', '=', req.query.tool);
       if (req.query.outcome) q = q.where('outcome', '=', req.query.outcome);
       if (req.query.cursor) {
         const { createdAt, id } = decodeCursor(req.query.cursor);
         q = q.where((eb) =>
           eb.or([
-            eb('created_at', '<', new Date(createdAt)),
-            eb.and([eb('created_at', '=', new Date(createdAt)), eb('id', '<', id)]),
+            eb('created_at', '<', tsParam(createdAt)),
+            eb.and([eb('created_at', '=', tsParam(createdAt)), eb('id', '<', id)]),
           ]),
         );
       }
@@ -71,7 +72,7 @@ export function registerMcpCallsRoutes(app: FastifyInstance, deps: AppDeps): voi
           created_at: r.created_at.toISOString(),
         })),
         next_cursor: hasMore
-          ? encodeCursor(slice[slice.length - 1].created_at.toISOString(), slice[slice.length - 1].id)
+          ? encodeCursor(rowCursorTs(slice[slice.length - 1]), slice[slice.length - 1].id)
           : null,
       };
     },

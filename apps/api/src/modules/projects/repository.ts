@@ -2,6 +2,7 @@ import { sql } from 'kysely';
 import { newId, type DbLike } from '@forgepm/core';
 import type { ProjectDto } from '@forgepm/shared';
 import { AppError, listQuerySchema, decodeCursor, encodeCursor } from '@forgepm/shared';
+import { cursorTs, rowCursorTs, tsParam } from '../../app/keyset';
 import { z } from 'zod';
 
 const PROJECT_COLUMNS = [
@@ -90,6 +91,7 @@ export async function listProjects(
   let q = db
     .selectFrom('projects')
     .select(PROJECT_COLUMNS)
+    .select(cursorTs())
     .where('organization_id', '=', orgId)
     .where('deleted_at', 'is', null);
   if (!includeArchived) q = q.where('status', '=', 'active');
@@ -100,8 +102,8 @@ export async function listProjects(
     const { createdAt, id } = decodeCursor(query.cursor);
     q = q.where((eb) =>
       eb.or([
-        eb('created_at', '<', new Date(createdAt)),
-        eb.and([eb('created_at', '=', new Date(createdAt)), eb('id', '<', id)]),
+        eb('created_at', '<', tsParam(createdAt)),
+        eb.and([eb('created_at', '=', tsParam(createdAt)), eb('id', '<', id)]),
       ]),
     );
   }
@@ -113,7 +115,7 @@ export async function listProjects(
   const hasMore = rows.length > query.limit;
   const slice = hasMore ? rows.slice(0, query.limit) : rows;
   const items = slice.map(rowToProjectDto);
-  const next_cursor = hasMore ? encodeCursor(slice[slice.length - 1].created_at.toISOString(), slice[slice.length - 1].id as string) : null;
+  const next_cursor = hasMore ? encodeCursor(rowCursorTs(slice[slice.length - 1]), slice[slice.length - 1].id as string) : null;
   return { items, next_cursor };
 }
 

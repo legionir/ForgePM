@@ -401,7 +401,7 @@ export async function listFor(db: Db, actor: Actor, projectId: string, args: Omi
 }
 
 function encode(r: RawRow): string {
-  const raw = `${(r.created_at as Date).toISOString()}|${r.id}`;
+  const raw = `${(r.cursor_ts as string | undefined) ?? (r.created_at as Date).toISOString()}|${r.id}`;
   return Buffer.from(raw, 'utf8').toString('hex');
 }
 
