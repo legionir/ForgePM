@@ -107,7 +107,7 @@ interface ItemDto {
             >
               <h2>
                 {{ st.name }}
-                <span class="ui-col-count" data-testid="board-col-count">{{ byState()(st.id).length }}</span>
+                <ui-badge size="sm" data-testid="board-col-count">{{ byState()(st.id).length }}</ui-badge>
                 <details class="ui-dt-menu ui-col-menu" (keydown.escape)="closeColMenu($event)">
                   <summary
                     [attr.aria-label]="i18n.instant('work_items.column_menu') + ' — ' + st.name"

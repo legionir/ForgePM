@@ -9,7 +9,7 @@ import { UiIcon } from '../ui/icon';
 import { UiLoading } from '../ui/loading';
 import { UiButton } from '../ui/button';
 import { UiBars, UiChartDatum, UiDonut, UiProgress } from '../ui/charts';
-import { stateVariant } from '../ui/logic';
+import { stateVariant, statusMeta } from '../ui/logic';
 import { UiToastService } from '../ui/toast';
 
 interface StateDto {
@@ -102,7 +102,7 @@ const CLOSED = new Set(['completed', 'canceled']);
           <section class="ui-card ui-onboard" data-testid="dash-steps">
             <header class="ui-card-head">
               <h2>{{ i18n.instant('dashboard.getting_started') }}</h2>
-              <span class="ui-card-sub">{{ doneSteps() }}/{{ steps().length }}</span>
+              <ui-badge size="sm" data-testid="dash-steps-count">{{ doneSteps() }}/{{ steps().length }}</ui-badge>
             </header>
             <ol class="ui-steps">
               @for (s of steps(); track s.id) {
@@ -151,9 +151,9 @@ const CLOSED = new Set(['completed', 'canceled']);
           </article>
         </div>
 
-        <div class="ui-grid ui-grid--3">
+        <div class="ui-grid ui-grid--col3" data-testid="dash-charts">
           <section class="ui-card" data-testid="chart-states">
-            <header class="ui-card-head"><h2>{{ i18n.instant('dashboard.by_state') }}</h2></header>
+            <header class="ui-card-head"><h2><ui-icon name="activity" [size]="18" [inline]="false" /> {{ i18n.instant('dashboard.by_state') }}</h2></header>
             @if (items().length) {
               <ui-donut [data]="stateData()" [label]="i18n.instant('dashboard.by_state')" [centerLabel]="i18n.instant('dashboard.items')" />
             } @else {
@@ -161,7 +161,7 @@ const CLOSED = new Set(['completed', 'canceled']);
             }
           </section>
           <section class="ui-card" data-testid="chart-priority">
-            <header class="ui-card-head"><h2>{{ i18n.instant('dashboard.by_priority') }}</h2><span class="ui-card-sub">{{ i18n.instant('dashboard.open_only') }}</span></header>
+            <header class="ui-card-head"><h2><ui-icon name="flag" [size]="18" [inline]="false" /> {{ i18n.instant('dashboard.by_priority') }}</h2><span class="ui-card-sub">{{ i18n.instant('dashboard.open_only') }}</span></header>
             @if (openCount()) {
               <ui-bars [data]="priorityData()" [label]="i18n.instant('dashboard.by_priority')" />
             } @else {
@@ -169,7 +169,7 @@ const CLOSED = new Set(['completed', 'canceled']);
             }
           </section>
           <section class="ui-card" data-testid="chart-types">
-            <header class="ui-card-head"><h2>{{ i18n.instant('dashboard.by_type') }}</h2></header>
+            <header class="ui-card-head"><h2><ui-icon name="layers" [size]="18" [inline]="false" /> {{ i18n.instant('dashboard.by_type') }}</h2></header>
             @if (items().length) {
               <ui-bars [data]="typeData()" [label]="i18n.instant('dashboard.by_type')" />
             } @else {
@@ -190,7 +190,7 @@ const CLOSED = new Set(['completed', 'canceled']);
                   <div class="ui-row-main">
                     <span class="ui-row-key">{{ f.key }}</span>
                     <span class="ui-row-title">{{ f.title }}</span>
-                    <ui-badge size="sm">{{ f.lifecycle_status.replace('_', ' ') }}</ui-badge>
+                    <ui-badge size="sm" [status]="f.lifecycle_status" />
                   </div>
                   <div class="ui-row-meter">
                     <ui-progress [value]="f.work_progress" [label]="i18n.instant('features.work_progress')" />
@@ -217,7 +217,7 @@ const CLOSED = new Set(['completed', 'canceled']);
                     @if (m.target_date) {
                       <span class="ui-row-date">{{ m.target_date.slice(0, 10) }}</span>
                     }
-                    <ui-badge size="sm">{{ m.status }}</ui-badge>
+                    <ui-badge size="sm" [status]="m.status" />
                   </div>
                   <div class="ui-row-meter">
                     <ui-progress [value]="m.progress" [label]="m.name" />
@@ -242,7 +242,7 @@ const CLOSED = new Set(['completed', 'canceled']);
                 <li class="ui-row-item" data-testid="dash-attention-row">
                   <a class="ui-link ui-row-key" [routerLink]="['/work-items', it.key]">{{ it.key }}</a>
                   <span class="ui-row-title">{{ it.title }}</span>
-                  <ui-badge size="sm" [variant]="it.priority === 'urgent' ? 'error' : 'warning'">{{ it.priority }}</ui-badge>
+                  <ui-badge size="sm" [status]="it.priority" />
                   @if (isOverdue(it)) {
                     <ui-badge size="sm" variant="error">{{ i18n.instant('dashboard.overdue_on', { d: it.due_date?.slice(0, 10) ?? '' }) }}</ui-badge>
                   }
@@ -262,7 +262,7 @@ const CLOSED = new Set(['completed', 'canceled']);
                 <li class="ui-row-item" data-testid="dash-recent-row">
                   <a class="ui-link ui-row-key" [routerLink]="['/work-items', it.key]">{{ it.key }}</a>
                   <span class="ui-row-title">{{ it.title }}</span>
-                  <ui-badge size="sm" [variant]="variant(it.state_category)">{{ it.state_name }}</ui-badge>
+                  <ui-badge size="sm" [variant]="variant(it.state_category)" [icon]="stateIcon(it.state_category)" [status]="it.state_name" />
                 </li>
               } @empty {
                 <li class="ui-card-empty">{{ i18n.instant('dashboard.no_items') }}</li>
@@ -310,6 +310,7 @@ export class DashboardPage {
   readonly providerCount = signal(0);
 
   readonly variant = stateVariant;
+  readonly stateIcon = (category: string): string => statusMeta(category).icon;
   private readonly today = new Date().toISOString().slice(0, 10);
 
   readonly openItems = computed(() => this.items().filter((i) => !CLOSED.has(i.state_category)));

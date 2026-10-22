@@ -350,6 +350,10 @@ export const FA: Record<string, string> = {
   'features.ac_add': 'افزودن معیار',
   'work_items.no_feature': 'بدون ویژگی',
   'ai_providers.new': 'ارائه‌دهندهٔ جدید',
+  'github.unlink': 'قطع اتصال از پروژه',
+  'github.connected': 'متصل',
+  'github.search': 'جستجو',
+  'github.search_placeholder': 'فیلتر مخزن‌ها بر اساس نام',
   'projects.active': 'فعال',
   'projects.no_description': 'هنوز توضیحی ثبت نشده است.',
 };

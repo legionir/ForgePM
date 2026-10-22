@@ -9,6 +9,7 @@ import { UiField, UiControl } from '../ui/field';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { UiToastService } from '../ui/toast';
+import { UiBadge } from '../ui/badge';
 
 interface PlanNode {
   id: string;
@@ -42,7 +43,7 @@ interface ExecStatusDto {
 @Component({
   selector: 'page-exec-tasks',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage, UiField, UiControl, UiDataTable],
+  imports: [UiBadge, FormsModule, UiButton, UiPage, UiField, UiControl, UiDataTable],
   styles: [`.ui-row--blocked{border-inline-start:4px solid var(--color-error)} .ui-row--awaiting{border-inline-start:4px solid var(--color-warning)}`],
   template: `
     <ui-page data-testid="exec-tasks" [title]="i18n.instant('exec.title')">
@@ -80,7 +81,7 @@ interface ExecStatusDto {
           <ul data-testid="exec-criteria-list">
             @for (c of statusDetail()?.criteria ?? []; track c.code) {
               <li data-testid="exec-criterion-row">
-                <span>{{ c.code }}: {{ c.text }} [{{ c.status }}]</span>
+                <span>{{ c.code }}: {{ c.text }} <ui-badge size="sm" [status]="c.status" /></span>
                 @if (c.req_code) { <span data-testid="exec-criterion-req">{{ c.req_code }}</span> }
                 <ul>
                   @for (e of evidenceFor(c.code); track e.ref) {
@@ -95,7 +96,7 @@ interface ExecStatusDto {
           <h3 data-testid="exec-open-items-title">{{ i18n.instant('exec.open_items') }}</h3>
           <ul data-testid="exec-open-items">
             @for (it of statusDetail()?.items ?? []; track it.code) {
-              <li data-testid="exec-open-item-row">{{ it.code }} {{ it.title }} [{{ it.status }}]</li>
+              <li data-testid="exec-open-item-row">{{ it.code }} {{ it.title }} <ui-badge size="sm" [status]="it.status" /></li>
             }
           </ul>
 
@@ -111,7 +112,7 @@ interface ExecStatusDto {
           <h3 data-testid="exec-questions-title">{{ i18n.instant('exec.questions') }}</h3>
           <ul data-testid="exec-questions">
             @for (q of statusDetail()?.questions ?? []; track q.code) {
-              <li data-testid="exec-question-row">{{ q.code }} {{ q.question }} [{{ q.status }}]</li>
+              <li data-testid="exec-question-row">{{ q.code }} {{ q.question }} <ui-badge size="sm" [status]="q.status" /></li>
             }
           </ul>
 
@@ -127,7 +128,7 @@ interface ExecStatusDto {
           <h3 data-testid="exec-journal-title">{{ i18n.instant('exec.journal') }}</h3>
           <ul data-testid="exec-journal">
             @for (j of statusDetail()?.journal ?? []; track j.code) {
-              <li data-testid="exec-journal-row">{{ j.code }} {{ j.action }} [{{ j.status }}]</li>
+              <li data-testid="exec-journal-row">{{ j.code }} {{ j.action }} <ui-badge size="sm" [status]="j.status" /></li>
             }
           </ul>
 

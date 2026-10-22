@@ -86,11 +86,11 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await page.getByTestId('nav-planner').click();
   await page.getByTestId('plan-goal').fill('Ship the E2E milestone');
   await page.getByTestId('plan-create').click();
-  await expect(page.getByTestId('plan-status')).toHaveText('generating');
+  await expect(page.getByTestId('plan-status')).toHaveText('Generating');
   await page.getByTestId('plan-generate').click();
-  await expect(page.getByTestId('plan-status')).toHaveText('ready');
+  await expect(page.getByTestId('plan-status')).toHaveText('Ready');
   await page.getByTestId('plan-approve').click();
-  await expect(page.getByTestId('plan-status')).toHaveText('approved');
+  await expect(page.getByTestId('plan-status')).toHaveText('Approved');
   await page.getByTestId('plan-apply').click();
   await expect(page.getByTestId('plan-report')).toContainText('work_items');
 
@@ -166,7 +166,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await page.getByTestId('review-pr').fill('1');
   await page.getByTestId('review-run').click();
   await expect(page.getByTestId('run-row')).toHaveCount(1);
-  await expect(page.getByTestId('run-row')).toContainText('completed');
+  await expect(page.getByTestId('run-row')).toContainText(/completed/i);
 });
 
 test('§11 fa/RTL + axe on the major pages', async ({ page }) => {

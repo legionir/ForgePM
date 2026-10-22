@@ -18,7 +18,15 @@ import {
 import { guard, requireActor } from '../../app/guards';
 import { verifyWebhookSignature } from './parse';
 import { saveConfig, configStatus, type GhConfigInput } from './config';
-import { connectRepoToProject, developmentFor, listRepositories, upsertRepository, processPullRequest } from './service';
+import {
+  connectRepoToProject,
+  disconnectRepoFromProject,
+  developmentFor,
+  listProjectRepositories,
+  listRepositories,
+  upsertRepository,
+  processPullRequest,
+} from './service';
 import { assertProjectAccess } from '../projects/access';
 import { getWorkItemByKey } from '../work-items/items-repository';
 
@@ -122,6 +130,27 @@ export function registerGithubRoutes(app: FastifyInstance, deps: { db: Db; regis
       await requireModule('github', { organizationId: actor.organizationId, projectId: req.params.id });
       await connectRepoToProject(db, actor, req.params.id, req.body.repository_id);
       return reply.status(201).send({ status: 'ok' });
+    },
+  );
+
+  t.get(
+    '/api/v1/projects/:id/repositories',
+    { schema: { params: z.object({ id: z.string().uuid() }) }, preHandler: guard(db, {}) },
+    async (req) => {
+      const actor = requireActor(req);
+      await requireModule('github', { organizationId: actor.organizationId, projectId: req.params.id });
+      return { items: await listProjectRepositories(db, actor, req.params.id) };
+    },
+  );
+
+  t.delete(
+    '/api/v1/projects/:id/repositories/:repositoryId',
+    { schema: { params: z.object({ id: z.string().uuid(), repositoryId: z.string().uuid() }) }, preHandler: guard(db, {}) },
+    async (req) => {
+      const actor = requireActor(req);
+      await requireModule('github', { organizationId: actor.organizationId, projectId: req.params.id });
+      const removed = await disconnectRepoFromProject(db, actor, req.params.id, req.params.repositoryId);
+      return { status: 'ok', removed };
     },
   );
 

@@ -3207,3 +3207,58 @@ ul.ui-list--actions li > :first-child {
   padding: var(--space-4) var(--space-5);
   margin-block-start: auto;
 }
+
+/* Dashboard chart row: three equal columns (col-4 of 12) */
+.ui-grid--col3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .ui-grid--col3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .ui-grid--col3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* GitHub repository link / unlink icon buttons */
+.ui-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-full);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ui-link-btn--on {
+  color: var(--color-ok);
+}
+
+.ui-link-btn--on:hover {
+  background: color-mix(in srgb, var(--color-ok) 14%, transparent);
+}
+
+.ui-link-btn--off {
+  color: var(--color-error);
+}
+
+.ui-link-btn--off:hover {
+  background: color-mix(in srgb, var(--color-error) 14%, transparent);
+}
+
+.ui-link-btn:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.ui-repo-connected {
+  border-inline-start: 3px solid var(--color-ok);
+}

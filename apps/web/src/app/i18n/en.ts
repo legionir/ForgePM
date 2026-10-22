@@ -350,6 +350,10 @@ export const EN: Record<string, string> = {
   'features.ac_add': 'Add criterion',
   'work_items.no_feature': 'No feature',
   'ai_providers.new': 'New provider',
+  'github.unlink': 'Disconnect from project',
+  'github.connected': 'Connected',
+  'github.search': 'Search',
+  'github.search_placeholder': 'Filter repositories by name',
   'projects.active': 'Active',
   'projects.no_description': 'No description yet.',
 };

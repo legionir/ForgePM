@@ -5,6 +5,9 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- feat(web): panel redesign — System page dissolved (Jobs page, health on Projects, Modules/Backups/GitHub status/Appearance in Settings with search), create forms as modals (features, milestones, work items, projects, providers), portrait project cards with an Active label, status badges with colour/icon/CamelCase, counts in badges, header shows the active project, theme and language live in Settings.
+- feat(api): list and disconnect project repositories (D-069); the GitHub page shows connected repositories with link/unlink icons and a search filter.
+
 - feat(web): edit project details (name, description, priority, dates) from the Projects page; the key stays read-only; archived projects restore from the Archived section.
 - fix(api): work-item list no longer returns 500 when ledger-written acceptance criteria are plain strings.
 - test(api): API keys are always `agent` for the ledger (R-02 regression); seed fills `exec.protected_test_globs` and `exec.test_command`.

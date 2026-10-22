@@ -6,6 +6,8 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiToastService } from '../ui/toast';
 import { UiPage } from '../ui/page';
+import { UiBadge } from '../ui/badge';
+import { UiIcon } from '../ui/icon';
 
 interface ApprovalDto {
   id: string;
@@ -39,15 +41,15 @@ interface ExecApprovalDto {
 @Component({
   selector: 'page-approvals',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, UiButton, UiPage],
+  imports: [UiIcon, UiBadge, FormsModule, RouterLink, UiButton, UiPage],
   template: `
     <ui-page data-testid="approvals" [title]="i18n.instant('approvals.title')">
       <section class="ui-card">
-      <header class="ui-card-head"><h2>{{ i18n.instant('approvals.title') }}</h2><span class="ui-card-sub">{{ items().length }}</span></header>
+      <header class="ui-card-head"><div class="ui-card-title"><h2><ui-icon name="check-circle" [size]="18" [inline]="false" /> {{ i18n.instant('approvals.title') }}</h2><ui-badge size="sm">{{ items().length }}</ui-badge></div></header>
       <ul class="ui-list ui-list--actions" data-testid="approval-list">
         @for (a of items(); track a.id) {
           <li data-testid="approval-row">
-            <span>{{ a.action }} · {{ a.risk }} · {{ a.status }}</span>
+            <span class="ui-provider-line">{{ a.action }} <ui-badge size="sm" icon="shield" [label]="a.risk" /> <ui-badge size="sm" [status]="a.status" /></span>
             <button type="button" ui-button variant="primary" (click)="decide(a.id, 'approved')" [disabled]="busy()" data-testid="approval-approve">
               {{ i18n.instant('approvals.approve') }}
             </button>
@@ -61,7 +63,7 @@ interface ExecApprovalDto {
       </ul>
       </section>
       <section class="ui-card">
-      <header class="ui-card-head"><h2 data-testid="exec-approvals-title">{{ i18n.instant('approvals.ledger.title') }}</h2><span class="ui-card-sub">{{ execItems().length }}</span></header>
+      <header class="ui-card-head"><div class="ui-card-title"><h2 data-testid="exec-approvals-title"><ui-icon name="shield" [size]="18" [inline]="false" /> {{ i18n.instant('approvals.ledger.title') }}</h2><ui-badge size="sm">{{ execItems().length }}</ui-badge></div></header>
       <ul class="ui-list ui-list--actions" data-testid="exec-approval-list">
         @for (a of execItems(); track a.id) {
           <li data-testid="exec-approval-row">
@@ -71,7 +73,7 @@ interface ExecApprovalDto {
               @if (a.task_code) {
                 <a [routerLink]="['/exec-tasks', a.task_code]" data-testid="exec-approval-task-link"><span data-testid="exec-approval-task">{{ a.task_code }}</span></a>
               }
-              · {{ a.status }}
+              <ui-badge size="sm" [status]="a.status" />
             </span>
             @if (a.status === 'pending') {
               <button type="button" ui-button variant="primary" (click)="decide(a.id, 'approved')" [disabled]="busy()" data-testid="exec-approval-approve">
