@@ -167,6 +167,17 @@ describe('ApiKeysPage', () => {
     expect(q(el, 'mcp-code-cli').textContent).not.toContain('REPLACE_WITH_SECRET');
   });
 
+  it('keyboard access: every code block is a focusable, labelled region (scrollable content must be reachable by keyboard)', async () => {
+    const { el } = await mount();
+    const blocks = Array.from(el.querySelectorAll<HTMLElement>('[data-testid="mcp-card"] pre'));
+    expect(blocks.length).toBe(3);
+    for (const b of blocks) {
+      expect(b.getAttribute('tabindex')).toBe('0');
+      expect(b.getAttribute('role')).toBe('region');
+      expect(b.getAttribute('aria-label')).toBeTruthy();
+    }
+  });
+
   it('copy sample: each copy button writes its text to the clipboard and toasts', async () => {
     const written: string[] = [];
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: async (t: string) => void written.push(t) }, configurable: true });

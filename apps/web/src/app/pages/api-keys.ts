@@ -100,7 +100,7 @@ const KEY_STATUS = {
                 <ui-icon name="check-square" [size]="14" /> {{ i18n.instant('common.copy') }}
               </button>
             </div>
-            <pre><code [attr.data-testid]="'mcp-code-' + sample.id">{{ sample.text }}</code></pre>
+            <pre tabindex="0" role="region" [attr.aria-label]="sample.title"><code [attr.data-testid]="'mcp-code-' + sample.id">{{ sample.text }}</code></pre>
           </div>
         }
       </section>
