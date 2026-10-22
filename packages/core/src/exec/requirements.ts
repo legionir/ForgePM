@@ -2,7 +2,7 @@ import { sql } from 'kysely';
 import { AppError, assessCheckable, requirementInputSchema, type RequirementInput } from '@forgepm/shared';
 import type { DbLike } from '../db/unitOfWork';
 import { newId } from '../id';
-import { allocateLedgerCode } from './codes';
+import { formatCode } from './codes';
 import { appendEvent } from './events';
 import { createOpenItem, findTaskByRef, type LedgerActor } from './open-items-service';
 
@@ -77,12 +77,29 @@ async function resolveContradictions(db: DbLike, actor: LedgerActor, refs: strin
   return [...new Map(refs.map((ref) => found.get(ref)!).map((row) => [row.id, row])).values()];
 }
 
+/**
+ * Requirement codes are unique per organisation (exec_reqs_code_uniq, and every lookup is by
+ * organisation and code), so they are numbered per organisation. Numbering them per project, like
+ * the other ledger codes, handed REQ-001 to the first requirement of every project and made the
+ * second project's INSERT fail with a unique violation. The advisory lock serialises concurrent adds
+ * inside one transaction; the unique index still guards the case where there is no transaction.
+ */
+async function allocateRequirementCode(db: DbLike, organizationId: string): Promise<string> {
+  await sql`SELECT pg_advisory_xact_lock(hashtextextended(${`exec_req_code:${organizationId}`}, 0))`.execute(db as never);
+  const next = await sql<{ n: number }>`
+    SELECT COALESCE(MAX(substring(code from 5)::int), 0) + 1 AS n
+    FROM exec_requirements
+    WHERE organization_id = ${organizationId}::uuid AND code ~ '^REQ-[0-9]+$'
+  `.execute(db as never);
+  return formatCode('REQ', Number(next.rows[0]?.n ?? 1));
+}
+
 export async function addRequirement(db: DbLike, actor: LedgerActor, raw: unknown): Promise<RequirementRow & { contradicts: string[] }> {
   const value = parseRequirement(raw);
   assertSourceActor(actor, value.source);
   const contradicts = await resolveContradictions(db, actor, value.contradicts);
   const id = newId();
-  const code = await allocateLedgerCode(db, actor.projectId, 'REQ', actor.organizationId);
+  const code = await allocateRequirementCode(db, actor.organizationId);
   await sql`
     INSERT INTO exec_requirements
       (id, organization_id, project_id, code, text, quote, source, source_ref, kind, priority)
