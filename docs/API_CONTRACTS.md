@@ -49,3 +49,10 @@ The execution-ledger routes are the HUMAN path: the mutating ones need the
 `ledger:decide` scope, which is human-only (D‑040) — an agent's key gets
 `FORBIDDEN_SCOPE`. They are also behind the module gate: with the exec module
 off the answer is `503 MODULE_DISABLED`.
+
+### GitHub project repository links (D-069)
+
+| Method | Path | Result |
+|---|---|---|
+| GET | `/api/v1/projects/:id/repositories` | `{ items: Repository[] }` linked to the project (`project:read`, module `github` on) |
+| DELETE | `/api/v1/projects/:id/repositories/:repositoryId` | `{ status: 'ok', removed: boolean }`; removes the link row only, audit `github.disconnect_repository` (`project:write`) |

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
@@ -7,6 +7,10 @@ import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { UiToastService } from '../ui/toast';
+import { UiControl, UiField } from '../ui/field';
+import { UiIcon } from '../ui/icon';
+import { UiBadge } from '../ui/badge';
+import { AppearanceCard, BackupsCard, GithubStatusCard, ModulesCard } from './settings-cards';
 
 interface DefDto {
   key: string;
@@ -28,9 +32,15 @@ interface EffDto {
 @Component({
   selector: 'page-settings',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiPage, UiTabs, UiDataTable],
+  imports: [FormsModule, UiPage, UiTabs, UiDataTable, UiField, UiControl, UiIcon, UiBadge, ModulesCard, BackupsCard, GithubStatusCard, AppearanceCard],
   template: `
     <ui-page data-testid="settings" [title]="i18n.instant('settings.title')">
+      <appearance-card />
+      <div class="ui-grid ui-grid--split">
+        <modules-card />
+        <github-status-card />
+      </div>
+      <backups-card />
 
       <ui-tabs [items]="scopeTabs" [active]="scope()" [ariaLabel]="i18n.instant('settings.scope')" (tabChange)="setScope($event)" />
 
@@ -38,11 +48,19 @@ interface EffDto {
         <p class="ui-page-sub">{{ p.key }} · {{ p.name }}</p>
       }
 
+      <section class="ui-card">
+      <header class="ui-card-head">
+        <h2><ui-icon name="sliders" [size]="18" [inline]="false" /> {{ i18n.instant('settings.title') }}</h2>
+        <ui-badge size="sm" data-testid="settings-count">{{ filtered().length }}</ui-badge>
+      </header>
+      <ui-field class="ui-search-field" [label]="i18n.instant('settings.search')">
+        <input uiControl type="search" name="q" [ngModel]="query()" (ngModelChange)="query.set($event)" [placeholder]="i18n.instant('settings.search_placeholder')" data-testid="settings-search" />
+      </ui-field>
       <ui-data-table
         testid="settings-table"
         emptyTestid="settings-empty"
         [columns]="columns"
-        [rows]="rows()"
+        [rows]="filtered()"
         [trackKey]="keyOf"
         [loading]="loading()"
         [emptyMessage]="i18n.instant('common.empty')"
@@ -52,6 +70,7 @@ interface EffDto {
         [editValue]="editValue"
         [editChange]="editChange"
       />
+      </section>
     </ui-page>
   `,
 })
@@ -72,6 +91,13 @@ export class SettingsPage implements OnInit {
   }
 
   readonly rows = signal<Row[]>([]);
+  readonly query = signal('');
+  /** Every typed character narrows the list by key, source or value. */
+  readonly filtered = computed(() => {
+    const q = this.query().trim().toLowerCase();
+    if (!q) return this.rows();
+    return this.rows().filter((r) => `${r.key} ${r.source} ${r.input}`.toLowerCase().includes(q));
+  });
   readonly loading = signal(true);
   private defs: DefDto[] = [];
 

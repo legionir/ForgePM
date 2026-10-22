@@ -5,6 +5,24 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- fix(web): Execution tasks details open in a modal driven by the route, so closing and opening another task works; the raw JSON previews are gone; resolve status and fact source are selects, the code fields list the task's own open items, questions, decisions, criteria and requirements, and reasons show the API minimum.
+
+- feat(mcp): `exec_task_start` and `task_split` accept `type`, `priority`, `milestone_ref` and `feature_ref` (refs by key, id or unique name, with choices listed on a miss); new tools `ledger_features`, `ledger_milestones`, `ledger_feature_create` and `ledger_milestone_create` so a ledger-only key can plan work properly. The approval gate now sees the real type and priority.
+
+- fix(exec): `req_add` no longer fails with `internal error` when a second project in the organisation adds its first requirement — requirement codes are now numbered per organisation (they are unique per organisation).
+- fix(exec): `ledger_add_evidence` with a bare `ci:<run>:<job>` reference no longer fails with `internal error` (size stored as NULL; the criterion stays unverified).
+
+- feat(mcp): ledger tools are easier for an agent to use — `project_ref` accepts the id, the key in any letter case or a unique project name; a miss lists the projects the key can use with a did-you-mean hint; new read-only `ledger_projects` tool; `session_start` returns the resolved project; `tools/list` carries parameter descriptions (zod `.describe()`) with real text for the shared refs.
+
+- fix(api): keyset pagination (jobs, audit, MCP calls, users, projects, work items) no longer skips rows that share a cursor millisecond — the cursor now keeps microsecond precision; ISO cursors from before still work.
+- feat(web): the API keys page shows copy-ready MCP connection samples (Claude Code command, `.mcp.json`, smoke test) and an "MCP agent scopes" preset.
+
+- feat(web): API keys page — several scopes per key (checkboxes, no `ledger:decide`), Active/Revoked/Expired badges, revoked keys hidden behind a switch, revoke asks for confirmation. Revoke itself always worked (it sets `revoked_at`); the list just did not show it.
+- feat(web): saved acceptance criteria are shown on each feature row and can be ticked.
+
+- feat(web): panel redesign — System page dissolved (Jobs page, health on Projects, Modules/Backups/GitHub status/Appearance in Settings with search), create forms as modals (features, milestones, work items, projects, providers), portrait project cards with an Active label, status badges with colour/icon/CamelCase, counts in badges, header shows the active project, theme and language live in Settings.
+- feat(api): list and disconnect project repositories (D-069); the GitHub page shows connected repositories with link/unlink icons and a search filter.
+
 - feat(web): edit project details (name, description, priority, dates) from the Projects page; the key stays read-only; archived projects restore from the Archived section.
 - fix(api): work-item list no longer returns 500 when ledger-written acceptance criteria are plain strings.
 - test(api): API keys are always `agent` for the ledger (R-02 regression); seed fills `exec.protected_test_globs` and `exec.test_command`.

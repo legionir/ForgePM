@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { jsonSchemaFor } from '../../src/modules/mcp/json-schema';
 import { buildToolRegistry } from '../../src/modules/mcp/tools';
 import { statusToolSchema } from '../../src/modules/exec/service';
+import { projectRefSchema } from '../../src/modules/exec/context';
+import { taskStartInputSchema, openItemInputSchema, evidenceInputSchema } from '@forgepm/shared';
 
 /**
  * `tools/list` is a contract, not a courtesy: an agent that is told
@@ -118,5 +120,47 @@ describe('the ledger tools advertise what they enforce (B.1, §8)', () => {
         expect(['string', 'number', 'integer', 'boolean', 'array', 'object'], `${tool.name}.${key}`).toContain(type);
       }
     }
+  });
+});
+
+type Prop = { type?: string; description?: string; anyOf?: unknown[] };
+const props = (schema: z.ZodTypeAny): Record<string, Prop> => (jsonSchemaFor(schema).properties ?? {}) as Record<string, Prop>;
+
+describe('tools/list parameter descriptions', () => {
+  it('parameter descriptions: a describe() text becomes the property description, also through optional, default and nullable', () => {
+    const p = props(
+      z.object({
+        a: z.string().describe('plain text'),
+        b: z.string().describe('optional text').optional(),
+        c: z.number().int().default(5).describe('defaulted text'),
+        d: z.string().describe('nullable text').nullable(),
+        e: z.string(),
+      }),
+    );
+    expect(p.a.description).toBe('plain text');
+    expect(p.b.description).toBe('optional text');
+    expect(p.c.description).toBe('defaulted text');
+    expect(p.d.description).toBe('nullable text');
+    expect(p.e.description).toBe('a string'); // undescribed fields keep the old generic text
+  });
+
+  it('project_ref and task_ref have real descriptions that say where to get a value', () => {
+    const start = props(taskStartInputSchema);
+    expect(start.project_ref.description).toMatch(/ledger_projects/);
+    expect(start.project_ref.description).toMatch(/key/i);
+    expect(start.title.description).toMatch(/name of the task/i);
+    expect(start.acceptance_criteria.description).toMatch(/test:NAME/);
+
+    const item = props(openItemInputSchema);
+    expect(item.task_ref.description).toMatch(/T-004/);
+    expect(item.task_ref.description).toMatch(/exec_task_start/);
+
+    expect(jsonSchemaFor(z.object({ project_ref: projectRefSchema.optional() })).properties).toMatchObject({
+      project_ref: { description: expect.stringContaining('ledger_projects') },
+    });
+  });
+
+  it('criterion_ref carries its own description in the evidence tool', () => {
+    expect(props(evidenceInputSchema).criterion_ref?.description ?? '').toMatch(/C-12|criterion/i);
   });
 });

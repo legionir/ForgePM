@@ -54,7 +54,9 @@ export const routes: Routes = [
   { path: 'github', loadComponent: () => import('./pages/github').then((m) => m.GithubPage), canActivate: [hasProject] },
   { path: 'mcp', loadComponent: () => import('./pages/mcp').then((m) => m.McpPage), canActivate: [authed] },
   { path: 'settings', loadComponent: () => import('./pages/settings').then((m) => m.SettingsPage), canActivate: [authed] },
-  { path: 'system', loadComponent: () => import('./pages/system').then((m) => m.SystemPage), canActivate: [authed] },
+  { path: 'jobs', loadComponent: () => import('./pages/jobs').then((m) => m.JobsPage), canActivate: [authed] },
+  // The System page was dissolved: health on Projects, modules/backups on Settings, jobs on /jobs.
+  { path: 'system', pathMatch: 'full', redirectTo: 'projects' },
   { path: 'admin', loadComponent: () => import('./pages/admin').then((m) => m.AdminPage), canActivate: [authed] },
   { path: 'design-system', loadComponent: () => import('./pages/design-system').then((m) => m.DesignSystemPage), canActivate: [authed] },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },

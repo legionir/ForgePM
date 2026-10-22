@@ -12,6 +12,7 @@ import {
 import { pingDb, recordAudit, unitOfWork, newId } from '@forgepm/core';
 import type { AppDeps } from '../../app/app';
 import { guard, requireActor } from '../../app/guards';
+import { cursorTs, rowCursorTs, tsParam } from '../../app/keyset';
 
 /**
  * System panel surface (plan §5.11 Jobs/System Health, §11 "Backups/Storage/
@@ -73,12 +74,13 @@ export function registerSystemRoutes(app: FastifyInstance, deps: AppDeps): void 
       let q = db
         .selectFrom('jobs')
         .selectAll()
+        .select(cursorTs())
         .where('organization_id', '=', actor.organizationId);
       if (req.query.status) q = q.where('status', '=', req.query.status);
       if (req.query.cursor) {
         const { createdAt, id } = decodeCursor(req.query.cursor);
         q = q.where((eb) =>
-          eb.or([eb('created_at', '<', new Date(createdAt)), eb.and([eb('created_at', '=', new Date(createdAt)), eb('id', '<', id)])]),
+          eb.or([eb('created_at', '<', tsParam(createdAt)), eb.and([eb('created_at', '=', tsParam(createdAt)), eb('id', '<', id)])]),
         );
       }
       const rows = await q.orderBy('created_at', 'desc').orderBy('id', 'desc').limit(req.query.limit + 1).execute();
@@ -86,7 +88,7 @@ export function registerSystemRoutes(app: FastifyInstance, deps: AppDeps): void 
       const slice = hasMore ? rows.slice(0, req.query.limit) : rows;
       return {
         items: slice.map(mapJob),
-        next_cursor: hasMore ? encodeCursor(slice[slice.length - 1].created_at.toISOString(), slice[slice.length - 1].id) : null,
+        next_cursor: hasMore ? encodeCursor(rowCursorTs(slice[slice.length - 1]), slice[slice.length - 1].id) : null,
       };
     },
   );

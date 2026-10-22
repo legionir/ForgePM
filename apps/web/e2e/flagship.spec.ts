@@ -25,6 +25,7 @@ test('setup → project → api key → logout → login', async ({ page }) => {
 
   // 2) land on Projects, create one
   await expect(page.getByTestId('projects')).toBeVisible();
+  await page.getByTestId('project-new-open').click();
   await page.getByTestId('project-key').fill('EPRJ');
   await page.getByTestId('project-name').fill('E2E Project');
   await page.getByTestId('project-create').click();
@@ -33,7 +34,10 @@ test('setup → project → api key → logout → login', async ({ page }) => {
   // 3) API keys: create → raw visible exactly once, then only prefix remains
   await page.getByTestId('nav-api-keys').click();
   await expect(page.getByTestId('api-keys')).toBeVisible();
+  // Let the page finish loading (table or empty state) so the form bindings are live before typing.
+  await expect(page.getByTestId('api-keys-list').or(page.getByTestId('api-keys-empty')).first()).toBeVisible();
   await page.getByTestId('apikey-name').fill('ci');
+  await expect(page.getByTestId('apikey-name')).toHaveValue('ci');
   const resp = page
     .waitForResponse((r) => r.request().method() === 'POST' && /\/api\/v1\/api-keys$/.test(r.url()), { timeout: 30_000 })
     .catch(() => null);

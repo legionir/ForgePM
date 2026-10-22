@@ -36,9 +36,11 @@ execution-control tools do not appear in `tools/list`.
 2. Give the agent only `ledger:read` and `ledger:write`, and restrict
 `project_ids` to the project(s) it needs. Never give an agent `ledger:decide`;
 that scope is for human decisions and approvals.
-3. The API Keys page currently selects one scope per key. To issue a single
-least-privilege key with both ledger scopes, an organization owner/admin can
-create it through the authenticated `POST /api/v1/api-keys` endpoint:
+3. The API Keys page lets you tick several scopes for one key; its **MCP agent scopes**
+button ticks exactly `ledger:read` and `ledger:write`, and the page shows copy-ready
+connection samples. To restrict the key to specific projects (`project_ids`), an
+organization owner/admin can create it through the authenticated
+`POST /api/v1/api-keys` endpoint:
 
 ```json
 {

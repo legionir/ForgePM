@@ -16,6 +16,7 @@ import {
 import { newId, unitOfWork, recordAudit } from '@forgepm/core';
 import type { AppDeps } from '../../app/app';
 import { guard, requireActor } from '../../app/guards';
+import { cursorTs, rowCursorTs, tsParam } from '../../app/keyset';
 import { hashPassword } from '../auth/service';
 
 const USER_COLUMNS = ['id', 'email', 'display_name', 'locale', 'timezone', 'status', 'created_at'] as const;
@@ -49,13 +50,14 @@ export function registerUsersRoutes(app: FastifyInstance, deps: AppDeps): void {
       let q = db
         .selectFrom('users')
         .select(QC)
+        .select(cursorTs('users.created_at'))
         .where('users.deleted_at', 'is', null)
         .innerJoin('memberships', 'memberships.user_id', 'users.id')
         .where('memberships.organization_id', '=', actor.organizationId);
       if (req.query.cursor) {
         const { createdAt, id } = decodeCursor(req.query.cursor);
         q = q.where((eb) =>
-          eb.or([eb('users.created_at', '<', new Date(createdAt)), eb.and([eb('users.created_at', '=', new Date(createdAt)), eb('users.id', '<', id)])]),
+          eb.or([eb('users.created_at', '<', tsParam(createdAt)), eb.and([eb('users.created_at', '=', tsParam(createdAt)), eb('users.id', '<', id)])]),
         );
       }
       const rows = (await q.orderBy('users.created_at', 'desc').orderBy('users.id', 'desc').limit(req.query.limit + 1).execute()) as unknown as Record<string, unknown>[];
@@ -63,7 +65,7 @@ export function registerUsersRoutes(app: FastifyInstance, deps: AppDeps): void {
       const slice = hasMore ? rows.slice(0, req.query.limit) : rows;
       return {
         items: slice.map(toUserDto),
-        next_cursor: hasMore ? encodeCursor(slice[slice.length - 1].created_at as string, slice[slice.length - 1].id as string) : null,
+        next_cursor: hasMore ? encodeCursor(rowCursorTs(slice[slice.length - 1]), slice[slice.length - 1].id as string) : null,
       };
     },
   );

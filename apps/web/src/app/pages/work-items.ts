@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiClient } from '../api';
@@ -13,7 +13,9 @@ import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { UiControl, UiField } from '../ui/field';
 import { UiToastService } from '../ui/toast';
-import { stateVariant } from '../ui/logic';
+import { camelCase, stateVariant, statusMeta } from '../ui/logic';
+import { UiModal } from '../ui/modal';
+import { CamelPipe } from '../ui/camel';
 import { UiBoard, UiDrop, UiDropZone, UiDragSource } from '../ui/board-drag';
 
 export { stateVariant };
@@ -52,33 +54,19 @@ interface ItemDto {
 @Component({
   selector: 'page-work-items',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, RouterLink, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource],
+  imports: [FormsModule, RouterLink, UiButton, UiBadge, UiAvatar, UiIcon, UiField, UiControl, UiPage, UiTabs, UiDataTable, UiBoard, UiDropZone, UiDragSource, UiModal, CamelPipe],
   template: `
     <ui-page data-testid="work-items" [title]="i18n.instant('work_items.title')">
 
-      <section class="ui-card">
-        <header class="ui-card-head"><h2>{{ i18n.instant('work_items.new') }}</h2></header>
-      <form class="ui-new" (ngSubmit)="create()" data-testid="wi-new">
-        <ui-field [label]="i18n.instant('common.title')" required>
-          <input uiControl #titleInput name="tkey" [(ngModel)]="title" required data-testid="wi-title" />
-        </ui-field>
-        <ui-field [label]="i18n.instant('work_items.type')">
-          <select uiControl name="ttype" [(ngModel)]="type">
-            @for (ty of types; track ty) {
-              <option [value]="ty">{{ ty }}</option>
-            }
-          </select>
-        </ui-field>
-        <ui-field [label]="i18n.instant('work_items.state')">
-          <select uiControl name="tstate" [(ngModel)]="stateId" data-testid="wi-state">
-            @for (st of states(); track st.id) {
-              <option [value]="st.id">{{ st.name }}</option>
-            }
-          </select>
-        </ui-field>
-        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">{{ i18n.instant('work_items.new') }}</button>
-      </form>
-      </section>
+      <header class="ui-card-head">
+        <div class="ui-card-title">
+          <h2><ui-icon name="list" [size]="18" [inline]="false" /> {{ i18n.instant('work_items.title') }}</h2>
+          <ui-badge size="sm" data-testid="wi-count">{{ items().length }}</ui-badge>
+        </div>
+        <button type="button" ui-button variant="primary" size="sm" (click)="openNew()" data-testid="wi-new-open">
+          <ui-icon name="plus" [size]="14" /> {{ i18n.instant('work_items.new') }}
+        </button>
+      </header>
 
       <div class="ui-toolbar">
       <ui-tabs [items]="viewTabs" [active]="view()" [ariaLabel]="i18n.instant('work_items.view')" (tabChange)="setView($event)" />
@@ -87,7 +75,7 @@ interface ItemDto {
         <select uiControl name="cat" [(ngModel)]="category" (ngModelChange)="load()" data-testid="wi-filter">
           <option value="">*</option>
           @for (c of categories; track c) {
-            <option [value]="c">{{ c }}</option>
+            <option [value]="c">{{ c | camel }}</option>
           }
         </select>
       </ui-field>
@@ -103,7 +91,7 @@ interface ItemDto {
           [loading]="loadingList()"
           [emptyMessage]="i18n.instant('common.empty')"
           [emptyActionLabel]="i18n.instant('work_items.create_first')"
-          (emptyAction)="focusTitleInput()"
+          (emptyAction)="openNew()"
           [selectable]="true"
         />
       } @else {
@@ -119,7 +107,7 @@ interface ItemDto {
             >
               <h2>
                 {{ st.name }}
-                <span class="ui-col-count" data-testid="board-col-count">{{ byState()(st.id).length }}</span>
+                <ui-badge size="sm" data-testid="board-col-count">{{ byState()(st.id).length }}</ui-badge>
                 <details class="ui-dt-menu ui-col-menu" (keydown.escape)="closeColMenu($event)">
                   <summary
                     [attr.aria-label]="i18n.instant('work_items.column_menu') + ' — ' + st.name"
@@ -174,7 +162,7 @@ interface ItemDto {
                     @if (it.assignee_user_id || it.assignee_agent_id) {
                       <ui-avatar [name]="it.assignee_user_id ?? it.assignee_agent_id!" size="sm" />
                     }
-                    <ui-badge size="sm" [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'">{{ it.priority }}</ui-badge>
+                    <ui-badge size="sm" [status]="it.priority" data-testid="board-card-priority" />
                     @if (it.acceptance_criteria.length) {
                       <span class="ui-ac-progress" data-testid="board-card-ac">{{ acDone(it) }}/{{ it.acceptance_criteria.length }} ☑</span>
                     }
@@ -197,6 +185,58 @@ interface ItemDto {
         </div>
       }
 
+      <ui-modal [(open)]="newOpen" [title]="i18n.instant('work_items.new')" icon="list">
+        <form class="ui-stack" (ngSubmit)="create()" id="wi-form" data-testid="wi-new">
+          <ui-field [label]="i18n.instant('common.title')" required>
+            <input uiControl name="tkey" [(ngModel)]="title" required data-testid="wi-title" />
+          </ui-field>
+          <div class="ui-edit-grid">
+            <ui-field [label]="i18n.instant('work_items.type')">
+              <select uiControl name="ttype" [(ngModel)]="type" data-testid="wi-type">
+                @for (ty of types; track ty) {
+                  <option [value]="ty">{{ ty | camel }}</option>
+                }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('work_items.state')">
+              <select uiControl name="tstate" [(ngModel)]="stateId" data-testid="wi-state">
+                @for (st of states(); track st.id) {
+                  <option [value]="st.id">{{ st.name | camel }}</option>
+                }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('work_items.priority')">
+              <select uiControl name="tprio" [(ngModel)]="priority" data-testid="wi-priority">
+                @for (pr of priorities; track pr) {
+                  <option [value]="pr">{{ pr | camel }}</option>
+                }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('milestones.title')">
+              <select uiControl name="tmilestone" [(ngModel)]="milestoneId" data-testid="wi-milestone">
+                <option value="">{{ i18n.instant('features.no_milestone') | camel }}</option>
+                @for (m of milestones(); track m.id) {
+                  <option [value]="m.id">{{ m.name | camel }}</option>
+                }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('features.title')">
+              <select uiControl name="tfeature" [(ngModel)]="featureId" data-testid="wi-feature">
+                <option value="">{{ i18n.instant('work_items.no_feature') | camel }}</option>
+                @for (f of features(); track f.id) {
+                  <option [value]="f.id">{{ f.key }} · {{ f.title | camel }}</option>
+                }
+              </select>
+            </ui-field>
+          </div>
+        </form>
+        <div uiModalFooter>
+          <button type="button" ui-button variant="ghost" (click)="newOpen.set(false)">{{ i18n.instant('common.cancel') }}</button>
+          <button type="submit" form="wi-form" ui-button variant="primary" [loading]="busy()" data-testid="wi-create">
+            <ui-icon name="plus" [size]="14" /> {{ i18n.instant('common.create') }}
+          </button>
+        </div>
+      </ui-modal>
     </ui-page>
   `,
 })
@@ -227,20 +267,42 @@ export class WorkItemsPage implements OnInit {
 
   readonly categories = ['backlog', 'unstarted', 'started', 'in_review', 'completed', 'canceled'];
   readonly types = ['task', 'bug', 'feature_task', 'improvement', 'refactor', 'research', 'chore'];
+  readonly priorities = ['none', 'low', 'medium', 'high', 'urgent'];
+  readonly newOpen = signal(false);
+  readonly milestones = signal<{ id: string; name: string }[]>([]);
+  readonly features = signal<{ id: string; key: string; title: string }[]>([]);
   title = '';
   type = 'task';
   stateId = '';
+  priority = 'none';
+  milestoneId = '';
+  featureId = '';
   category = '';
 
   byState = computed(() => (stateId: string) => this.items().filter((i) => i.state_id === stateId));
 
   readonly keyOf = (it: ItemDto): string => it.id;
 
-  private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
+  /** Header button, empty-state CTA and the `c` shortcut (?new=1) open the create modal (P6-8/P6-7). */
+  openNew(): void {
+    this.title = '';
+    this.priority = 'none';
+    this.milestoneId = '';
+    this.featureId = '';
+    this.newOpen.set(true);
+    void this.loadLinkTargets();
+  }
 
-  /** Empty-state CTA + `c` shortcut land here (P6-8/P6-7). */
-  focusTitleInput(): void {
-    this.titleInput()?.nativeElement.focus();
+  /** Milestones and features a new item can be attached to. */
+  private async loadLinkTargets(): Promise<void> {
+    const pid = this.ctx.selectedId();
+    if (!pid) return;
+    try {
+      this.milestones.set((await this.api.get<{ items: { id: string; name: string }[] }>(`/api/v1/projects/${pid}/milestones`)).items);
+      this.features.set((await this.api.get<{ items: { id: string; key: string; title: string }[] }>(`/api/v1/projects/${pid}/features`)).items);
+    } catch (err) {
+      this.toast.error((err as Error).message);
+    }
   }
 
   closeColMenu(ev: Event): void {
@@ -285,14 +347,14 @@ export class WorkItemsPage implements OnInit {
     return [
       { key: 'key', label: this.i18n.instant('common.key'), sortable: true, link: (it) => ['/work-items', it.key], linkTestid: 'wi-link' },
       { key: 'title', label: this.i18n.instant('common.title'), sortable: true },
-      { key: 'type', label: this.i18n.instant('work_items.type'), sortable: true },
+      { key: 'type', label: this.i18n.instant('work_items.type'), sortable: true, value: (it) => camelCase(it.type) },
       { key: 'assignee', label: this.i18n.instant('work_items.assignee'), avatar: (it) => it.assignee_user_id ?? it.assignee_agent_id ?? null },
       { key: 'comments', label: this.i18n.instant('work_items.comments'), sortable: true, value: (it) => it.comment_count },
       {
         key: 'priority',
         label: this.i18n.instant('work_items.priority'),
         sortable: true,
-        badge: (it) => ({ text: it.priority, variant: it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default' }),
+        badge: (it) => ({ text: it.priority, variant: statusMeta(it.priority).variant }),
       },
       {
         key: 'labels',
@@ -304,7 +366,7 @@ export class WorkItemsPage implements OnInit {
         label: this.i18n.instant('work_items.state'),
         sortable: true,
         value: (it) => it.state_name,
-        badge: (it) => ({ text: it.state_name, variant: stateVariant(it.state_category) }),
+        badge: (it) => ({ text: it.state_name, variant: stateVariant(it.state_category), icon: statusMeta(it.state_category).icon }),
       },
       { key: 'due_date', label: this.i18n.instant('work_items.due_date'), sortable: true, value: (it) => it.due_date ?? '—' },
     ];
@@ -321,9 +383,9 @@ export class WorkItemsPage implements OnInit {
     const id = this.route.snapshot.queryParamMap.get('project');
     if (id) this.ctx.select(id);
     await this.load();
-    // `c` shortcut lands here with ?new=1 and focuses the create form (P6-7).
+    // `c` shortcut lands here with ?new=1 and opens the create modal (P6-7).
     if (this.route.snapshot.queryParamMap.get('new')) {
-      setTimeout(() => this.focusTitleInput());
+      setTimeout(() => this.openNew());
     }
   }
 
@@ -353,8 +415,12 @@ export class WorkItemsPage implements OnInit {
         type: this.type,
         title: this.title,
         state_id: this.stateId,
+        ...(this.priority !== 'none' ? { priority: this.priority } : {}),
+        ...(this.milestoneId ? { milestone_id: this.milestoneId } : {}),
+        ...(this.featureId ? { feature_id: this.featureId } : {}),
       });
       this.title = '';
+      this.newOpen.set(false);
       this.toast.ok(this.i18n.instant('work_items.created'));
       await this.load();
     } catch (err) {

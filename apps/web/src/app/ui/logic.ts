@@ -202,3 +202,93 @@ export function dragEnd(prev: DragSession): DragSession {
 export function dragToNative(prev: DragSession): DragSession {
   return { ...DRAG_IDLE, token: prev.token };
 }
+
+// ---------- display text: CamelCase + status meta ----------
+
+/**
+ * CamelCase display text for Latin labels and enum values: `in_progress`, `In Progress` and
+ * `IN PROGRESS` all become `InProgress`. Text with no Latin letters (Persian) is returned
+ * unchanged, because joining its words would only damage it.
+ */
+export function camelCase(text: string | null | undefined): string {
+  const raw = (text ?? '').trim();
+  if (!raw || !/[A-Za-z]/.test(raw)) return raw;
+  return raw
+    .split(/[\s_/-]+/)
+    .filter(Boolean)
+    .map((w) => {
+      const uniform = w === w.toLowerCase() || w === w.toUpperCase();
+      return w.charAt(0).toUpperCase() + (uniform ? w.slice(1).toLowerCase() : w.slice(1));
+    })
+    .join('');
+}
+
+export type BadgeTone = 'default' | 'success' | 'warning' | 'error' | 'info';
+export interface StatusMeta {
+  variant: BadgeTone;
+  icon: string;
+}
+
+const STATUS_META: Record<string, StatusMeta> = {
+  // workflow state categories
+  backlog: { variant: 'default', icon: 'inbox' },
+  unstarted: { variant: 'default', icon: 'circle' },
+  started: { variant: 'info', icon: 'play' },
+  in_review: { variant: 'warning', icon: 'eye' },
+  completed: { variant: 'success', icon: 'check-circle' },
+  canceled: { variant: 'error', icon: 'x-circle' },
+  // feature lifecycle
+  proposed: { variant: 'default', icon: 'inbox' },
+  planned: { variant: 'info', icon: 'flag' },
+  in_progress: { variant: 'info', icon: 'play' },
+  in_validation: { variant: 'warning', icon: 'eye' },
+  released: { variant: 'success', icon: 'rocket' },
+  deprecated: { variant: 'default', icon: 'archive' },
+  // milestones, projects
+  open: { variant: 'info', icon: 'clock' },
+  closed: { variant: 'success', icon: 'check-circle' },
+  active: { variant: 'success', icon: 'check-circle' },
+  archived: { variant: 'default', icon: 'archive' },
+  disabled: { variant: 'default', icon: 'x-circle' },
+  // jobs, approvals, reviews, plans
+  queued: { variant: 'default', icon: 'clock' },
+  pending: { variant: 'warning', icon: 'clock' },
+  running: { variant: 'info', icon: 'play' },
+  processing: { variant: 'info', icon: 'play' },
+  succeeded: { variant: 'success', icon: 'check-circle' },
+  done: { variant: 'success', icon: 'check-circle' },
+  approved: { variant: 'success', icon: 'check-circle' },
+  applied: { variant: 'success', icon: 'check-circle' },
+  failed: { variant: 'error', icon: 'x-circle' },
+  rejected: { variant: 'error', icon: 'x-circle' },
+  dead: { variant: 'error', icon: 'alert' },
+  draft: { variant: 'default', icon: 'file-text' },
+  ready: { variant: 'info', icon: 'check' },
+  // ledger items, questions, journal, review findings
+  verified: { variant: 'success', icon: 'check-circle' },
+  resolved: { variant: 'success', icon: 'check-circle' },
+  answered: { variant: 'success', icon: 'check-circle' },
+  accepted: { variant: 'info', icon: 'check' },
+  deferred: { variant: 'default', icon: 'clock' },
+  wont_fix: { variant: 'default', icon: 'x-circle' },
+  not_applicable: { variant: 'default', icon: 'circle' },
+  blocked: { variant: 'error', icon: 'alert' },
+  awaiting_human: { variant: 'warning', icon: 'user' },
+  unknown: { variant: 'warning', icon: 'help-circle' },
+  dismissed: { variant: 'default', icon: 'x-circle' },
+  critical: { variant: 'error', icon: 'alert' },
+  major: { variant: 'warning', icon: 'alert' },
+  minor: { variant: 'info', icon: 'circle' },
+  // priorities
+  none: { variant: 'default', icon: 'circle' },
+  low: { variant: 'default', icon: 'caret-down' },
+  medium: { variant: 'info', icon: 'chevrons-up-down' },
+  high: { variant: 'warning', icon: 'caret-up' },
+  urgent: { variant: 'error', icon: 'alert' },
+};
+
+/** Variant and icon for a status/priority value (unknown values stay neutral). */
+export function statusMeta(status: string | null | undefined): StatusMeta {
+  const key = (status ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+  return STATUS_META[key] ?? { variant: 'default', icon: 'circle' };
+}

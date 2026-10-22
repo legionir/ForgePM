@@ -13,6 +13,7 @@ import { UiAvatar } from '../ui/avatar';
 import { UiIcon } from '../ui/icon';
 import { UiMarkdown } from '../ui/markdown';
 import { stateVariant } from './work-items';
+import { statusMeta } from '../ui/logic';
 import { ProjectContext } from '../project-context';
 import { UiToastService } from '../ui/toast';
 
@@ -92,9 +93,9 @@ interface MilestoneDto {
         <div class="ui-detail">
           <div class="ui-detail-main">
             <p class="ui-detail-meta">
-              <ui-badge size="sm">{{ it.type }}</ui-badge>
-              <ui-badge size="sm" [variant]="it.priority === 'high' || it.priority === 'urgent' ? 'error' : 'default'">{{ it.priority }}</ui-badge>
-              <ui-badge size="sm" [variant]="stateVariant(it.state_category)">{{ it.state_name }}</ui-badge>
+              <ui-badge size="sm" icon="list" [label]="it.type" variant="default" />
+              <ui-badge size="sm" [status]="it.priority" />
+              <ui-badge size="sm" [variant]="stateVariant(it.state_category)" [icon]="stateIcon(it.state_category)" [status]="it.state_name" />
               @if (it.labels.length) {
                 <span class="ui-chip-row">
                   @for (label of it.labels; track label) {
@@ -136,7 +137,7 @@ interface MilestoneDto {
                         <ui-icon name="git-pr" [size]="14" />
                         <a class="ui-link" [href]="l.url" target="_blank" rel="noopener">#{{ prNumber(l) }}</a>
                         @if (prState(l)) {
-                          <ui-badge size="sm">{{ prState(l) }}</ui-badge>
+                          <ui-badge size="sm" [status]="prState(l)" />
                         }
                       </li>
                     }
@@ -150,7 +151,7 @@ interface MilestoneDto {
                   <ul class="ui-list ui-links" data-testid="wi-ext-links">
                     @for (l of otherLinks(); track l.kind + l.external_id) {
                       <li>
-                        <ui-badge size="sm">{{ l.kind }}</ui-badge>
+                        <ui-badge size="sm" icon="link" [label]="l.kind" variant="default" />
                         <a class="ui-link" [href]="l.url" target="_blank" rel="noopener">{{ l.external_id }}</a>
                       </li>
                     }
@@ -164,7 +165,7 @@ interface MilestoneDto {
                   <ul class="ui-list ui-links" data-testid="wi-relations">
                     @for (r of relations(); track r.id) {
                       <li>
-                        <ui-badge size="sm" [variant]="r.type === 'blocks' ? 'error' : 'default'">{{ r.type }}</ui-badge>
+                        <ui-badge size="sm" [variant]="r.type === 'blocks' ? 'error' : 'default'" [icon]="r.type === 'blocks' ? 'x-circle' : 'link'" [label]="r.type" />
                         <span class="ui-dt-empty">{{ r.direction === 'outgoing' ? '→' : '←' }}</span>
                         <a class="ui-link" [routerLink]="['/work-items', r.other_key]">{{ r.other_key }}</a>
                         <span class="ui-dt-empty">{{ r.other_title }}</span>
@@ -307,6 +308,7 @@ export class WorkItemDetailPage implements OnInit {
   labelsText = '';
   readonly priorities = ['none', 'low', 'medium', 'high', 'urgent'];
   readonly stateVariant = stateVariant;
+  readonly stateIcon = (category: string): string => statusMeta(category).icon;
 
   get tabs(): UiTabItem[] {
     return [

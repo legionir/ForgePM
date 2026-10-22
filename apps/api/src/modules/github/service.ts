@@ -64,6 +64,51 @@ export async function listRepositories(db: DbLike, orgId: string): Promise<RepoR
   return rows as unknown as RepoRow[];
 }
 
+/** Repositories linked to one project (drives the panel's connected / not-connected indicator). */
+export async function listProjectRepositories(db: DbLike, actor: Actor, projectId: string): Promise<RepoRow[]> {
+  await assertProjectAccess(db, actor, projectId, 'project:read');
+  const rows = await db
+    .selectFrom('project_repositories as pr')
+    .innerJoin('repositories as r', 'r.id', 'pr.repository_id')
+    .select(['r.id', 'r.organization_id', 'r.external_id', 'r.full_name', 'r.installation_id', 'r.default_branch'])
+    .where('pr.project_id', '=', projectId)
+    .where('pr.organization_id', '=', actor.organizationId)
+    .orderBy('r.full_name')
+    .execute();
+  return rows as unknown as RepoRow[];
+}
+
+/**
+ * Remove the project <-> repository link. Only the join row goes (D-069): the repository,
+ * its pull requests and issue links stay, and reconnecting restores the link. Idempotent;
+ * an audit event is written only when a link actually existed.
+ */
+export async function disconnectRepoFromProject(db: Db, actor: Actor, projectId: string, repositoryId: string): Promise<boolean> {
+  await assertProjectAccess(db, actor, projectId, 'project:write');
+  let removed = false;
+  await unitOfWork(db, async ({ tx }) => {
+    const res = await tx
+      .deleteFrom('project_repositories')
+      .where('project_id', '=', projectId)
+      .where('repository_id', '=', repositoryId)
+      .where('organization_id', '=', actor.organizationId)
+      .executeTakeFirst();
+    removed = Number(res.numDeletedRows) > 0;
+    if (!removed) return;
+    await recordAudit(tx, {
+      organization_id: actor.organizationId,
+      actor_type: actor.type === 'agent' ? 'agent' : 'user',
+      actor_id: actor.id,
+      action: 'github.disconnect_repository',
+      resource_type: 'project',
+      resource_id: projectId,
+      summary: { repository_id: repositoryId },
+      request_id: actor.requestId,
+    });
+  });
+  return removed;
+}
+
 export async function connectRepoToProject(db: Db, actor: Actor, projectId: string, repositoryId: string): Promise<void> {
   await assertProjectAccess(db, actor, projectId, 'project:write');
   const repo = await db.selectFrom('repositories').select('id').where('id', '=', repositoryId).where('organization_id', '=', actor.organizationId).executeTakeFirst();

@@ -5,6 +5,8 @@ import { I18n } from '../i18n';
 import { UiPage } from '../ui/page';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { UiToastService } from '../ui/toast';
+import { UiBadge } from '../ui/badge';
+import { UiIcon } from '../ui/icon';
 
 interface AuditDto {
   id: string;
@@ -28,11 +30,11 @@ interface UserDto {
 @Component({
   selector: 'page-admin',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiPage, UiDataTable],
+  imports: [UiIcon, UiBadge, FormsModule, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="admin" [title]="i18n.instant('users.title')">
       <section class="ui-card">
-      <header class="ui-card-head"><h2>{{ i18n.instant('users.title') }}</h2><span class="ui-card-sub">{{ users().length }}</span></header>
+      <header class="ui-card-head"><div class="ui-card-title"><h2><ui-icon name="user" [size]="18" [inline]="false" /> {{ i18n.instant('users.title') }}</h2><ui-badge size="sm">{{ users().length }}</ui-badge></div></header>
       <ui-data-table
         testid="user-list"
         emptyTestid="user-empty"

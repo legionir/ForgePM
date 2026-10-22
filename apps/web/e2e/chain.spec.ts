@@ -32,6 +32,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
 
   // 2) create a project
   await expect(page.getByTestId('projects')).toBeVisible();
+  await page.getByTestId('project-new-open').click();
   await page.getByTestId('project-key').fill('EPRJ');
   await page.getByTestId('project-name').fill('E2E Project');
   await page.getByTestId('project-create').click();
@@ -40,15 +41,17 @@ test('§11 full chain: setup → project → items → board → plan → key �
   // 3) feature + five work items
   await page.getByTestId('nav-features').click();
   await expect(page.getByTestId('features')).toBeVisible();
+  await page.getByTestId('feature-new-open').click();
   await page.getByTestId('feature-key').fill('FEAT');
   await page.getByTestId('feature-title').fill('Login flow');
   await page.getByTestId('feature-ac').fill('user can sign in');
-  await page.getByTestId('feature-new').getByRole('button').click();
+  await page.getByTestId('feature-create').click();
   await expect(page.getByTestId('feature-row')).toHaveCount(1);
 
   await page.getByTestId('nav-work-items').click();
   await expect(page.getByTestId('work-items')).toBeVisible();
   for (let i = 1; i <= 5; i++) {
+    await page.getByTestId('wi-new-open').click();
     await page.getByTestId('wi-title').fill(`Item ${i}`);
     await page.getByTestId('wi-create').click();
     await expect(page.getByTestId('wi-list').getByTestId('wi-link')).toHaveCount(i);
@@ -74,6 +77,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
 
   // 5) fake AI provider + plan: create → generate → approve → apply (separate)
   await page.getByTestId('nav-ai-providers').click();
+  await page.getByTestId('provider-new-open').click();
   await page.getByTestId('provider-name').fill('fake-e2e');
   await page.getByTestId('provider-kind').selectOption('fake');
   await page.getByTestId('provider-create').click();
@@ -82,11 +86,11 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await page.getByTestId('nav-planner').click();
   await page.getByTestId('plan-goal').fill('Ship the E2E milestone');
   await page.getByTestId('plan-create').click();
-  await expect(page.getByTestId('plan-status')).toHaveText('generating');
+  await expect(page.getByTestId('plan-status')).toHaveText('Generating');
   await page.getByTestId('plan-generate').click();
-  await expect(page.getByTestId('plan-status')).toHaveText('ready');
+  await expect(page.getByTestId('plan-status')).toHaveText('Ready');
   await page.getByTestId('plan-approve').click();
-  await expect(page.getByTestId('plan-status')).toHaveText('approved');
+  await expect(page.getByTestId('plan-status')).toHaveText('Approved');
   await page.getByTestId('plan-apply').click();
   await expect(page.getByTestId('plan-report')).toContainText('work_items');
 
@@ -131,7 +135,7 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await page.getByTestId('gh-webhook-secret').fill('whsec_e2e');
   await page.getByTestId('gh-save').click();
   await expect(page.getByTestId('gh-msg')).toContainText('github.app_id');
-  await page.getByTestId('nav-system').click();
+  await page.getByTestId('nav-settings').click();
   await page.getByTestId('module-row').filter({ hasText: 'github' }).getByTestId('module-toggle').click();
 
   // connect a repo through the manual PR path (same core the webhook feeds).
@@ -154,15 +158,15 @@ test('§11 full chain: setup → project → items → board → plan → key �
   await expect(page.getByTestId('gh-repo-row')).toContainText('e2e/repo');
 
   // 9) Code review with the fake provider: enable module → run → completed run
-  await page.getByTestId('nav-system').click();
-  await page.getByTestId('module-row').filter({ hasText: 'code_review' }).getByTestId('module-toggle').click();
+  await page.getByTestId('nav-settings').click();
+  await page.getByTestId('module-row').filter({ hasText: 'CodeReview' }).getByTestId('module-toggle').click();
   await page.getByTestId('nav-reviews').click();
   await expect(page.getByTestId('review-run-form')).toBeVisible();
   await expect(page.getByTestId('review-repo')).toContainText('e2e/repo');
   await page.getByTestId('review-pr').fill('1');
   await page.getByTestId('review-run').click();
   await expect(page.getByTestId('run-row')).toHaveCount(1);
-  await expect(page.getByTestId('run-row')).toContainText('completed');
+  await expect(page.getByTestId('run-row')).toContainText(/completed/i);
 });
 
 test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
@@ -175,7 +179,7 @@ test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
     ['/features', 'features'],
     ['/planner', 'planner'],
     ['/api-keys', 'api-keys'],
-    ['/system', 'system'],
+    ['/settings', 'settings'],
   ] as const) {
     await page.goto(path);
     await expect(page.getByTestId(testid)).toBeVisible();
@@ -187,11 +191,12 @@ test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
   }
 
   // Persian + RTL: toggle flips the document and the nav is translated.
-  await page.getByTestId('lang-toggle').click();
+  await page.goto('/settings');
+  await page.getByTestId('lang-select').selectOption('fa');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'fa');
   await expect(page.getByTestId('nav-projects')).toContainText('پروژه‌ها');
-  await page.getByTestId('lang-toggle').click();
+  await page.getByTestId('lang-select').selectOption('en');
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
 
   // §11: no horizontal overflow at 360 and 1280 px on the major pages.
@@ -201,7 +206,7 @@ test('§11 fa/RTL + axe on the major pages', async ({ page }) => {
       ['/projects', 'projects'],
       ['/work-items', 'work-items'],
       ['/features', 'features'],
-      ['/system', 'system'],
+      ['/settings', 'settings'],
     ] as const) {
       await page.goto(path);
       await expect(page.getByTestId(testid)).toBeVisible();

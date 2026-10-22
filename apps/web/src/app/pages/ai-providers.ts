@@ -6,6 +6,10 @@ import { UiButton } from '../ui/button';
 import { UiField, UiControl } from '../ui/field';
 import { UiPage } from '../ui/page';
 import { UiToastService } from '../ui/toast';
+import { UiIcon } from '../ui/icon';
+import { UiBadge } from '../ui/badge';
+import { UiModal } from '../ui/modal';
+import { CamelPipe } from '../ui/camel';
 
 interface ProviderDto {
   id: string;
@@ -30,22 +34,33 @@ interface ProviderDto {
 @Component({
   selector: 'page-ai-providers',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiField, UiControl, UiPage],
+  imports: [FormsModule, UiButton, UiField, UiControl, UiPage, UiIcon, UiBadge, UiModal, CamelPipe],
   template: `
     <ui-page data-testid="ai-providers" [title]="i18n.instant('ai_providers.title')">
       <p class="ui-dt-empty" data-testid="provider-tokens">{{ i18n.instant('ai_providers.used_today') }}: {{ tokensToday() }}</p>
 
-      @if (editId(); as id) {
-        <p class="ui-dt-empty">{{ i18n.instant('ai_providers.editing', { name: editingName() }) }}</p>
-      }
-
-      <div class="ui-grid ui-grid--split">
       <section class="ui-card">
-      <header class="ui-card-head"><h2>{{ i18n.instant('ai_providers.title') }}</h2><span class="ui-card-sub">{{ providers().length }}</span></header>
+      <header class="ui-card-head">
+        <div class="ui-card-title">
+          <h2><ui-icon name="cpu" [size]="18" [inline]="false" /> {{ i18n.instant('ai_providers.title') }}</h2>
+          <ui-badge size="sm" data-testid="provider-count">{{ providers().length }}</ui-badge>
+        </div>
+        <button type="button" ui-button variant="primary" size="sm" (click)="openNew()" data-testid="provider-new-open">
+          <ui-icon name="plus" [size]="14" /> {{ i18n.instant('ai_providers.new') }}
+        </button>
+      </header>
       <ul class="ui-list" data-testid="provider-list">
         @for (p of providers(); track p.id) {
           <li data-testid="provider-row">
-            <span>{{ p.name }} · {{ p.kind }}@if (p.default_model) {<span> · {{ p.default_model }}</span>} · {{ p.enabled ? 'on' : 'off' }} · last4 {{ p.key_last4 ?? '—' }}</span>
+            <span class="ui-provider-line">
+              <strong>{{ p.name }}</strong>
+              <ui-badge size="sm" icon="cpu" [label]="p.kind" />
+              @if (p.default_model) {
+                <ui-badge size="sm" icon="zap" [label]="p.default_model" />
+              }
+              <ui-badge size="sm" [status]="p.enabled ? 'active' : 'disabled'" [label]="p.enabled ? i18n.instant('system.enabled') : i18n.instant('system.disabled')" />
+              <span class="ui-dt-empty">last4 {{ p.key_last4 ?? '—' }}</span>
+            </span>
             <span class="ui-row-actions">
               <button type="button" ui-button size="sm" (click)="startEdit(p)" data-testid="provider-edit">{{ i18n.instant('common.edit') }}</button>
               <button type="button" ui-button size="sm" (click)="test(p.id)" data-testid="provider-test">{{ i18n.instant('ai_providers.test') }}</button>
@@ -57,60 +72,58 @@ interface ProviderDto {
       </ul>
       </section>
 
-      <section class="ui-card">
-      <header class="ui-card-head"><h2>{{ editId() ? i18n.instant('common.edit') : i18n.instant('common.create') }}</h2></header>
-      <form class="ui-stack" (ngSubmit)="save()" data-testid="provider-new">
-        <ui-field [label]="i18n.instant('common.name')" required>
-          <input uiControl name="n" [(ngModel)]="name" required data-testid="provider-name" />
-        </ui-field>
-        <ui-field [label]="i18n.instant('common.kind')">
-          <select uiControl name="k" [(ngModel)]="kind" (change)="onKindChange()" data-testid="provider-kind">
-            @for (k of kinds; track k) {
-              <option [value]="k">{{ k }}</option>
+      <ui-modal [open]="formOpen()" (openChange)="$event || cancelEdit()" [title]="editId() ? i18n.instant('ai_providers.editing', { name: editingName() }) : i18n.instant('ai_providers.new')" icon="cpu">
+        <form class="ui-stack" (ngSubmit)="save()" id="provider-form" data-testid="provider-new">
+          <ui-field [label]="i18n.instant('common.name')" required>
+            <input uiControl name="n" [(ngModel)]="name" required data-testid="provider-name" />
+          </ui-field>
+          <ui-field [label]="i18n.instant('common.kind')">
+            <select uiControl name="k" [(ngModel)]="kind" (change)="onKindChange()" data-testid="provider-kind">
+              @for (k of kinds; track k) {
+                <option [value]="k">{{ k | camel }}</option>
+              }
+            </select>
+          </ui-field>
+          <ui-field [label]="i18n.instant('ai_providers.base_url')" [hint]="baseUrlHint()">
+            <input uiControl name="u" [(ngModel)]="baseUrl" (change)="fetchModels(true)" data-testid="provider-base-url" placeholder="https://api.openai.com/v1" />
+          </ui-field>
+          <ui-field [label]="i18n.instant('ai_providers.api_key')" [hint]="keyHint()">
+            <input uiControl name="key" type="password" [(ngModel)]="apiKey" (change)="fetchModels(true)" autocomplete="off" data-testid="provider-key" />
+          </ui-field>
+          <ui-field [label]="i18n.instant('ai_providers.model')">
+            <span class="ui-model-row">
+              <input uiControl name="m" [(ngModel)]="model" [attr.list]="'provider-model-options'" data-testid="provider-model" />
+              <button
+                type="button"
+                ui-button
+                variant="ghost"
+                size="sm"
+                [loading]="modelsLoading()"
+                [attr.aria-label]="i18n.instant('ai_providers.fetch_models')"
+                [title]="i18n.instant('ai_providers.fetch_models')"
+                (click)="fetchModels()"
+                data-testid="provider-fetch-models"
+              >{{ i18n.instant('ai_providers.fetch_models') }}</button>
+            </span>
+            @if (models().length) {
+              <span class="ui-dt-empty" data-testid="provider-model-count">{{ models().length }} {{ i18n.instant('ai_providers.models_found') }}</span>
+            } @else if (modelsTried() && !modelsLoading()) {
+              <span class="ui-dt-empty" data-testid="provider-models-none">{{ i18n.instant('ai_providers.models_none') }}</span>
             }
-          </select>
-        </ui-field>
-        <ui-field [label]="i18n.instant('ai_providers.base_url')" [hint]="baseUrlHint()">
-          <input uiControl name="u" [(ngModel)]="baseUrl" (change)="fetchModels(true)" data-testid="provider-base-url" placeholder="https://api.openai.com/v1" />
-        </ui-field>
-        <ui-field [label]="i18n.instant('ai_providers.api_key')" [hint]="keyHint()">
-          <input uiControl name="key" type="password" [(ngModel)]="apiKey" (change)="fetchModels(true)" autocomplete="off" data-testid="provider-key" />
-        </ui-field>
-        <ui-field [label]="i18n.instant('ai_providers.model')">
-          <span class="ui-model-row">
-            <input uiControl name="m" [(ngModel)]="model" [attr.list]="'provider-model-options'" data-testid="provider-model" />
-            <button
-              type="button"
-              ui-button
-              variant="ghost"
-              size="sm"
-              [loading]="modelsLoading()"
-              [attr.aria-label]="i18n.instant('ai_providers.fetch_models')"
-              [title]="i18n.instant('ai_providers.fetch_models')"
-              (click)="fetchModels()"
-              data-testid="provider-fetch-models"
-            >{{ i18n.instant('ai_providers.fetch_models') }}</button>
-          </span>
-          @if (models().length) {
-            <span class="ui-dt-empty" data-testid="provider-model-count">{{ models().length }} {{ i18n.instant('ai_providers.models_found') }}</span>
-          } @else if (modelsTried() && !modelsLoading()) {
-            <span class="ui-dt-empty" data-testid="provider-models-none">{{ i18n.instant('ai_providers.models_none') }}</span>
-          }
-          <datalist id="provider-model-options">
-            @for (m of models(); track m) {
-              <option [value]="m"></option>
-            }
-          </datalist>
-        </ui-field>
-        <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="provider-create">
-          {{ editId() ? i18n.instant('common.save') : i18n.instant('common.create') }}
-        </button>
-        @if (editId()) {
-          <button type="button" ui-button (click)="cancelEdit()" data-testid="provider-cancel">{{ i18n.instant('common.cancel') }}</button>
-        }
-      </form>
-      </section>
-      </div>
+            <datalist id="provider-model-options">
+              @for (m of models(); track m) {
+                <option [value]="m"></option>
+              }
+            </datalist>
+          </ui-field>
+        </form>
+        <div uiModalFooter>
+          <button type="button" ui-button variant="ghost" (click)="cancelEdit()" data-testid="provider-cancel">{{ i18n.instant('common.cancel') }}</button>
+          <button type="submit" form="provider-form" ui-button variant="primary" [loading]="busy()" data-testid="provider-create">
+            {{ editId() ? i18n.instant('common.save') : i18n.instant('common.create') }}
+          </button>
+        </div>
+      </ui-modal>
     </ui-page>
   `,
   styles: [
@@ -122,6 +135,12 @@ interface ProviderDto {
       }
       .ui-model-row input {
         flex: 1;
+      }
+      .ui-provider-line {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
       }
       .ui-row-actions {
         display: inline-flex;
@@ -142,6 +161,7 @@ export class AiProvidersPage implements OnInit {
   readonly modelsLoading = signal(false);
   readonly modelsTried = signal(false);
   readonly editId = signal<string | null>(null);
+  readonly formOpen = signal(false);
   readonly editingName = computed(() => this.providers().find((p) => p.id === this.editId())?.name ?? '');
 
   name = 'fake-1';
@@ -201,8 +221,16 @@ export class AiProvidersPage implements OnInit {
     if (this.kind === 'fake') void this.fetchModels(true);
   }
 
+  openNew(): void {
+    this.editId.set(null);
+    this.resetForm();
+    this.formOpen.set(true);
+    void this.fetchModels(true);
+  }
+
   startEdit(p: ProviderDto): void {
     this.editId.set(p.id);
+    this.formOpen.set(true);
     this.name = p.name;
     this.kind = p.kind;
     this.baseUrl = p.base_url ?? '';
@@ -213,6 +241,7 @@ export class AiProvidersPage implements OnInit {
   }
 
   cancelEdit(): void {
+    this.formOpen.set(false);
     this.editId.set(null);
     this.resetForm();
   }
@@ -240,6 +269,7 @@ export class AiProvidersPage implements OnInit {
       if (this.editId()) await this.api.put(`/api/v1/ai-providers/${this.editId()}`, body);
       else await this.api.post('/api/v1/ai-providers', body);
       this.toast.ok(this.i18n.instant('common.saved'));
+      this.formOpen.set(false);
       this.editId.set(null);
       this.resetForm();
       await this.load();

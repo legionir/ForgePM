@@ -76,7 +76,7 @@ describe('UiDataTable', () => {
     const body = el.querySelectorAll('tbody tr');
     expect(body).toHaveLength(3);
     expect(body[0].textContent).toContain('beta');
-    expect(body[0].querySelector('.ui-badge--error')?.textContent?.trim()).toBe('high');
+    expect(body[0].querySelector('.ui-badge--error')?.textContent?.trim()).toBe('High');
     expect(body[0].querySelectorAll('.ui-chip').length).toBe(1);
     expect(body[2].querySelectorAll('.ui-chip').length).toBe(2);
   });
@@ -295,27 +295,50 @@ describe('UiShell', () => {
     localStorage.removeItem('fpm_project');
   });
 
-  it('theme + lang toggles mutate tokens/i18n; logout routes to /login', async () => {
+  it('header has no theme/lang toggles and logout routes to /login', async () => {
     TestBed.configureTestingModule({
       imports: [ShellHost],
       providers: [provideRouter(ROUTES), { provide: Session, useValue: stubSession() }, { provide: ApiClient, useValue: stubApi() }],
     });
-    const { Tokens } = await import('./tokens');
-    const { I18n } = await import('../i18n');
     const f = TestBed.createComponent(ShellHost);
     await flush(f);
-    const tokens = TestBed.inject(Tokens);
-    const i18n = TestBed.inject(I18n);
-    i18n.set('en');
     const el = f.nativeElement as HTMLElement;
-    (el.querySelector('[data-testid="theme-toggle"]') as HTMLButtonElement).click();
-    expect(tokens.theme()).toBe('light');
-    (el.querySelector('[data-testid="lang-toggle"]') as HTMLButtonElement).click();
-    expect(i18n.lang()).toBe('fa');
-    i18n.set('en'); // don't leak fa into other tests in this worker
+    expect(el.querySelector('[data-testid="theme-toggle"]')).toBeNull();
+    expect(el.querySelector('[data-testid="lang-toggle"]')).toBeNull();
     (el.querySelector('[data-testid="logout"]') as HTMLButtonElement).click();
     await f.whenStable();
     expect(TestBed.inject(Router).url).toBe('/login');
+  });
+
+  it('header project name: the active project name and key show in the top bar', async () => {
+    localStorage.removeItem('fpm_project');
+    const api: Partial<ApiClient> = {
+      get: async <T = unknown>(): Promise<T> => ({ items: [{ id: 'p1', key: 'SSS', name: 'Sweet Project', status: 'active' }] }) as T,
+      post: async <T = unknown>(): Promise<T> => ({}) as T,
+    };
+    TestBed.configureTestingModule({
+      imports: [ShellHost],
+      providers: [provideRouter(ROUTES), { provide: Session, useValue: stubSession() }, { provide: ApiClient, useValue: api }],
+    });
+    const f = TestBed.createComponent(ShellHost);
+    await flush(f);
+    await flush(f);
+    const chip = (f.nativeElement as HTMLElement).querySelector('[data-testid="header-project"]');
+    expect(chip?.textContent).toContain('Sweet Project');
+    expect(chip?.textContent).toContain('SSS');
+    localStorage.removeItem('fpm_project');
+  });
+
+  it('nav destinations: no /system link, a /jobs link', async () => {
+    TestBed.configureTestingModule({
+      imports: [ShellHost],
+      providers: [provideRouter(ROUTES), { provide: Session, useValue: stubSession() }, { provide: ApiClient, useValue: stubApi() }],
+    });
+    const f = TestBed.createComponent(ShellHost);
+    await flush(f);
+    const el = f.nativeElement as HTMLElement;
+    expect(el.querySelector('[data-testid="nav-system"]')).toBeNull();
+    expect(el.querySelector('[data-testid="nav-jobs"]')).toBeTruthy();
   });
 });
 

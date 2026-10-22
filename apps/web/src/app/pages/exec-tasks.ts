@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
@@ -9,6 +10,11 @@ import { UiField, UiControl } from '../ui/field';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
 import { UiToastService } from '../ui/toast';
+import { UiBadge } from '../ui/badge';
+import { UiIcon } from '../ui/icon';
+import { UiModal } from '../ui/modal';
+import { CamelPipe } from '../ui/camel';
+import { statusMeta } from '../ui/logic';
 
 interface PlanNode {
   id: string;
@@ -39,17 +45,32 @@ interface ExecStatusDto {
   events?: { action: string; actor_type: string; created_at: string }[];
 }
 
+/** API minimums for the human endpoints: resolve notes need 20 characters, every other reason 10. */
+export const MIN_NOTE = 20;
+export const MIN_REASON = 10;
+export const RESOLVE_STATUSES = ['resolved', 'accepted', 'deferred', 'wont_fix', 'not_applicable'] as const;
+export const FACT_SOURCES = ['human', 'code', 'docs', 'tool_output'] as const;
+
+const ACTIVE_ITEM = new Set(['open', 'blocked', 'awaiting_human']);
+
+/**
+ * Execution tasks: the plan tree, and one task's ledger detail in a modal. The modal follows the route
+ * (`/exec-tasks/:code` opens it, closing returns to `/exec-tasks`), so a link, the back button and a click
+ * on another task all show the right details. The human unlock forms use selects for every enum and for
+ * every code the task already lists, so a typo cannot reach the API.
+ */
 @Component({
   selector: 'page-exec-tasks',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage, UiField, UiControl, UiDataTable],
+  imports: [UiBadge, FormsModule, UiButton, UiPage, UiField, UiControl, UiDataTable, UiIcon, UiModal, CamelPipe],
   styles: [`.ui-row--blocked{border-inline-start:4px solid var(--color-error)} .ui-row--awaiting{border-inline-start:4px solid var(--color-warning)}`],
   template: `
     <ui-page data-testid="exec-tasks" [title]="i18n.instant('exec.title')">
-
-      <!-- Plan tree table -->
-      <div class="ui-exec-toolbar">
-        <span data-testid="exec-task-count">{{ i18n.instant('exec.task_count') }}: {{ taskCount() }}</span>
+      <div class="ui-card-head">
+        <div class="ui-card-title">
+          <h2><ui-icon name="check-square" [size]="18" [inline]="false" /> {{ i18n.instant('exec.tasks') }}</h2>
+          <ui-badge size="sm" data-testid="exec-task-count">{{ taskCount() }}</ui-badge>
+        </div>
         @if (nextCursor()) {
           <button type="button" ui-button variant="secondary" size="sm" (click)="loadMore()" [disabled]="loading()" data-testid="exec-next-page">{{ i18n.instant('table.next') }}</button>
         }
@@ -67,21 +88,15 @@ interface ExecStatusDto {
         [rowClass]="rowClass"
       />
 
-      <!-- Drawer for selected task -->
-      @if (selectedCode()) {
-        <section class="ui-drawer" data-testid="exec-drawer">
-          <header class="ui-drawer-head">
-            <h2 data-testid="exec-drawer-title">{{ selectedCode() }} · {{ statusDetail()?.task?.title ?? '' }}</h2>
-            <button type="button" ui-button variant="ghost" size="sm" (click)="closeDrawer()" data-testid="exec-drawer-close">{{ i18n.instant('common.cancel') }}</button>
-          </header>
-
-          <!-- Criteria + evidence -->
-          <h3 data-testid="exec-criteria-title">{{ i18n.instant('exec.criteria') }}</h3>
+      <ui-modal [open]="!!selectedCode()" (openChange)="$event || closeDrawer()" size="lg" icon="check-square" [title]="modalTitle()" data-testid="exec-drawer">
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-criteria-title"><ui-icon name="check-circle" [size]="14" [inline]="false" /> {{ i18n.instant('exec.criteria') }}
+            <ui-badge size="sm">{{ detail()?.criteria?.length ?? 0 }}</ui-badge></h3>
           <ul data-testid="exec-criteria-list">
-            @for (c of statusDetail()?.criteria ?? []; track c.code) {
+            @for (c of detail()?.criteria ?? []; track c.code) {
               <li data-testid="exec-criterion-row">
-                <span>{{ c.code }}: {{ c.text }} [{{ c.status }}]</span>
-                @if (c.req_code) { <span data-testid="exec-criterion-req">{{ c.req_code }}</span> }
+                <span>{{ c.code }}: {{ c.text }} <ui-badge size="sm" [status]="c.status" /></span>
+                @if (c.req_code) { <ui-badge size="sm" icon="flag" [label]="c.req_code" data-testid="exec-criterion-req" /> }
                 <ul>
                   @for (e of evidenceFor(c.code); track e.ref) {
                     <li data-testid="exec-evidence-row">{{ e.kind }} {{ e.ref }} {{ e.summary }} @if (e.provenance) { <span data-testid="exec-evidence-provenance">{{ e.provenance }}</span> }</li>
@@ -90,136 +105,187 @@ interface ExecStatusDto {
               </li>
             }
           </ul>
-
-          <!-- Open items -->
-          <h3 data-testid="exec-open-items-title">{{ i18n.instant('exec.open_items') }}</h3>
-          <ul data-testid="exec-open-items">
-            @for (it of statusDetail()?.items ?? []; track it.code) {
-              <li data-testid="exec-open-item-row">{{ it.code }} {{ it.title }} [{{ it.status }}]</li>
-            }
-          </ul>
-
-          <!-- Decisions -->
-          <h3 data-testid="exec-decisions-title">{{ i18n.instant('exec.decisions') }}</h3>
-          <ul data-testid="exec-decisions">
-            @for (d of statusDetail()?.decisions ?? []; track d.code) {
-              <li data-testid="exec-decision-row">{{ d.code }} {{ d.title }} {{ d.approval_state }}</li>
-            }
-          </ul>
-
-          <!-- Questions -->
-          <h3 data-testid="exec-questions-title">{{ i18n.instant('exec.questions') }}</h3>
-          <ul data-testid="exec-questions">
-            @for (q of statusDetail()?.questions ?? []; track q.code) {
-              <li data-testid="exec-question-row">{{ q.code }} {{ q.question }} [{{ q.status }}]</li>
-            }
-          </ul>
-
-          <!-- Reviews -->
-          <h3 data-testid="exec-reviews-title">{{ i18n.instant('exec.reviews') }}</h3>
-          <ul data-testid="exec-reviews">
-            @for (r of statusDetail()?.reviews ?? []; track r.round) {
-              <li data-testid="exec-review-row">round {{ r.round }} {{ r.verdict }}</li>
-            }
-          </ul>
-
-          <!-- Journal -->
-          <h3 data-testid="exec-journal-title">{{ i18n.instant('exec.journal') }}</h3>
-          <ul data-testid="exec-journal">
-            @for (j of statusDetail()?.journal ?? []; track j.code) {
-              <li data-testid="exec-journal-row">{{ j.code }} {{ j.action }} [{{ j.status }}]</li>
-            }
-          </ul>
-
-          <!-- REQs -->
-          <h3 data-testid="exec-reqs-title">{{ i18n.instant('exec.requirements') }}</h3>
-          <ul data-testid="exec-reqs">
-            @for (r of statusDetail()?.requirements ?? []; track r.code) {
-              <li data-testid="exec-req-row">{{ r.code }} {{ r.text }}</li>
-            }
-          </ul>
-
-          <!-- Dry-run Gate -->
-          <section data-testid="exec-gate-section">
-            <button type="button" ui-button variant="primary" size="sm" (click)="dryRun()" [loading]="gateLoading()" data-testid="exec-dry-run">{{ i18n.instant('exec.dry_run') }}</button>
-            @if (gateResult()) {
-              <div data-testid="exec-gate-result">
-                <span data-testid="exec-gate-ok">{{ gateResult()!.ok ? 'ok' : 'blocked' }}</span>
-                <ul data-testid="exec-blocked-by">
-                  @for (b of gateResult()!.blocked_by; track b.ref) {
-                    <li data-testid="exec-blocked-row">{{ b.rule }} {{ b.ref }} {{ b.title }} → {{ b.tool_to_call }}</li>
-                  }
-                </ul>
-              </div>
-            }
-          </section>
-
-          <!-- Human unlock forms — each calls exact human REST endpoint with preview -->
-          <section data-testid="exec-unlock-forms">
-            <h3>{{ i18n.instant('exec.unlock') }}</h3>
-
-            <!-- resolve -->
-            <form (ngSubmit)="resolveItem()" data-testid="exec-resolve-form">
-              <ui-field [label]="i18n.instant('exec.resolve')"><input uiControl name="rcode" [(ngModel)]="formResolve.code" required data-testid="exec-resolve-code" /></ui-field>
-              <ui-field [label]="i18n.instant('common.title')"><select uiControl name="rstatus" [(ngModel)]="formResolve.status" data-testid="exec-resolve-status"><option value="resolved">resolved</option><option value="accepted">accepted</option><option value="deferred">deferred</option><option value="wont_fix">wont_fix</option><option value="not_applicable">not_applicable</option></select></ui-field>
-              <ui-field [label]="i18n.instant('exec.reason')" required><textarea uiControl name="rnote" [(ngModel)]="formResolve.note" required data-testid="exec-resolve-note"></textarea></ui-field>
-              <div data-testid="exec-resolve-preview">{{ preview(formResolve) }}</div>
-              <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formResolve.note.trim()" data-testid="exec-resolve-submit">{{ i18n.instant('exec.resolve') }}</button>
-            </form>
-
-            <!-- answer Q -->
-            <form (ngSubmit)="answerQuestion()" data-testid="exec-answer-form">
-              <ui-field [label]="i18n.instant('exec.answer')"><input uiControl name="qcode" [(ngModel)]="formAnswer.code" required data-testid="exec-answer-code" /></ui-field>
-              <ui-field [label]="i18n.instant('exec.answer')"><input uiControl name="ans" [(ngModel)]="formAnswer.answer" required data-testid="exec-answer-input" /></ui-field>
-              <div data-testid="exec-answer-preview">{{ preview(formAnswer) }}</div>
-              <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formAnswer.answer.trim()" data-testid="exec-answer-submit">{{ i18n.instant('exec.answer') }}</button>
-            </form>
-
-            <!-- approve/reject D -->
-            <form (ngSubmit)="decideDecision()" data-testid="exec-decide-form">
-              <ui-field [label]="'D code'"><input uiControl name="dcode" [(ngModel)]="formDecide.code" required data-testid="exec-decide-code" /></ui-field>
-              <ui-field [label]="i18n.instant('exec.reason')"><input uiControl name="dreason" [(ngModel)]="formDecide.reason" required data-testid="exec-decide-reason" /></ui-field>
-              <div data-testid="exec-decide-preview">{{ preview(formDecide) }}</div>
-              <button type="button" ui-button variant="primary" size="sm" (click)="decideDecision('approved')" [disabled]="!formDecide.reason.trim()" data-testid="exec-decide-approve">{{ i18n.instant('approvals.approve') }}</button>
-              <button type="button" ui-button variant="destructive" size="sm" (click)="decideDecision('rejected')" [disabled]="!formDecide.reason.trim()" data-testid="exec-decide-reject">{{ i18n.instant('approvals.reject') }}</button>
-            </form>
-
-            <!-- waive C -->
-            <form (ngSubmit)="waiveCriterion()" data-testid="exec-waive-form">
-              <ui-field [label]="'C code'"><input uiControl name="wcode" [(ngModel)]="formWaive.code" required data-testid="exec-waive-code" /></ui-field>
-              <ui-field [label]="i18n.instant('exec.reason')"><input uiControl name="wreason" [(ngModel)]="formWaive.reason" required data-testid="exec-waive-reason" /></ui-field>
-              <div data-testid="exec-waive-preview">{{ preview(formWaive) }}</div>
-              <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formWaive.reason.trim()" data-testid="exec-waive-submit">{{ i18n.instant('exec.waive') }}</button>
-            </form>
-
-            <!-- drop REQ -->
-            <form (ngSubmit)="dropRequirement()" data-testid="exec-drop-form">
-              <ui-field [label]="'REQ code'"><input uiControl name="dropcode" [(ngModel)]="formDrop.code" required data-testid="exec-drop-code" /></ui-field>
-              <ui-field [label]="i18n.instant('exec.reason')"><input uiControl name="dropreason" [(ngModel)]="formDrop.reason" required data-testid="exec-drop-reason" /></ui-field>
-              <div data-testid="exec-drop-preview">{{ preview(formDrop) }}</div>
-              <button type="submit" ui-button variant="destructive" size="sm" [disabled]="!formDrop.reason.trim()" data-testid="exec-drop-submit">{{ i18n.instant('exec.drop_req') }}</button>
-            </form>
-
-            <!-- approve-scope -->
-            <form (ngSubmit)="approveScope()" data-testid="exec-scope-form">
-              <ui-field [label]="'paths'"><input uiControl name="spaths" [(ngModel)]="formScope.paths" required data-testid="exec-scope-paths" /></ui-field>
-              <ui-field [label]="i18n.instant('exec.reason')"><input uiControl name="sreason" [(ngModel)]="formScope.reason" required data-testid="exec-scope-reason" /></ui-field>
-              <div data-testid="exec-scope-preview">{{ preview(formScope) }}</div>
-              <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formScope.reason.trim()" data-testid="exec-scope-submit">{{ i18n.instant('exec.approve_scope') }}</button>
-            </form>
-
-            <!-- fact promote -->
-            <form (ngSubmit)="promoteFact()" data-testid="exec-promote-form">
-              <ui-field [label]="'F code'"><input uiControl name="fcode" [(ngModel)]="formPromote.code" required data-testid="exec-promote-code" /></ui-field>
-              <ui-field [label]="'source'"><input uiControl name="fsrc" [(ngModel)]="formPromote.source" required data-testid="exec-promote-source" /></ui-field>
-              <ui-field [label]="'source_ref'"><input uiControl name="fsref" [(ngModel)]="formPromote.source_ref" required data-testid="exec-promote-ref" /></ui-field>
-              <ui-field [label]="i18n.instant('exec.reason')"><input uiControl name="freason" [(ngModel)]="formPromote.reason" required data-testid="exec-promote-reason" /></ui-field>
-              <div data-testid="exec-promote-preview">{{ preview(formPromote) }}</div>
-              <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formPromote.reason.trim()" data-testid="exec-promote-submit">{{ i18n.instant('exec.promote_fact') }}</button>
-            </form>
-          </section>
         </section>
-      }
+
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-open-items-title"><ui-icon name="alert" [size]="14" [inline]="false" /> {{ i18n.instant('exec.open_items') }}
+            <ui-badge size="sm">{{ detail()?.items?.length ?? 0 }}</ui-badge></h3>
+          <ul data-testid="exec-open-items">
+            @for (it of detail()?.items ?? []; track it.code) {
+              <li data-testid="exec-open-item-row">{{ it.code }} {{ it.title }} <ui-badge size="sm" [status]="it.status" /></li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-decisions-title"><ui-icon name="shield" [size]="14" [inline]="false" /> {{ i18n.instant('exec.decisions') }}
+            <ui-badge size="sm">{{ detail()?.decisions?.length ?? 0 }}</ui-badge></h3>
+          <ul data-testid="exec-decisions">
+            @for (d of detail()?.decisions ?? []; track d.code) {
+              <li data-testid="exec-decision-row">{{ d.code }} {{ d.title }} <ui-badge size="sm" [status]="d.approval_state" /></li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-questions-title"><ui-icon name="help-circle" [size]="14" [inline]="false" /> {{ i18n.instant('exec.questions') }}
+            <ui-badge size="sm">{{ detail()?.questions?.length ?? 0 }}</ui-badge></h3>
+          <ul data-testid="exec-questions">
+            @for (q of detail()?.questions ?? []; track q.code) {
+              <li data-testid="exec-question-row">{{ q.code }} {{ q.question }} <ui-badge size="sm" [status]="q.status" /></li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-reviews-title"><ui-icon name="eye" [size]="14" [inline]="false" /> {{ i18n.instant('exec.reviews') }}
+            <ui-badge size="sm">{{ detail()?.reviews?.length ?? 0 }}</ui-badge></h3>
+          <ul data-testid="exec-reviews">
+            @for (r of detail()?.reviews ?? []; track r.round) {
+              <li data-testid="exec-review-row">round {{ r.round }} <ui-badge size="sm" [status]="r.verdict" /></li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-journal-title"><ui-icon name="activity" [size]="14" [inline]="false" /> {{ i18n.instant('exec.journal') }}
+            <ui-badge size="sm">{{ detail()?.journal?.length ?? 0 }}</ui-badge></h3>
+          <ul data-testid="exec-journal">
+            @for (j of detail()?.journal ?? []; track j.code) {
+              <li data-testid="exec-journal-row">{{ j.code }} {{ j.action }} <ui-badge size="sm" [status]="j.status" /></li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-detail-section">
+          <h3 data-testid="exec-reqs-title"><ui-icon name="flag" [size]="14" [inline]="false" /> {{ i18n.instant('exec.requirements') }}
+            <ui-badge size="sm">{{ detail()?.requirements?.length ?? 0 }}</ui-badge></h3>
+          <ul data-testid="exec-reqs">
+            @for (r of detail()?.requirements ?? []; track r.code) {
+              <li data-testid="exec-req-row">{{ r.code }} {{ r.text }} <ui-badge size="sm" [status]="r.status" /></li>
+            }
+          </ul>
+        </section>
+
+        <section class="ui-detail-section" data-testid="exec-gate-section">
+          <div>
+            <button type="button" ui-button variant="primary" size="sm" (click)="dryRun()" [loading]="gateLoading()" data-testid="exec-dry-run">{{ i18n.instant('exec.dry_run') }}</button>
+          </div>
+          @if (gateResult(); as g) {
+            <div data-testid="exec-gate-result">
+              <ui-badge size="sm" [status]="g.ok ? 'approved' : 'blocked'" [label]="g.ok ? 'ok' : 'blocked'" data-testid="exec-gate-ok" />
+              <ul data-testid="exec-blocked-by">
+                @for (b of g.blocked_by; track b.ref) {
+                  <li data-testid="exec-blocked-row">{{ b.rule }} {{ b.ref }} {{ b.title }} → {{ b.tool_to_call }}</li>
+                }
+              </ul>
+            </div>
+          }
+        </section>
+
+        <section class="ui-detail-section" data-testid="exec-unlock-forms">
+          <h3><ui-icon name="lock" [size]="14" [inline]="false" /> {{ i18n.instant('exec.unlock') }}</h3>
+
+          <form class="ui-unlock-form" (ngSubmit)="resolveItem()" data-testid="exec-resolve-form">
+            <ui-field [label]="i18n.instant('exec.open_items')">
+              <select uiControl name="rcode" [(ngModel)]="formResolve.code" required data-testid="exec-resolve-code">
+                <option value="">{{ i18n.instant('exec.pick') }}</option>
+                @for (it of activeItems(); track it.code) { <option [value]="it.code">{{ it.code }} — {{ it.title }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.status')">
+              <select uiControl name="rstatus" [(ngModel)]="formResolve.status" data-testid="exec-resolve-status">
+                @for (s of resolveStatuses; track s) { <option [value]="s">{{ s | camel }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.reason')" required [hint]="minHint(formResolve.note, minNote)">
+              <textarea uiControl name="rnote" [(ngModel)]="formResolve.note" required rows="2" data-testid="exec-resolve-note"></textarea>
+            </ui-field>
+            <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formResolve.code || formResolve.note.trim().length < minNote" data-testid="exec-resolve-submit">{{ i18n.instant('exec.resolve') }}</button>
+          </form>
+
+          <form class="ui-unlock-form" (ngSubmit)="answerQuestion()" data-testid="exec-answer-form">
+            <ui-field [label]="i18n.instant('exec.questions')">
+              <select uiControl name="qcode" [(ngModel)]="formAnswer.code" required data-testid="exec-answer-code">
+                <option value="">{{ i18n.instant('exec.pick') }}</option>
+                @for (q of openQuestions(); track q.code) { <option [value]="q.code">{{ q.code }} — {{ q.question }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.answer')" required>
+              <input uiControl name="ans" [(ngModel)]="formAnswer.answer" required data-testid="exec-answer-input" />
+            </ui-field>
+            <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formAnswer.code || !formAnswer.answer.trim()" data-testid="exec-answer-submit">{{ i18n.instant('exec.answer') }}</button>
+          </form>
+
+          <form class="ui-unlock-form" (ngSubmit)="decideDecision('approved')" data-testid="exec-decide-form">
+            <ui-field [label]="i18n.instant('exec.decisions')">
+              <select uiControl name="dcode" [(ngModel)]="formDecide.code" required data-testid="exec-decide-code">
+                <option value="">{{ i18n.instant('exec.pick') }}</option>
+                @for (d of pendingDecisions(); track d.code) { <option [value]="d.code">{{ d.code }} — {{ d.title }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.reason')" required>
+              <input uiControl name="dreason" [(ngModel)]="formDecide.reason" required data-testid="exec-decide-reason" />
+            </ui-field>
+            <button type="button" ui-button variant="primary" size="sm" (click)="decideDecision('approved')" [disabled]="!formDecide.code || !formDecide.reason.trim()" data-testid="exec-decide-approve">{{ i18n.instant('exec.approve') }}</button>
+            <button type="button" ui-button variant="destructive" size="sm" (click)="decideDecision('rejected')" [disabled]="!formDecide.code || !formDecide.reason.trim()" data-testid="exec-decide-reject">{{ i18n.instant('exec.reject') }}</button>
+          </form>
+
+          <form class="ui-unlock-form" (ngSubmit)="waiveCriterion()" data-testid="exec-waive-form">
+            <ui-field [label]="i18n.instant('exec.criteria')">
+              <select uiControl name="wcode" [(ngModel)]="formWaive.code" required data-testid="exec-waive-code">
+                <option value="">{{ i18n.instant('exec.pick') }}</option>
+                @for (c of waivableCriteria(); track c.code) { <option [value]="c.code">{{ c.code }} — {{ c.text }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.reason')" required [hint]="minHint(formWaive.reason, minReason)">
+              <input uiControl name="wreason" [(ngModel)]="formWaive.reason" required data-testid="exec-waive-reason" />
+            </ui-field>
+            <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formWaive.code || formWaive.reason.trim().length < minReason" data-testid="exec-waive-submit">{{ i18n.instant('exec.waive') }}</button>
+          </form>
+
+          <form class="ui-unlock-form" (ngSubmit)="dropRequirement()" data-testid="exec-drop-form">
+            <ui-field [label]="i18n.instant('exec.requirements')">
+              <select uiControl name="dropcode" [(ngModel)]="formDrop.code" required data-testid="exec-drop-code">
+                <option value="">{{ i18n.instant('exec.pick') }}</option>
+                @for (r of droppableRequirements(); track r.code) { <option [value]="r.code">{{ r.code }} — {{ r.text }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.reason')" required [hint]="minHint(formDrop.reason, minReason)">
+              <input uiControl name="dropreason" [(ngModel)]="formDrop.reason" required data-testid="exec-drop-reason" />
+            </ui-field>
+            <button type="submit" ui-button variant="destructive" size="sm" [disabled]="!formDrop.code || formDrop.reason.trim().length < minReason" data-testid="exec-drop-submit">{{ i18n.instant('exec.drop_req') }}</button>
+          </form>
+
+          <form class="ui-unlock-form" (ngSubmit)="approveScope()" data-testid="exec-scope-form">
+            <ui-field [label]="i18n.instant('exec.paths')" [hint]="i18n.instant('exec.paths_hint')">
+              <input uiControl name="spaths" [(ngModel)]="formScope.paths" required placeholder="apps/web/src/**, docs/**" data-testid="exec-scope-paths" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.reason')" required [hint]="minHint(formScope.reason, minReason)">
+              <input uiControl name="sreason" [(ngModel)]="formScope.reason" required data-testid="exec-scope-reason" />
+            </ui-field>
+            <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formScope.paths.trim() || formScope.reason.trim().length < minReason" data-testid="exec-scope-submit">{{ i18n.instant('exec.approve_scope') }}</button>
+          </form>
+
+          <form class="ui-unlock-form" (ngSubmit)="promoteFact()" data-testid="exec-promote-form">
+            <ui-field [label]="i18n.instant('exec.fact_code')">
+              <input uiControl name="fcode" [(ngModel)]="formPromote.code" required placeholder="F-001" data-testid="exec-promote-code" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.fact_source')">
+              <select uiControl name="fsrc" [(ngModel)]="formPromote.source" data-testid="exec-promote-source">
+                @for (s of factSources; track s) { <option [value]="s">{{ s | camel }}</option> }
+              </select>
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.fact_source_ref')">
+              <input uiControl name="fsref" [(ngModel)]="formPromote.source_ref" required data-testid="exec-promote-ref" />
+            </ui-field>
+            <ui-field [label]="i18n.instant('exec.reason')" required [hint]="minHint(formPromote.reason, minReason)">
+              <input uiControl name="freason" [(ngModel)]="formPromote.reason" required data-testid="exec-promote-reason" />
+            </ui-field>
+            <button type="submit" ui-button variant="primary" size="sm" [disabled]="!formPromote.code.trim() || !formPromote.source_ref.trim() || formPromote.reason.trim().length < minReason" data-testid="exec-promote-submit">{{ i18n.instant('exec.promote_fact') }}</button>
+          </form>
+        </section>
+      </ui-modal>
     </ui-page>
   `,
 })
@@ -229,6 +295,13 @@ export class ExecTasksPage implements OnInit {
   readonly i18n = inject(I18n);
   private readonly ctx = inject(ProjectContext);
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
+
+  readonly minNote = MIN_NOTE;
+  readonly minReason = MIN_REASON;
+  readonly resolveStatuses = RESOLVE_STATUSES;
+  readonly factSources = FACT_SOURCES;
 
   readonly loading = signal(false);
   readonly gateLoading = signal(false);
@@ -236,26 +309,39 @@ export class ExecTasksPage implements OnInit {
   readonly taskCount = signal(0);
   readonly nextCursor = signal<string | null>(null);
   readonly selectedCode = signal<string | null>(null);
-  readonly statusDetail = signal<ExecStatusDto | null>(null);
+  readonly detail = signal<ExecStatusDto | null>(null);
   readonly gateResult = signal<{ ok: boolean; blocked_by: { rule: number; ref: string; title: string; tool_to_call: string }[] } | null>(null);
 
-  formResolve = { code: '', status: 'resolved' as const, note: '' };
+  readonly modalTitle = computed(() => {
+    const code = this.selectedCode();
+    const title = this.detail()?.task?.title ?? '';
+    return title ? `${code} · ${title}` : (code ?? '');
+  });
+  readonly activeItems = computed(() => (this.detail()?.items ?? []).filter((i) => ACTIVE_ITEM.has(i.status)));
+  readonly openQuestions = computed(() => (this.detail()?.questions ?? []).filter((q) => q.status === 'open'));
+  readonly pendingDecisions = computed(() => (this.detail()?.decisions ?? []).filter((d) => d.approval_state === 'pending'));
+  readonly waivableCriteria = computed(() => (this.detail()?.criteria ?? []).filter((c) => c.status !== 'verified' && c.status !== 'waived'));
+  readonly droppableRequirements = computed(() => (this.detail()?.requirements ?? []).filter((r) => r.status !== 'dropped'));
+
+  formResolve = { code: '', status: 'resolved' as string, note: '' };
   formAnswer = { code: '', answer: '' };
-  formDecide = { code: '', decision: '' as 'approved'|'rejected', reason: '' };
+  formDecide = { code: '', reason: '' };
   formWaive = { code: '', reason: '' };
   formDrop = { code: '', reason: '' };
   formScope = { paths: '', reason: '' };
-  formPromote = { code: '', source: 'human', source_ref: '', reason: '' };
+  formPromote = { code: '', source: 'human' as string, source_ref: '', reason: '' };
 
-  preview(obj: unknown): string {
-    try { return JSON.stringify(obj); } catch { return ''; }
+  /** "7/10" style hint while a reason is shorter than the API minimum; empty once it is long enough. */
+  minHint(text: string, min: number): string {
+    const n = text.trim().length;
+    return n >= min ? '' : this.i18n.instant('exec.min_chars', { n: String(n), min: String(min) });
   }
 
   get columns(): UiTableColumn<FlatRow>[] {
     return [
       { key: 'code', label: this.i18n.instant('exec.code'), sortable: true, link: (r) => ['/exec-tasks', r.code], linkTestid: 'exec-task-link' },
       { key: 'title', label: this.i18n.instant('common.title'), sortable: true },
-      { key: 'status', label: this.i18n.instant('exec.status'), sortable: true, badge: (r) => ({ text: r.status, variant: r.status === 'blocked' ? 'error' as const : r.status === 'awaiting_human' ? 'warning' as const : 'default' as const }) },
+      { key: 'status', label: this.i18n.instant('exec.status'), sortable: true, badge: (r) => ({ text: r.status, variant: statusMeta(r.status).variant }) },
       { key: 'open_items', label: this.i18n.instant('exec.open_items'), value: (r) => String(r.open_items ?? 0) },
       { key: 'blocked_on', label: this.i18n.instant('exec.blocked_on'), value: (r) => r.blocked_on ?? '—' },
       { key: 'unblock', label: this.i18n.instant('exec.unblock_condition'), value: (r) => r.unblock_condition ?? '—' },
@@ -270,13 +356,18 @@ export class ExecTasksPage implements OnInit {
   flatRows = computed(() => flatten(this.roots()));
 
   evidenceFor(criterionCode: string): ExecStatusDto['evidence'] {
-    return (this.statusDetail()?.evidence ?? []).filter(e => e.criterion_code === criterionCode);
+    return (this.detail()?.evidence ?? []).filter((e) => e.criterion_code === criterionCode);
   }
 
   async ngOnInit(): Promise<void> {
     await this.ctx.ensureLoaded();
-    const code = this.route.snapshot.paramMap.get('code');
-    if (code) await this.openDrawer(code);
+    // The route parameter is the source of truth: a link, the back button and a click on another
+    // task all arrive here, including when Angular reuses this component for the next code.
+    this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
+      const code = params.get('code');
+      if (code) void this.openDrawer(code);
+      else this.resetDetail();
+    });
     await this.load();
   }
 
@@ -303,7 +394,7 @@ export class ExecTasksPage implements OnInit {
     this.loading.set(true);
     try {
       const res = await this.api.get<{ roots: PlanNode[]; next_cursor: string | null }>(`/api/v1/exec/plan?project_ref=${pid}&cursor=${cur}`);
-      this.roots.update(r => [...r, ...res.roots]);
+      this.roots.update((r) => [...r, ...res.roots]);
       this.nextCursor.set(res.next_cursor);
     } catch (e) { this.toast.error((e as Error).message); }
     finally { this.loading.set(false); }
@@ -311,18 +402,25 @@ export class ExecTasksPage implements OnInit {
 
   async openDrawer(code: string): Promise<void> {
     this.selectedCode.set(code);
+    this.detail.set(null);
+    this.gateResult.set(null);
     try {
       const pid = this.ctx.selectedId();
       const qs = pid ? `?project_ref=${pid}&task_ref=${code}` : `?task_ref=${code}`;
       const detail = await this.api.get<ExecStatusDto>(`/api/v1/exec/status${qs}`);
-      this.statusDetail.set(detail);
+      if (this.selectedCode() === code) this.detail.set(detail); // a newer click wins over a slow answer
     } catch (e) { this.toast.error((e as Error).message); }
   }
 
-  closeDrawer(): void {
+  private resetDetail(): void {
     this.selectedCode.set(null);
-    this.statusDetail.set(null);
+    this.detail.set(null);
     this.gateResult.set(null);
+  }
+
+  /** Closing is navigation: the URL goes back to the list, and the route subscription clears the detail. */
+  closeDrawer(): void {
+    void this.router.navigate(['/exec-tasks']);
   }
 
   async dryRun(): Promise<void> {
@@ -336,64 +434,53 @@ export class ExecTasksPage implements OnInit {
     finally { this.gateLoading.set(false); }
   }
 
-  async resolveItem(): Promise<void> {
-    if (!this.formResolve.note.trim()) return;
+  private async submit(path: string, body: Record<string, unknown>, reset: () => void): Promise<void> {
+    const code = this.selectedCode();
+    if (!code) return;
     try {
-      await this.api.post(`/api/v1/exec/items/${this.formResolve.code}/resolve`, { status: this.formResolve.status, note: this.formResolve.note });
-      await this.openDrawer(this.selectedCode()!);
+      await this.api.post(path, body);
+      reset();
+      this.toast.ok(this.i18n.instant('common.saved'));
+      await this.openDrawer(code);
     } catch (e) { this.toast.error((e as Error).message); }
   }
 
-  async answerQuestion(): Promise<void> {
-    if (!this.formAnswer.answer.trim()) return;
-    try {
-      await this.api.post(`/api/v1/exec/questions/${this.formAnswer.code}/answer`, { answer: this.formAnswer.answer });
-      await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.toast.error((e as Error).message); }
+  resolveItem(): Promise<void> {
+    if (!this.formResolve.code || this.formResolve.note.trim().length < MIN_NOTE) return Promise.resolve();
+    return this.submit(`/api/v1/exec/items/${this.formResolve.code}/resolve`, { status: this.formResolve.status, note: this.formResolve.note.trim() }, () => (this.formResolve = { code: '', status: 'resolved', note: '' }));
   }
 
-  async decideDecision(decision?: 'approved'|'rejected'): Promise<void> {
-    const dec = decision ?? (this.formDecide.decision as 'approved'|'rejected');
-    if (!this.formDecide.reason.trim()) return;
-    try {
-      await this.api.post(`/api/v1/exec/decisions/${this.formDecide.code}/decide`, { decision: dec, reason: this.formDecide.reason });
-      await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.toast.error((e as Error).message); }
+  answerQuestion(): Promise<void> {
+    if (!this.formAnswer.code || !this.formAnswer.answer.trim()) return Promise.resolve();
+    return this.submit(`/api/v1/exec/questions/${this.formAnswer.code}/answer`, { answer: this.formAnswer.answer.trim() }, () => (this.formAnswer = { code: '', answer: '' }));
   }
 
-  async waiveCriterion(): Promise<void> {
-    if (!this.formWaive.reason.trim()) return;
-    try {
-      await this.api.post(`/api/v1/exec/criteria/${this.formWaive.code}/waive`, { reason: this.formWaive.reason });
-      await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.toast.error((e as Error).message); }
+  decideDecision(decision: 'approved' | 'rejected'): Promise<void> {
+    if (!this.formDecide.code || !this.formDecide.reason.trim()) return Promise.resolve();
+    return this.submit(`/api/v1/exec/decisions/${this.formDecide.code}/decide`, { decision, reason: this.formDecide.reason.trim() }, () => (this.formDecide = { code: '', reason: '' }));
   }
 
-  async dropRequirement(): Promise<void> {
-    if (!this.formDrop.reason.trim()) return;
-    try {
-      await this.api.post(`/api/v1/exec/requirements/${this.formDrop.code}/drop`, { reason: this.formDrop.reason });
-      await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.toast.error((e as Error).message); }
+  waiveCriterion(): Promise<void> {
+    if (!this.formWaive.code || this.formWaive.reason.trim().length < MIN_REASON) return Promise.resolve();
+    return this.submit(`/api/v1/exec/criteria/${this.formWaive.code}/waive`, { reason: this.formWaive.reason.trim() }, () => (this.formWaive = { code: '', reason: '' }));
   }
 
-  async approveScope(): Promise<void> {
-    if (!this.formScope.reason.trim()) return;
-    const paths = this.formScope.paths.split(',').map(s => s.trim()).filter(Boolean);
+  dropRequirement(): Promise<void> {
+    if (!this.formDrop.code || this.formDrop.reason.trim().length < MIN_REASON) return Promise.resolve();
+    return this.submit(`/api/v1/exec/requirements/${this.formDrop.code}/drop`, { reason: this.formDrop.reason.trim() }, () => (this.formDrop = { code: '', reason: '' }));
+  }
+
+  approveScope(): Promise<void> {
+    const paths = this.formScope.paths.split(',').map((s) => s.trim()).filter(Boolean);
     const task = this.selectedCode();
-    if (!task || !paths.length) return;
-    try {
-      await this.api.post(`/api/v1/exec/scope/${task}/expand`, { paths, reason: this.formScope.reason });
-      await this.openDrawer(task);
-    } catch (e) { this.toast.error((e as Error).message); }
+    if (!task || !paths.length || this.formScope.reason.trim().length < MIN_REASON) return Promise.resolve();
+    return this.submit(`/api/v1/exec/scope/${task}/expand`, { paths, reason: this.formScope.reason.trim() }, () => (this.formScope = { paths: '', reason: '' }));
   }
 
-  async promoteFact(): Promise<void> {
-    if (!this.formPromote.reason.trim()) return;
-    try {
-      await this.api.post(`/api/v1/exec/facts/${this.formPromote.code}/promote`, { source: this.formPromote.source, source_ref: this.formPromote.source_ref, reason: this.formPromote.reason });
-      await this.openDrawer(this.selectedCode()!);
-    } catch (e) { this.toast.error((e as Error).message); }
+  promoteFact(): Promise<void> {
+    const f = this.formPromote;
+    if (!f.code.trim() || !f.source_ref.trim() || f.reason.trim().length < MIN_REASON) return Promise.resolve();
+    return this.submit(`/api/v1/exec/facts/${f.code.trim()}/promote`, { source: f.source, source_ref: f.source_ref.trim(), reason: f.reason.trim() }, () => (this.formPromote = { code: '', source: 'human', source_ref: '', reason: '' }));
   }
 }
 

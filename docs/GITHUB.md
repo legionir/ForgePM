@@ -21,6 +21,10 @@ imports it; it is registered at startup and enabled at runtime via
 
 ## Behaviour
 
+- Project repositories: `GET /api/v1/projects/:id/repositories` lists the linked repositories and
+  `DELETE /api/v1/projects/:id/repositories/:repositoryId` removes only the link (D-069). The GitHub page
+  shows a green link icon for unconnected and a red unlink icon for connected repositories.
+
 - Repositories: `installation` (created) and `installation_repositories` (added) deliveries
   upsert the repositories they list; removals are never deleted. Redeliver the
   `installation` delivery to backfill an install made earlier (D-068).

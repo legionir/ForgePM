@@ -1980,6 +1980,24 @@
             "description": "OK"
           }
         }
+      },
+      "get": {
+        "summary": "GET /api/v1/projects/:id/repositories",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/repositories/{repositoryId}": {
+      "delete": {
+        "summary": "DELETE /api/v1/projects/:id/repositories/:repositoryId",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
       }
     },
     "/api/v1/projects/{id}/pull-requests": {

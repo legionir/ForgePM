@@ -17,7 +17,8 @@ interface Calls { patch: unknown[][]; post: unknown[][] }
 async function mount(over: { patch?: ApiClient['patch'] } = {}) {
   const calls: Calls = { patch: [], post: [] };
   const api: Partial<ApiClient> = {
-    get: async <T = unknown>(): Promise<T> => ({ items: [ACTIVE, ARCHIVED] }) as T,
+    get: async <T = unknown>(url?: string): Promise<T> =>
+      (url?.endsWith('/system/health') ? { database: 'ok', redis: 'down', modules: [] } : { items: [ACTIVE, ARCHIVED] }) as T,
     post: async <T = unknown>(...a: unknown[]): Promise<T> => (calls.post.push(a), {} as T),
     patch: over.patch ?? (async <T = unknown>(...a: unknown[]): Promise<T> => (calls.patch.push(a), {} as T)),
   };
@@ -79,6 +80,45 @@ describe('ProjectsPage', () => {
     f.detectChanges();
     expect(TestBed.inject(UiToastService).toasts().map((t) => [t.kind, t.message])).toEqual([['error', 'boom']]);
     expect(q(el, 'project-edit-form')).not.toBeNull();
+  });
+
+  it('health cards on projects: database and redis cards show their status', async () => {
+    const { el } = await mount();
+    expect(q(el, 'sys-db').classList.contains('ui-health--ok')).toBe(true);
+    expect(q(el, 'sys-redis').classList.contains('ui-health--down')).toBe(true);
+    expect(q(el, 'sys-redis').textContent).toContain('Redis');
+    expect(q(el, 'sys-redis').textContent).toContain('Down');
+  });
+
+  it('project cards: image first, details and buttons below, the active project is marked Active', async () => {
+    const { el } = await mount();
+    const card = q(el, 'project-card');
+    expect(card.classList.contains('current')).toBe(true);
+    const parts = Array.from(card.children).map((c) => c.className.split(' ')[0]);
+    expect(parts).toEqual(['ui-project-image', 'ui-project-body', 'ui-project-actions']);
+    expect(q(card, 'project-image').style.getPropertyValue('--hue')).not.toBe('');
+    expect(q(card, 'project-active').textContent?.trim()).toBe('Active');
+    expect(q(card, 'project-name-text').textContent).toContain('SSS');
+    expect(card.querySelector('.ui-project-actions [data-testid="project-open"]')).toBeTruthy();
+    expect(q(el, 'projects-count').textContent?.trim()).toBe('1');
+  });
+
+  it('new project modal: the create form is hidden until the header button opens a modal that posts key and name', async () => {
+    const { f, el, calls } = await mount();
+    expect(q(el, 'project-new')).toBeNull();
+    q<HTMLButtonElement>(el, 'project-new-open').click();
+    f.detectChanges();
+    await f.whenStable();
+    f.detectChanges();
+    expect(q(el, 'modal')).toBeTruthy();
+    type(q<HTMLInputElement>(el, 'project-key'), 'neo');
+    type(q<HTMLInputElement>(el, 'project-name'), 'Neo');
+    f.detectChanges();
+    q<HTMLButtonElement>(el, 'project-create').click();
+    await f.whenStable();
+    f.detectChanges();
+    expect(calls.post).toEqual([['/api/v1/projects', { key: 'NEO', name: 'Neo' }]]);
+    expect(q(el, 'modal')).toBeNull();
   });
 
   it('restore archived: the Restore button calls the unarchive endpoint', async () => {

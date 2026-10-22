@@ -78,7 +78,7 @@ interface ApplyReport {
             <h2>{{ p.goal }}</h2>
             <span>
               {{ i18n.instant('planner.status') }}:
-              <ui-badge [variant]="statusVariant(p.status)"><span data-testid="plan-status">{{ p.status }}</span></ui-badge>
+              <ui-badge [variant]="statusVariant(p.status)" [status]="p.status" data-testid="plan-status" />
             </span>
           </header>
           <p class="ui-card-sub">{{ hint(p.status) }}</p>

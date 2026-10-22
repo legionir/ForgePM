@@ -1062,3 +1062,15 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
 - Context: repositories were only created by `pull_request`/`issues`/`release` deliveries, so the panel listed just repositories that already had activity; `installation` and `installation_repositories` deliveries stayed `received`.
 - Decision: the worker maps both events through `normalizeInstallationPayload` and upserts every added repository by external id (also storing `installation_id`) via `applyInstallationEvent`. `repositories_removed` is reported in the audit summary only; no row is deleted.
 - Reason: the simplest option that needs no GitHub API call, JWT or private key, and keeps the soft-delete rule. Installations made before this change do not replay; redeliver the `installation` delivery (or reinstall) to backfill. A full `GET /installation/repositories` sync stays a later option.
+
+## D-069 — Disconnecting a repository removes the link row only
+
+- Context: the panel needs to show which repositories are connected to a project and let a user disconnect one. `project_repositories` is a pure link table (composite primary key, no `deleted_at`).
+- Decision: `DELETE /api/v1/projects/:id/repositories/:repositoryId` deletes only the join row, in one transaction with a `github.disconnect_repository` audit event (written only when a link existed). It is idempotent (`removed: false` when nothing was linked). `GET /api/v1/projects/:id/repositories` lists the linked repositories. The repository, its pull requests and issue links are untouched, and reconnecting restores the link.
+- Reason: the soft-delete rule protects data rows; a link is reversible and carries no data of its own, so a soft flag would only add a column and partial indexes for no benefit.
+
+## D-070 — Panel redesign: modals, status badges, CamelCase
+
+- Context: the redesign request moves create forms into modals, puts item counts in badges, renders statuses as coloured icon badges in CamelCase and shows dropdown options in CamelCase.
+- Decision: `ui-modal` hosts create/edit forms (opened from card-header buttons); `ui-badge` resolves variant, icon and a CamelCase label from a status value via one `statusMeta` table; `camelCase` also formats `ui-field` labels and select options. Text without Latin letters (Persian) is returned unchanged. The Features "Acceptance criterion" text is not shown as a visible label any more (icon + count badge + aria-label), and features can be assigned to a milestone and have their lifecycle changed in the panel.
+- Reason: one place defines status presentation; accessibility is kept through aria-labels; CamelCase must not damage Persian text.

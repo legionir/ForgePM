@@ -28,6 +28,7 @@ import { allocateNumber, ensureWorkflow } from '../work-items/states';
 import { insertWorkItem } from '../work-items/items-repository';
 import { gateAgentOperation } from '../work-items/service';
 import { auditIn, ledgerActor, parseTool, projectForTask, projectRefSchema, resolveProject } from './context';
+import { resolveWorkItemLinks } from './catalog-tools';
 
 export const taskSplitToolSchema = taskSplitInputSchema.extend({ project_ref: projectRefSchema.optional() });
 export const taskStartCommandToolSchema = taskStartCommandInputSchema.extend({ project_ref: projectRefSchema.optional() });
@@ -60,7 +61,15 @@ export async function taskSplitTool(db: Db, actor: Actor, raw: unknown): Promise
   }
   const declaredReqs = split.children.flatMap((child) => child.req_ids);
   await assertRequirementsAssigned(db, { organizationId: actor.organizationId, projectId }, declaredReqs);
-  const gate = await gateAgentOperation(db, actor, projectId, 'work_item.create', { item_type: 'task', priority: 'none' });
+  const childLinks = new Map<string, { feature_id: string | null; milestone_id: string | null }>();
+  for (const child of split.children) {
+    childLinks.set(child.key, await resolveWorkItemLinks(db, projectId, { featureRef: child.feature_ref, milestoneRef: child.milestone_ref }));
+  }
+  // The gate sees the riskiest child: the highest priority and the first non-task type.
+  const rank = ['none', 'low', 'medium', 'high', 'urgent'];
+  const gatePriority = split.children.map((c) => c.priority ?? 'none').sort((a, b) => rank.indexOf(b) - rank.indexOf(a))[0] ?? 'none';
+  const gateType = split.children.map((c) => c.type ?? 'task').find((t) => t !== 'task') ?? 'task';
+  const gate = await gateAgentOperation(db, actor, projectId, 'work_item.create', { item_type: gateType, priority: gatePriority });
   if (gate) return { ...gate };
   const baseline = await captureStart();
   let out: unknown;
@@ -77,7 +86,10 @@ export async function taskSplitTool(db: Db, actor: Actor, raw: unknown): Promise
         organization_id: actor.organizationId,
         project_id: projectId,
         number,
-        type: 'task',
+        type: child.type ?? 'task',
+        priority: child.priority ?? 'none',
+        feature_id: childLinks.get(child.key)?.feature_id ?? null,
+        milestone_id: childLinks.get(child.key)?.milestone_id ?? null,
         title: child.title,
         description: child.description ?? null,
         state_id: initial.id,

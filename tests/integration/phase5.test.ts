@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { sql } from 'kysely';
-import { upsertSetting, type Env } from '@forgepm/core';
+import { newId, upsertSetting, type Env } from '@forgepm/core';
 import { buildApp } from '../../apps/api/src/app/app';
 import { buildRegistry } from '../../apps/api/src/app/modules';
 import { createHarness, type Harness } from './harness';
@@ -247,5 +247,66 @@ describe('issue import + release (plan §9.5, §9.6)', () => {
     expect(r.json().created).toBe(true);
     const releases = await h.db.selectFrom('releases').selectAll().where('tag', '=', 'v1.0.0').execute();
     expect(releases.length).toBe(1);
+  });
+});
+
+describe('project repository links (list + disconnect)', () => {
+  const H = () => ({ cookie: AUTH.cookies, 'x-csrf-token': AUTH.csrf });
+  const link = (id: string, name: string) =>
+    app.inject({
+      method: 'POST',
+      url: `/api/v1/projects/${projectId}/pull-requests`,
+      headers: H(),
+      payload: { repository_external_id: id, repository_full_name: name, pr_external_id: `pr-${id}`, number: 1, title: 't', state: 'open', draft: false, head_ref: 'x' },
+    });
+
+  it('project repositories list: only the repositories linked to that project', async () => {
+    await enableGithub();
+    expect((await link('rA', 'a/b')).statusCode).toBe(201);
+    expect((await link('rB', 'c/d')).statusCode).toBe(201);
+    const orgId = (await h.db.selectFrom('projects').select('organization_id').where('id', '=', projectId).executeTakeFirstOrThrow()).organization_id;
+    await h.db.insertInto('repositories').values({ id: newId(), organization_id: orgId, provider: 'github', external_id: 'rC', full_name: 'e/f' }).execute();
+
+    const mine = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/repositories`, headers: { cookie: AUTH.cookies } });
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().items.map((r: { full_name: string }) => r.full_name)).toEqual(['a/b', 'c/d']);
+    const all = await app.inject({ method: 'GET', url: '/api/v1/repositories', headers: { cookie: AUTH.cookies } });
+    expect(all.json().items.length).toBe(3);
+  });
+
+  it('disconnect repository: removes only the link row, audits once and is idempotent', async () => {
+    await enableGithub();
+    await link('rA', 'a/b');
+    const repoId = (await h.db.selectFrom('repositories').select('id').where('external_id', '=', 'rA').executeTakeFirstOrThrow()).id;
+    const url = `/api/v1/projects/${projectId}/repositories/${repoId}`;
+
+    const first = await app.inject({ method: 'DELETE', url, headers: H() });
+    expect(first.statusCode).toBe(200);
+    expect(first.json()).toEqual({ status: 'ok', removed: true });
+    expect((await h.db.selectFrom('repositories').select('id').where('id', '=', repoId).execute()).length).toBe(1);
+    expect((await h.db.selectFrom('project_repositories').select('repository_id').where('repository_id', '=', repoId).execute()).length).toBe(0);
+
+    const again = await app.inject({ method: 'DELETE', url, headers: H() });
+    expect(again.json()).toEqual({ status: 'ok', removed: false });
+    const audits = await h.db.selectFrom('audit_events').select('id').where('action', '=', 'github.disconnect_repository').execute();
+    expect(audits.length).toBe(1);
+
+    const relist = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/repositories`, headers: { cookie: AUTH.cookies } });
+    expect(relist.json().items).toEqual([]);
+    // reconnecting restores the link (the pull request path upserts and connects again)
+    await link('rA', 'a/b');
+    const back = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/repositories`, headers: { cookie: AUTH.cookies } });
+    expect(back.json().items.length).toBe(1);
+  });
+
+  it('repository link access: anonymous callers and unknown projects are refused', async () => {
+    await enableGithub();
+    const anon = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/repositories` });
+    expect(anon.statusCode).toBe(401);
+    const anonDel = await app.inject({ method: 'DELETE', url: `/api/v1/projects/${projectId}/repositories/${newId()}` });
+    expect(anonDel.statusCode).toBe(401);
+    const ghost = await app.inject({ method: 'GET', url: `/api/v1/projects/${newId()}/repositories`, headers: { cookie: AUTH.cookies } });
+    expect(ghost.statusCode).toBeGreaterThanOrEqual(400);
+    expect(ghost.statusCode).toBeLessThan(500);
   });
 });

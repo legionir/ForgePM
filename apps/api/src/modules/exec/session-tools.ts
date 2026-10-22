@@ -234,8 +234,10 @@ export async function sessionStartTool(db: Db, actor: Actor, raw: unknown): Prom
     ];
     const unassigned = coverage.unassigned.slice(0, 10);
     const recent = events.rows.slice(0, RECENT_UNBLOCK_LIMIT);
+    const project = (await sql<{ id: string; key: string; name: string }>`SELECT id::text AS id, key, name FROM projects WHERE id = ${projectId}::uuid`.execute(tx as never)).rows[0];
     const context: Record<string, unknown> = {
       project_id: projectId,
+      project: project ?? { id: projectId },
       uncovered_requirements: unassigned,
       uncovered_requirement_count: coverage.unassigned.length,
       recently_unblocked: recent,

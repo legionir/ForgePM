@@ -76,7 +76,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { link: '/mcp', labelKey: 'nav.mcp', testid: 'nav-mcp', icon: 'plug' },
       { link: '/api-keys', labelKey: 'nav.api_keys', testid: 'nav-api-keys', icon: 'key' },
       { link: '/settings', labelKey: 'nav.settings', testid: 'nav-settings', icon: 'sliders' },
-      { link: '/system', labelKey: 'nav.system', testid: 'nav-system', icon: 'server' },
+      { link: '/jobs', labelKey: 'nav.jobs', testid: 'nav-jobs', icon: 'activity' },
       { link: '/admin', labelKey: 'nav.audit', testid: 'nav-admin', icon: 'file-text' },
     ],
   },
@@ -156,12 +156,14 @@ export const NAV_GROUPS: NavGroup[] = [
             <span>{{ i18n.instant('command.placeholder') }}</span>
             <kbd>⌘K</kbd>
           </button>
+          @if (ctx.selected(); as p) {
+            <span class="ui-topbar-project" data-testid="header-project" [title]="p.name">
+              <ui-icon name="folder" [size]="14" [inline]="false" />
+              <strong>{{ p.name }}</strong>
+              <span class="ui-topbar-project-key">{{ p.key }}</span>
+            </span>
+          }
           <div class="ui-who">
-            <button type="button" ui-button variant="ghost" size="sm" (click)="tokens.cycle()" data-testid="theme-toggle" [attr.aria-label]="i18n.instant('theme.label')" [title]="themeLabel()">
-              <ui-icon [name]="themeIcon()" [size]="16" [inline]="false" />
-              <span class="ui-hide-sm">{{ themeLabel() }}</span>
-            </button>
-            <button type="button" ui-button variant="ghost" size="sm" (click)="i18n.toggle()" data-testid="lang-toggle">{{ i18n.instant('shell.lang') }}</button>
             <span class="ui-who-user" data-testid="who">
               <ui-avatar [name]="session.me()?.user?.display_name ?? ''" size="sm" />
               <span class="ui-hide-sm">{{ session.me()?.user?.display_name }}</span>
@@ -194,7 +196,6 @@ export class UiShell {
 
   readonly visibleGroups = computed(() => NAV_GROUPS.filter((g) => !g.scoped || this.ctx.hasProject()));
   readonly activeProjects = computed(() => this.ctx.projects().filter((p) => p.status === 'active'));
-  readonly themeIcon = computed(() => (this.tokens.theme() === 'dark' ? 'moon' : this.tokens.theme() === 'light' ? 'sun' : 'palette'));
 
   constructor() {
     void this.ctx.ensureLoaded();
@@ -220,10 +221,6 @@ export class UiShell {
       }
       this.palette.register(cmds);
     });
-  }
-
-  themeLabel(): string {
-    return this.i18n.instant(`theme.${this.tokens.theme()}`);
   }
 
   closeNav(): void {

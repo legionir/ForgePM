@@ -6,6 +6,8 @@ import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiToastService } from '../ui/toast';
 import { ProjectContext } from '../project-context';
+import { UiBadge } from '../ui/badge';
+import { UiIcon } from '../ui/icon';
 
 interface RunDto {
   id: string;
@@ -35,7 +37,7 @@ interface RepoDto {
 @Component({
   selector: 'page-reviews',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, UiButton, UiPage],
+  imports: [UiIcon, UiBadge, FormsModule, UiButton, UiPage],
   template: `
     <ui-page data-testid="reviews" [title]="i18n.instant('reviews.title')">
       @if (disabled()) {
@@ -63,10 +65,10 @@ interface RepoDto {
         </section>
 
         <section class="ui-card">
-        <header class="ui-card-head"><h2>{{ i18n.instant('reviews.runs') }}</h2><span class="ui-card-sub">{{ runs().length }}</span></header>
+        <header class="ui-card-head"><div class="ui-card-title"><h2><ui-icon name="eye" [size]="18" [inline]="false" /> {{ i18n.instant('reviews.runs') }}</h2><ui-badge size="sm">{{ runs().length }}</ui-badge></div></header>
         <ul class="ui-list" data-testid="run-list">
           @for (r of runs(); track r.id) {
-            <li data-testid="run-row">{{ r.kind }} · {{ r.target }} · {{ r.status }}</li>
+            <li data-testid="run-row">{{ r.kind }} · {{ r.target }} <ui-badge size="sm" [status]="r.status" /></li>
           } @empty {
             <li data-testid="run-empty">{{ i18n.instant('common.empty') }}</li>
           }
@@ -74,11 +76,11 @@ interface RepoDto {
         </section>
 
         <section class="ui-card">
-        <header class="ui-card-head"><h2>{{ i18n.instant('reviews.findings') }}</h2><span class="ui-card-sub">{{ findings().length }}</span></header>
+        <header class="ui-card-head"><div class="ui-card-title"><h2><ui-icon name="alert" [size]="18" [inline]="false" /> {{ i18n.instant('reviews.findings') }}</h2><ui-badge size="sm">{{ findings().length }}</ui-badge></div></header>
         <ul class="ui-list" data-testid="finding-list">
           @for (f of findings(); track f.id) {
             <li data-testid="finding-row">
-              {{ f.title }} ({{ f.severity }} · {{ f.confidence }}) — {{ f.status }}
+              {{ f.title }} <ui-badge size="sm" [status]="f.severity" /> <ui-badge size="sm" icon="target" [label]="'' + f.confidence" /> <ui-badge size="sm" [status]="f.status" />
               <button type="button" ui-button (click)="decide(f.id, 'dismissed')" data-testid="finding-dismiss">
                 {{ i18n.instant('reviews.dismiss') }}
               </button>

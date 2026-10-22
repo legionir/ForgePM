@@ -1,4 +1,5 @@
 import { sql } from 'kysely';
+import { cursorTs, tsParam } from '../../app/keyset';
 import { newId, toJsonb, type DbLike } from '@forgepm/core';
 import type { WorkItemDto, WorkItemFilter, AcceptanceCriterion } from '@forgepm/shared';
 
@@ -121,6 +122,7 @@ function base(db: DbLike, args: ListArgs) {
     .innerJoin('projects as p', 'p.id', 'wi.project_id')
     .innerJoin('workflow_states as ws', 'ws.id', 'wi.state_id')
     .select(PROJECTION as never)
+    .select(cursorTs('wi.created_at'))
     .where('wi.deleted_at', 'is', null)
     .where('wi.organization_id', '=', args.organizationId);
   if (args.projectId) q = q.where('wi.project_id', '=', args.projectId);
@@ -156,8 +158,8 @@ function base(db: DbLike, args: ListArgs) {
     const id = raw.slice(i + 1);
     q = q.where((eb) =>
       eb.or([
-        eb('wi.created_at', '<', new Date(createdAt)),
-        eb.and([eb('wi.created_at', '=', new Date(createdAt)), eb('wi.id', '<', id)]),
+        eb('wi.created_at', '<', tsParam(createdAt)),
+        eb.and([eb('wi.created_at', '=', tsParam(createdAt)), eb('wi.id', '<', id)]),
       ]),
     );
   }
