@@ -4,6 +4,8 @@ import {
   SYSTEM_ACTOR_ID,
   recordAudit,
   applyPullRequestEvent,
+  applyInstallationEvent,
+  normalizeInstallationPayload,
   normalizePullRequestPayload,
   normalizeIssuePayload,
   importIssueEvent,
@@ -166,6 +168,9 @@ export const handlers: Record<string, JobHandler> = {
           summary = { ...summary, actions };
         }
       }
+    } else if (row.event === 'installation' || row.event === 'installation_repositories') {
+      const ev = normalizeInstallationPayload(payload);
+      if (ev) summary = { ...summary, ...(await applyInstallationEvent(db, row.organization_id, ev)) };
     } else if (row.event === 'release') {
       const repo = (payload.repository ?? {}) as Record<string, unknown>;
       const rel = (payload.release ?? {}) as Record<string, unknown>;

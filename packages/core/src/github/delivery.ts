@@ -81,6 +81,60 @@ async function upsertRepo(db: DbLike, orgId: string, externalId: string, fullNam
 
 export { upsertRepo };
 
+export interface InstallationRepo {
+  external_id: string;
+  full_name: string;
+}
+
+export interface InstallationEventData {
+  action: string;
+  installation_id: string | null;
+  /** Repositories the installation gained: `installation` created or `installation_repositories` added. */
+  added: InstallationRepo[];
+  /** Reported only; repositories are never deleted (soft-delete rule). */
+  removed: InstallationRepo[];
+}
+
+function normalizeRepoList(raw: unknown): InstallationRepo[] {
+  if (!Array.isArray(raw)) return [];
+  const out: InstallationRepo[] = [];
+  for (const r of raw as Record<string, unknown>[]) {
+    if (r && r.id !== undefined && r.id !== null && typeof r.full_name === 'string' && r.full_name) {
+      out.push({ external_id: String(r.id), full_name: r.full_name });
+    }
+  }
+  return out;
+}
+
+/** Map an `installation` / `installation_repositories` payload; null when it carries no repository list. */
+export function normalizeInstallationPayload(p: Record<string, unknown>): InstallationEventData | null {
+  const inst = (p.installation ?? {}) as Record<string, unknown>;
+  const added = normalizeRepoList(p.repositories_added ?? p.repositories);
+  const removed = normalizeRepoList(p.repositories_removed);
+  if (!Array.isArray(p.repositories_added ?? p.repositories) && removed.length === 0) return null;
+  return {
+    action: typeof p.action === 'string' ? p.action : '',
+    installation_id: inst.id === undefined || inst.id === null ? null : String(inst.id),
+    added,
+    removed,
+  };
+}
+
+/** Register every repository an installation gained. Idempotent per repository (upsert by external id). */
+export async function applyInstallationEvent(
+  db: DbLike,
+  orgId: string,
+  ev: InstallationEventData,
+): Promise<{ upserted: number; removed_ignored: number }> {
+  for (const repo of ev.added) {
+    const id = await upsertRepo(db, orgId, repo.external_id, repo.full_name);
+    if (ev.installation_id) {
+      await db.updateTable('repositories').set({ installation_id: ev.installation_id } as never).where('id', '=', id).execute();
+    }
+  }
+  return { upserted: ev.added.length, removed_ignored: ev.removed.length };
+}
+
 /**
  * One-way GitHub Issue import (plan §9.5), shared by api (manual import) and
  * the worker (webhook). Only `off`/`import` do anything. Idempotent via

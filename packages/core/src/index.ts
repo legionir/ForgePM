@@ -55,6 +55,8 @@ export {
 export { rotateDbSecrets, type RotationResult } from './rotate';
 export {
   applyPullRequestEvent,
+  applyInstallationEvent,
+  normalizeInstallationPayload,
   normalizePullRequestPayload,
   importIssueEvent,
   normalizeIssuePayload,
