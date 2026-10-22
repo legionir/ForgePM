@@ -6,7 +6,7 @@ import { ProjectContext } from '../project-context';
 import { FeaturesPage } from './features';
 
 const FEATURES = [
-  { id: 'f1', key: 'AUTH', title: 'Login', lifecycle_status: 'in_progress', milestone_id: 'm1', work_progress: 40, release_readiness: 10, acceptance_criteria: [] },
+  { id: 'f1', key: 'AUTH', title: 'Login', lifecycle_status: 'in_progress', milestone_id: 'm1', work_progress: 40, release_readiness: 10, acceptance_criteria: [{ text: 'user can sign in', done: false }, { text: 'wrong password is refused', done: true }] },
   { id: 'f2', key: 'PAY', title: 'Payments', lifecycle_status: 'released', milestone_id: null, work_progress: 100, release_readiness: 100, acceptance_criteria: [] },
 ];
 const MILESTONES = [{ id: 'm1', name: 'beta release', target_date: '2026-12-01', status: 'open', progress: 20 }];
@@ -138,5 +138,32 @@ describe('FeaturesPage', () => {
     await settle(f);
     expect(q(el, 'modal').textContent).not.toContain('Acceptance criterion');
     expect(q(el, 'feature-ac').getAttribute('aria-label')).toBe('Acceptance criterion');
+  });
+
+  it('shows saved criteria: each feature row lists the saved texts with a done/total badge', async () => {
+    const { el } = await mount();
+    const rows = el.querySelectorAll('[data-testid="feature-row"]');
+    const texts = Array.from(rows[0].querySelectorAll('[data-testid="feature-criterion-text"]')).map((t) => t.textContent?.trim());
+    expect(texts).toEqual(['user can sign in', 'wrong password is refused']);
+    expect(rows[0].querySelector('[data-testid="feature-criteria-count"]')?.textContent?.trim()).toBe('1/2');
+    const toggles = rows[0].querySelectorAll('[data-testid="feature-criterion-toggle"]');
+    expect(Array.from(toggles).map((t) => t.getAttribute('aria-checked'))).toEqual(['false', 'true']);
+    expect(rows[0].querySelector('.ui-criteria-item.done')?.textContent).toContain('wrong password is refused');
+  });
+
+  it('toggle criterion: PATCHes the full criteria array with only the clicked item changed', async () => {
+    const { f, el, calls } = await mount();
+    const first = el.querySelectorAll('[data-testid="feature-row"]')[0].querySelector<HTMLButtonElement>('[data-testid="feature-criterion-toggle"]')!;
+    first.click();
+    await settle(f);
+    expect(calls.patch).toEqual([
+      ['/api/v1/features/f1', { acceptance_criteria: [{ text: 'user can sign in', done: true }, { text: 'wrong password is refused', done: true }] }],
+    ]);
+  });
+
+  it('no criteria: a feature without saved criteria shows no criteria list', async () => {
+    const { el } = await mount();
+    const rows = el.querySelectorAll('[data-testid="feature-row"]');
+    expect(rows[1].querySelector('[data-testid="feature-criteria-list"]')).toBeNull();
   });
 });

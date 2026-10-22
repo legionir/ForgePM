@@ -356,4 +356,11 @@ export const EN: Record<string, string> = {
   'github.search_placeholder': 'Filter repositories by name',
   'projects.active': 'Active',
   'projects.no_description': 'No description yet.',
+  'api_keys.status': 'Status',
+  'api_keys.scopes': 'Scopes',
+  'api_keys.scopes_required': 'Tick at least one scope.',
+  'api_keys.show_revoked': 'Show revoked',
+  'api_keys.revoke_title': 'Revoke this key?',
+  'api_keys.revoke_confirm': '{name} ({prefix}…) stops working immediately and cannot be restored. Create a new key if it is needed again.',
+  'api_keys.revoked_done': 'Key {name} revoked.',
 };

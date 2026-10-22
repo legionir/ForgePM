@@ -3262,3 +3262,66 @@ ul.ui-list--actions li > :first-child {
 .ui-repo-connected {
   border-inline-start: 3px solid var(--color-ok);
 }
+
+/* Saved acceptance criteria on a feature row */
+.ui-criteria-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ui-criteria-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-criteria-item.done span {
+  color: var(--color-muted);
+  text-decoration: line-through;
+}
+
+.ui-criteria-toggle {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.ui-criteria-item.done .ui-criteria-toggle {
+  color: var(--color-ok);
+}
+
+/* API keys: scope checkboxes and the show-revoked switch */
+.ui-scopes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-line-soft);
+  border-radius: var(--radius-md);
+}
+
+.ui-scopes legend {
+  padding: 0 var(--space-2);
+  color: var(--color-muted);
+}
+
+.ui-scope-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ui-switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-muted);
+  font-size: var(--font-size-caption);
+}

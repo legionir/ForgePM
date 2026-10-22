@@ -356,4 +356,11 @@ export const FA: Record<string, string> = {
   'github.search_placeholder': 'فیلتر مخزن‌ها بر اساس نام',
   'projects.active': 'فعال',
   'projects.no_description': 'هنوز توضیحی ثبت نشده است.',
+  'api_keys.status': 'وضعیت',
+  'api_keys.scopes': 'دسترسی‌ها',
+  'api_keys.scopes_required': 'دست‌کم یک دسترسی را انتخاب کنید.',
+  'api_keys.show_revoked': 'نمایش ابطال‌شده‌ها',
+  'api_keys.revoke_title': 'این کلید باطل شود؟',
+  'api_keys.revoke_confirm': '{name} ({prefix}…) فوراً از کار می‌افتد و بازگردانی نمی‌شود. اگر دوباره لازم شد، کلید جدید بسازید.',
+  'api_keys.revoked_done': 'کلید {name} باطل شد.',
 };

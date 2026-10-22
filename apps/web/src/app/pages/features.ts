@@ -91,6 +91,29 @@ const MILESTONE_STATUS = ['open', 'closed'] as const;
                   }
                 </select>
               </div>
+              @if (f.acceptance_criteria.length) {
+                <ul class="ui-criteria-list" data-testid="feature-criteria-list">
+                  <li>
+                    <ui-badge size="sm" icon="check-square" data-testid="feature-criteria-count">{{ doneCount(f) }}/{{ f.acceptance_criteria.length }}</ui-badge>
+                  </li>
+                  @for (c of f.acceptance_criteria; track $index) {
+                    <li class="ui-criteria-item" [class.done]="c.done">
+                      <button
+                        type="button"
+                        class="ui-criteria-toggle"
+                        role="checkbox"
+                        [attr.aria-checked]="c.done"
+                        [attr.aria-label]="c.text"
+                        (click)="toggleCriterion(f, $index)"
+                        data-testid="feature-criterion-toggle"
+                      >
+                        <ui-icon [name]="c.done ? 'check-circle' : 'circle'" [size]="16" [inline]="false" />
+                      </button>
+                      <span data-testid="feature-criterion-text">{{ c.text }}</span>
+                    </li>
+                  }
+                </ul>
+              }
               <div class="ui-row-meter">
                 <span class="ui-row-meter-label">{{ i18n.instant('features.work_progress') }}</span>
                 <ui-progress [value]="f.work_progress" [label]="i18n.instant('features.work_progress')" />
@@ -332,6 +355,16 @@ export class FeaturesPage {
     } finally {
       this.busy.set(false);
     }
+  }
+
+  doneCount(f: FeatureDto): number {
+    return f.acceptance_criteria.filter((c) => c.done).length;
+  }
+
+  /** Tick or untick one saved criterion; the whole array is sent back with only that item changed. */
+  async toggleCriterion(f: FeatureDto, index: number): Promise<void> {
+    const next = f.acceptance_criteria.map((c, i) => (i === index ? { ...c, done: !c.done } : c));
+    await this.patch(`/api/v1/features/${f.id}`, { acceptance_criteria: next });
   }
 
   async setLifecycle(f: FeatureDto, value: string): Promise<void> {

@@ -5,6 +5,9 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- feat(web): API keys page — several scopes per key (checkboxes, no `ledger:decide`), Active/Revoked/Expired badges, revoked keys hidden behind a switch, revoke asks for confirmation. Revoke itself always worked (it sets `revoked_at`); the list just did not show it.
+- feat(web): saved acceptance criteria are shown on each feature row and can be ticked.
+
 - feat(web): panel redesign — System page dissolved (Jobs page, health on Projects, Modules/Backups/GitHub status/Appearance in Settings with search), create forms as modals (features, milestones, work items, projects, providers), portrait project cards with an Active label, status badges with colour/icon/CamelCase, counts in badges, header shows the active project, theme and language live in Settings.
 - feat(api): list and disconnect project repositories (D-069); the GitHub page shows connected repositories with link/unlink icons and a search filter.
 
