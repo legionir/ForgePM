@@ -229,6 +229,18 @@ describe('assignee CHECK, soft-delete, activity, search, relations (plan §6)', 
     expect(res.statusCode).toBe(400);
   });
 
+  it('legacy string criteria list: ledger-written string criteria do not break the list endpoint', async () => {
+    const auth = AUTH;
+    const { sql } = await import('kysely');
+    const orgId = (await h.db.selectFrom('projects').select('organization_id').where('id', '=', projectId).executeTakeFirstOrThrow()).organization_id;
+    await sql`INSERT INTO work_items (id, organization_id, project_id, number, type, title, state_id, acceptance_criteria)
+        VALUES (${'00000000-0000-7000-8000-00000000c0de'}::uuid, ${orgId}, ${projectId}, 8888, 'task', 'ledger-made', ${backlogId}, ${JSON.stringify(['AGENTS.md must exist (file:AGENTS.md)'])}::jsonb)`.execute(h.db);
+    const res = await app.inject({ method: 'GET', url: `/api/v1/projects/${projectId}/work-items?limit=200`, headers: { cookie: auth.cookies } });
+    expect(res.statusCode, res.body).toBe(200);
+    const row = res.json().items.find((x: { title: string }) => x.title === 'ledger-made');
+    expect(row.acceptance_criteria).toEqual([{ text: 'AGENTS.md must exist (file:AGENTS.md)', done: false }]);
+  });
+
   it('soft-delete hides from list + search but remains in audit and include_deleted', async () => {
     const auth = AUTH;
     const it = await createItem(auth, 'searchable-needle-42');
