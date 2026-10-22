@@ -5,6 +5,15 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- feat(web): edit project details (name, description, priority, dates) from the Projects page; the key stays read-only; archived projects restore from the Archived section.
+- fix(api): work-item list no longer returns 500 when ledger-written acceptance criteria are plain strings.
+- test(api): API keys are always `agent` for the ledger (R-02 regression); seed fills `exec.protected_test_globs` and `exec.test_command`.
+
+- feat(cli): `forgepm` command (root `bin`, `npm link`) starts api, worker and panel from any directory.
+
+- feat(github): `installation` / `installation_repositories` deliveries register the installation's repositories (idempotent, never deleted) — D-068.
+- feat(web): API errors surface as toasts instead of duplicated inline messages; System page health cards and module toggle switches.
+
 - feat(web): grouped sidebar shell (Workspace → Project → Delivery → Governance → Platform) with a global project switcher, ⌘K search trigger, theme/language controls and an off-canvas mobile drawer.
 - feat(web): step-by-step gating — project-scoped sections (Dashboard, Features, Work items, Planner, Execution, Reviews, GitHub) are hidden and their routes redirect to `/projects` until a project exists and is selected.
 - feat(web): new `/dashboard` — KPI cards, state donut, priority/type bars, feature + milestone progress, items needing attention, latest items, recent audit events, getting-started checklist (dependency-free SVG charts in `ui/charts.ts`).
