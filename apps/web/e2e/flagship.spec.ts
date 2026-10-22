@@ -52,7 +52,8 @@ test('setup → project → api key → logout → login', async ({ page }) => {
   await page.getByTestId('field-email').fill(EMAIL);
   await page.getByTestId('field-password').fill(PASSWORD);
   await page.getByTestId('login-submit').click();
-  await expect(page.getByTestId('projects')).toBeVisible();
+  // D-067: with a project selected the root route lands on the dashboard, not the projects list.
+  await expect(page.getByTestId('dashboard')).toBeVisible();
 
   // 5) the raw key must never appear again after reload of the list
   await page.getByTestId('nav-api-keys').click();
