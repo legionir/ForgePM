@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  camelCase,
+  statusMeta,
   filterCommands,
   initialsOf,
   nextTabIndex,
@@ -180,5 +182,35 @@ describe('CommandPalette service', () => {
     expect(svc.open()).toBe(false);
     svc.hide();
     expect(svc.open()).toBe(false);
+  });
+});
+
+describe('camelCase', () => {
+  it('turns snake, spaced and upper case into CamelCase', () => {
+    expect(camelCase('in_progress')).toBe('InProgress');
+    expect(camelCase('In Progress')).toBe('InProgress');
+    expect(camelCase('IN PROGRESS')).toBe('InProgress');
+    expect(camelCase('feature_task')).toBe('FeatureTask');
+    expect(camelCase('urgent')).toBe('Urgent');
+  });
+
+  it('leaves text without Latin letters and empty values unchanged', () => {
+    expect(camelCase('در حال انجام')).toBe('در حال انجام');
+    expect(camelCase('')).toBe('');
+    expect(camelCase(null)).toBe('');
+  });
+});
+
+describe('statusMeta', () => {
+  it('maps known statuses to a variant and an icon', () => {
+    expect(statusMeta('completed')).toEqual({ variant: 'success', icon: 'check-circle' });
+    expect(statusMeta('failed').variant).toBe('error');
+    expect(statusMeta('in_review').variant).toBe('warning');
+    expect(statusMeta('In Progress')).toEqual({ variant: 'info', icon: 'play' });
+  });
+
+  it('keeps unknown values neutral', () => {
+    expect(statusMeta('whatever')).toEqual({ variant: 'default', icon: 'circle' });
+    expect(statusMeta(undefined).variant).toBe('default');
   });
 });

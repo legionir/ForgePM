@@ -30,7 +30,7 @@ export interface UiTableColumn<T> {
   link?: (row: T) => unknown[];
   linkTestid?: string;
   /** Render the cell as a badge (return null to fall back to text). */
-  badge?: (row: T) => { text: string; variant: UiBadgeVariant } | null;
+  badge?: (row: T) => { text: string; variant: UiBadgeVariant; icon?: string } | null;
   /** Render the cell as a row of label chips (Trello/GitHub label chips). */
   chips?: (row: T) => string[];
   /** Render the cell as an initials avatar (assignee columns). */
@@ -131,7 +131,7 @@ export interface UiTableRowAction<T> {
                     } @else if (col.avatar && col.avatar(row)) {
                       <ui-avatar [name]="col.avatar(row)!" size="sm" />
                     } @else if (col.badge && col.badge(row)) {
-                      <ui-badge size="sm" [variant]="col.badge(row)!.variant">{{ col.badge(row)!.text }}</ui-badge>
+                      <ui-badge size="sm" [variant]="col.badge(row)!.variant" [icon]="col.badge(row)!.icon ?? ''" [status]="col.badge(row)!.text"></ui-badge>
                     } @else if (col.link) {
                       <a [routerLink]="col.link(row)" [attr.data-testid]="col.linkTestid ?? null">{{ cellText(col, row) }}</a>
                     } @else {

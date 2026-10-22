@@ -380,3 +380,31 @@ describe('UiMarkdown', () => {
     expect(f.nativeElement.querySelector('ui-markdown')?.textContent?.trim()).toBe('—');
   });
 });
+
+describe('UiBadge status + UiField camel labels', () => {
+  it('badge status: renders the icon and a CamelCase label, tone from the status', async () => {
+    @Component({ standalone: true, imports: [UiBadge], template: `<ui-badge status="in_progress"></ui-badge><ui-badge status="failed" label="build failed"></ui-badge><ui-badge>3</ui-badge>` })
+    class H {}
+    const { f } = await render(H);
+    const [a, b, c] = f.nativeElement.querySelectorAll('ui-badge');
+    expect(a.textContent?.trim()).toBe('InProgress');
+    expect(a.querySelector('ui-icon')).toBeTruthy();
+    expect(a.classList.contains('ui-badge--info')).toBe(true);
+    expect(b.textContent?.trim()).toBe('BuildFailed');
+    expect(b.classList.contains('ui-badge--error')).toBe(true);
+    expect(c.textContent?.trim()).toBe('3');
+    expect(c.querySelector('ui-icon')).toBeNull();
+  });
+
+  it('field label camel: Latin labels are CamelCase, Persian labels stay as written', async () => {
+    @Component({
+      standalone: true,
+      imports: [UiField, UiControl],
+      template: `<ui-field label="target date"><input uiControl /></ui-field><ui-field label="تاریخ هدف"><input uiControl /></ui-field>`,
+    })
+    class H {}
+    const { f } = await render(H);
+    const labels = Array.from(f.nativeElement.querySelectorAll('label')).map((l) => (l as HTMLElement).textContent?.trim());
+    expect(labels).toEqual(['TargetDate', 'تاریخ هدف']);
+  });
+});

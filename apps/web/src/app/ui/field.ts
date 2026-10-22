@@ -6,11 +6,13 @@ import {
   ElementRef,
   inject,
   booleanAttribute,
+  computed,
   contentChild,
   effect,
   input,
   signal,
 } from '@angular/core';
+import { camelCase } from './logic';
 
 /**
  * Put on the control inside a <ui-field> so the field can wire the explicit
@@ -39,7 +41,7 @@ let seq = 0;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <label class="ui-field-label" [attr.for]="ctrlId()">
-      {{ label() }}@if (required()) {<span class="ui-field-req" aria-hidden="true"> *</span>}
+      {{ labelText() }}@if (required()) {<span class="ui-field-req" aria-hidden="true"> *</span>}
     </label>
     <ng-content />
     @if (error()) {
@@ -52,6 +54,7 @@ let seq = 0;
 })
 export class UiField implements AfterViewInit {
   readonly label = input('');
+  readonly labelText = computed(() => camelCase(this.label()));
   readonly required = input(false, { transform: booleanAttribute });
   readonly error = input('');
   readonly hint = input('');

@@ -76,7 +76,7 @@ describe('UiDataTable', () => {
     const body = el.querySelectorAll('tbody tr');
     expect(body).toHaveLength(3);
     expect(body[0].textContent).toContain('beta');
-    expect(body[0].querySelector('.ui-badge--error')?.textContent?.trim()).toBe('high');
+    expect(body[0].querySelector('.ui-badge--error')?.textContent?.trim()).toBe('High');
     expect(body[0].querySelectorAll('.ui-chip').length).toBe(1);
     expect(body[2].querySelectorAll('.ui-chip').length).toBe(2);
   });
