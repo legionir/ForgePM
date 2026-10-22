@@ -35,7 +35,7 @@ test('setup → project → api key → logout → login', async ({ page }) => {
   await page.getByTestId('nav-api-keys').click();
   await expect(page.getByTestId('api-keys')).toBeVisible();
   // Let the page finish loading (table or empty state) so the form bindings are live before typing.
-  await expect(page.getByTestId('api-keys-list').or(page.getByTestId('api-keys-empty'))).toBeVisible();
+  await expect(page.getByTestId('api-keys-list').or(page.getByTestId('api-keys-empty')).first()).toBeVisible();
   await page.getByTestId('apikey-name').fill('ci');
   await expect(page.getByTestId('apikey-name')).toHaveValue('ci');
   const resp = page
