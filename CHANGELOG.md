@@ -5,6 +5,11 @@ Conventional Commits groupings. Tags map to plan §17.
 
 ## [Unreleased] — Panel UI/UX upgrade (2026-10-21)
 
+- fix(exec): `req_add` no longer fails with `internal error` when a second project in the organisation adds its first requirement — requirement codes are now numbered per organisation (they are unique per organisation).
+- fix(exec): `ledger_add_evidence` with a bare `ci:<run>:<job>` reference no longer fails with `internal error` (size stored as NULL; the criterion stays unverified).
+
+- feat(mcp): ledger tools are easier for an agent to use — `project_ref` accepts the id, the key in any letter case or a unique project name; a miss lists the projects the key can use with a did-you-mean hint; new read-only `ledger_projects` tool; `session_start` returns the resolved project; `tools/list` carries parameter descriptions (zod `.describe()`) with real text for the shared refs.
+
 - fix(api): keyset pagination (jobs, audit, MCP calls, users, projects, work items) no longer skips rows that share a cursor millisecond — the cursor now keeps microsecond precision; ISO cursors from before still work.
 - feat(web): the API keys page shows copy-ready MCP connection samples (Claude Code command, `.mcp.json`, smoke test) and an "MCP agent scopes" preset.
 
