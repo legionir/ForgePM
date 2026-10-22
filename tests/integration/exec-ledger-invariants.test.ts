@@ -383,6 +383,7 @@ describe('PE-0.4/0.6 module + tool surface', () => {
       'ledger_add_open_item',
       'ledger_ask_human',
       'ledger_list_open',
+      'ledger_projects',
       'ledger_record_decision',
       'ledger_resolve_item',
     ]);
