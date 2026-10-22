@@ -23,6 +23,12 @@ const CODE = /^[A-Z]{1,3}-\d{1,4}$/;
 export const ledgerCodeSchema = z.string().regex(CODE, 'expected a ledger code such as T-001, OI-014, D-007');
 export const idOrCodeSchema = z.string().min(3).max(64);
 
+/** Ledger refs as the agent sees them in tools/list: what the value is and where to get one. */
+export const taskRefSchema = idOrCodeSchema.describe('Ledger task code such as T-004 (or its id). Create one with exec_task_start; list them with exec_ledger_status without task_ref.');
+export const criterionRefSchema = idOrCodeSchema.describe('Acceptance criterion code such as C-12 (or its id), shown by exec_ledger_status.');
+export const itemRefSchema = idOrCodeSchema.describe('Open item code such as OI-003 (or its id), shown by ledger_list_open.');
+export const openItemRefSchema = idOrCodeSchema.describe('Open item code such as OI-003 (or its id) this refers to; ledger_list_open lists them.');
+
 /** Vague wording that must never pass as a checkable criterion/requirement. */
 export const AMBIGUOUS_WORDS = [
   'works well',
@@ -238,11 +244,11 @@ export const exitTestExecutedSchema = z.strictObject({
 export const exitTestNotRunSchema = z.strictObject({
   name: z.string().min(3).max(300),
   reason: z.string().min(20).max(2000),
-  open_item_ref: idOrCodeSchema.optional(),
+  open_item_ref: openItemRefSchema.optional(),
 });
 
 export const exitCriterionStatusSchema = z.strictObject({
-  criterion_ref: idOrCodeSchema,
+  criterion_ref: criterionRefSchema,
   evidence_refs: z.array(idOrCodeSchema).min(1),
 });
 
@@ -255,7 +261,7 @@ export const exitCriterionStatusSchema = z.strictObject({
  * therefore not expressible as a zod refinement.
  */
 export const exitReportObjectSchema = z.strictObject({
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   summary: z.string().min(40).max(8000),
   changed_files: z.array(z.string().min(1).max(400)).max(500),
   completed_items: z.array(str3).max(200),
@@ -308,14 +314,23 @@ export const EXIT_REPORT_REQUIRED_ARRAYS = [
  * footprint cannot get one later without pretending the baseline was already known.
  */
 export const taskStartInputSchema = z.strictObject({
-  title: z.string().min(5).max(500),
-  description: z.string().max(8000).optional(),
-  acceptance_criteria: z.array(z.string().min(1).max(2000)).min(1).max(50),
+  title: z.string().min(5).max(500).describe('Short name of the task, at least 5 characters.'),
+  description: z.string().max(8000).optional().describe('Why the task exists and what it covers.'),
+  acceptance_criteria: z
+    .array(z.string().min(1).max(2000))
+    .min(1)
+    .max(50)
+    .describe('Checkable outcomes: an observable result with must/returns/fails plus a reference such as test:NAME, file:path, commit:sha or cmd:… .'),
   /** Requirements this task claims. Claiming is not covering: rule 8 needs a
    *  *verified criterion* linked to the requirement (see D-049). */
   req_ids: z.array(z.string().min(3).max(64)).max(100).default([]),
-  allowed_paths: z.array(z.string().min(1).max(200)).min(1).max(200),
-  project_ref: z.string().min(1).max(64).optional(),
+  allowed_paths: z.array(z.string().min(1).max(200)).min(1).max(200).describe('Paths or globs the task may change, for example apps/web/src/** . Anything outside is a scope deviation.'),
+  project_ref: z
+    .string()
+    .min(1)
+    .max(64)
+    .optional()
+    .describe('Project key (any letter case), project id or an exact unique project name. Optional when the API key is bound to one project. ledger_projects lists the choices.'),
   idempotency_key: z.string().min(8).max(64).optional(),
 });
 export type TaskStartInput = z.infer<typeof taskStartInputSchema>;
@@ -323,7 +338,7 @@ export type TaskStartInput = z.infer<typeof taskStartInputSchema>;
 
 
 export const openItemInputSchema = z.strictObject({
-  task_ref: idOrCodeSchema.optional(),
+  task_ref: taskRefSchema.optional(),
   title: z.string().min(5).max(500),
   detail: z.string().max(8000).optional(),
   type: z.enum(EXEC_OPEN_ITEM_TYPES),
@@ -341,7 +356,7 @@ export const BLOCKING_BY_DEFAULT: ReadonlyArray<z.infer<typeof openItemInputSche
 ];
 
 export const resolveItemInputSchema = z.strictObject({
-  item_ref: idOrCodeSchema,
+  item_ref: itemRefSchema,
   status: z.enum([
     'resolved',
     'not_applicable',
@@ -365,8 +380,8 @@ export const resolveItemInputSchema = z.strictObject({
  * schema that every caller shares.
  */
 export const evidenceObjectSchema = z.strictObject({
-  criterion_ref: idOrCodeSchema.optional(),
-  task_ref: idOrCodeSchema.optional(),
+  criterion_ref: criterionRefSchema.optional(),
+  task_ref: taskRefSchema.optional(),
   kind: z.enum(EXEC_EVIDENCE_KINDS),
   ref: z.string().min(3).max(500),
   summary: z.string().min(20).max(4000),
@@ -387,7 +402,7 @@ export const evidenceInputSchema = evidenceObjectSchema.superRefine(evidenceRefi
 export type EvidenceInput = z.infer<typeof evidenceInputSchema>;
 
 export const decisionObjectSchema = z.strictObject({
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   title: z.string().min(5).max(500),
   context: z.string().min(20).max(8000),
   options: z.array(z.string().min(3).max(500)).min(2).max(20),
@@ -421,7 +436,7 @@ export const decisionInputSchema = decisionObjectSchema.superRefine(decisionRefi
 export type DecisionInput = z.infer<typeof decisionInputSchema>;
 
 export const questionObjectSchema = z.strictObject({
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   question: z.string().min(10).max(2000),
   options: z.array(z.string().min(2).max(500)).min(2).max(10),
   recommendation: z.string().min(2).max(500),
@@ -550,7 +565,7 @@ export const factPromotionInputSchema = z.strictObject({
 export type FactPromotionInput = z.infer<typeof factPromotionInputSchema>;
 
 export const journalStartInputSchema = z.strictObject({
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   action: z.string().min(3).max(120),
   target: z.string().max(400).optional(),
   idempotent: z.boolean(),
@@ -558,7 +573,7 @@ export const journalStartInputSchema = z.strictObject({
 });
 
 export const taskBlockObjectSchema = z.strictObject({
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   reason: z.string().min(20).max(2000),
   blocked_on_kind: z.enum(EXEC_BLOCKED_ON_KINDS),
   blocked_on_ref: idOrCodeSchema.optional(),
@@ -595,7 +610,7 @@ export type TaskSplitInput = z.infer<typeof taskSplitInputSchema>;
 
 export const reqLinkTaskInputSchema = z.strictObject({
   requirement_ref: idOrCodeSchema,
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   criterion_refs: z.array(idOrCodeSchema).min(1).max(100),
 });
 
@@ -604,12 +619,12 @@ export const reqChangeInputSchema = requirementInputBaseSchema
   .superRefine(requirementRefinement);
 
 export const linkDependencyInputSchema = z.strictObject({
-  task_ref: idOrCodeSchema,
+  task_ref: taskRefSchema,
   depends_on_ref: idOrCodeSchema,
 });
 
 export const planViewInputSchema = z.strictObject({
-  task_ref: idOrCodeSchema.optional(),
+  task_ref: taskRefSchema.optional(),
 });
 
 export const taskStartCommandInputSchema = z.strictObject({ task_ref: idOrCodeSchema });
@@ -644,6 +659,8 @@ const sessionSectionSchema = z.strictObject({
 export const sessionSnapshotSchema = z
   .strictObject({
     project_id: z.string().uuid(),
+    /** The resolved project, so an agent knows what it is working on (key and name, not just an id). */
+    project: z.strictObject({ id: z.string().uuid(), key: z.string(), name: z.string() }).optional(),
     generated_at: z.string().datetime({ offset: true }),
     sections: z.array(sessionSectionSchema).length(EXEC_SESSION_SECTION_KEYS.length),
     totals: z.record(z.string(), z.number().int().nonnegative()),

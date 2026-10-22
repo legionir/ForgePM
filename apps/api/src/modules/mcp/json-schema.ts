@@ -25,7 +25,15 @@ function isStrict(schema: z.ZodTypeAny): boolean {
   return (schema as unknown as { _def?: { unknownKeys?: string } })._def?.unknownKeys === 'strict';
 }
 
+/** The shape of one schema plus the text of its `.describe()` when it has one. */
 function describe(schema: z.ZodTypeAny, depth = 0): Json {
+  const out = describeShape(schema, depth);
+  const text = (schema as unknown as { _def?: { description?: string } })._def?.description;
+  if (text) out.description = text;
+  return out;
+}
+
+function describeShape(schema: z.ZodTypeAny, depth: number): Json {
   const inner = (schema as unknown as { _def?: { innerType?: z.ZodTypeAny; type?: z.ZodTypeAny; schema?: z.ZodTypeAny } })._def;
   const name = typeName(schema);
   // A `preprocess`/`transform` wrapper does not change the shape it wraps — it

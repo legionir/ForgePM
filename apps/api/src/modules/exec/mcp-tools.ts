@@ -52,6 +52,7 @@ import {
   taskStartCommandToolSchema,
 } from './planning-tools';
 import { sessionStartTool, sessionStartToolSchema } from './session-tools';
+import { ledgerProjectsTool, projectsToolSchema } from './project-tools';
 import {
   execLedgerReconcileTool,
   execLedgerReconcileToolSchema,
@@ -113,6 +114,16 @@ export function buildExecTools(db: Db): Tool[] {
       annotations: { readOnlyHint: false, destructiveHint: false },
       module: 'exec',
       handler: (args, ctx) => sessionStartTool(db, actorOf(ctx), args),
+    },
+    {
+      name: 'ledger_projects',
+      description:
+        'List the projects this key can use, with the id, key, name and status to pass as project_ref. Call it first when you do not know the project key. Read-only.',
+      inputSchema: projectsToolSchema,
+      scopes: READ_SCOPES,
+      annotations: { readOnlyHint: true },
+      module: 'exec',
+      handler: (args, ctx) => ledgerProjectsTool(db, actorOf(ctx), args),
     },
     {
       name: 'journal_start',
