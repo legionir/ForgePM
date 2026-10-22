@@ -4,6 +4,7 @@ import {
   extractClosingKeys,
   normalizePullRequestPayload,
   normalizeIssuePayload,
+  normalizeInstallationPayload,
 } from './delivery';
 
 describe('github delivery helpers (plan §9.4)', () => {
@@ -51,5 +52,32 @@ describe('github delivery helpers (plan §9.4)', () => {
     expect(r?.issue.issue_number).toBe(10);
     expect(r?.issue.labels).toEqual(['bug', 'urgent']);
     expect(r?.issue.remote_version).toBe('2026-01-01T00:00:00Z');
+  });
+
+  it('installation created maps every repository and the installation id', () => {
+    const ev = normalizeInstallationPayload({
+      action: 'created',
+      installation: { id: 555 },
+      repositories: [{ id: 1, full_name: 'o/a' }, { id: 2, full_name: 'o/b' }, { id: 3 }],
+    });
+    expect(ev?.installation_id).toBe('555');
+    expect(ev?.added).toEqual([{ external_id: '1', full_name: 'o/a' }, { external_id: '2', full_name: 'o/b' }]);
+    expect(ev?.removed).toEqual([]);
+  });
+
+  it('installation repositories added and removed maps both lists', () => {
+    const ev = normalizeInstallationPayload({
+      action: 'added',
+      installation: { id: 9 },
+      repositories_added: [{ id: 7, full_name: 'o/new' }],
+      repositories_removed: [{ id: 8, full_name: 'o/gone' }],
+    });
+    expect(ev?.added).toEqual([{ external_id: '7', full_name: 'o/new' }]);
+    expect(ev?.removed).toEqual([{ external_id: '8', full_name: 'o/gone' }]);
+  });
+
+  it('installation malformed payload without a repository list returns null', () => {
+    expect(normalizeInstallationPayload({})).toBeNull();
+    expect(normalizeInstallationPayload({ action: 'deleted', installation: { id: 1 } })).toBeNull();
   });
 });

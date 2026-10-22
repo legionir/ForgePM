@@ -5,6 +5,7 @@ import { I18n } from '../i18n';
 import { UiButton } from '../ui/button';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
 import { UiPage } from '../ui/page';
+import { UiToastService } from '../ui/toast';
 
 interface ApiKeyDto {
   id: string;
@@ -52,9 +53,6 @@ interface ApiKeyDto {
         <p class="ui-raw" data-testid="apikey-raw">{{ rawKey() }}</p>
       }
       </section>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="apikey-error">{{ error() }}</p>
-      }
       <ui-data-table
         testid="api-keys-list"
         emptyTestid="api-keys-empty"
@@ -62,7 +60,6 @@ interface ApiKeyDto {
         [rows]="keys()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('api_keys.empty')"
         [pageSize]="25"
         [actions]="keyActions"
@@ -71,12 +68,12 @@ interface ApiKeyDto {
   `,
 })
 export class ApiKeysPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
 
   readonly keys = signal<ApiKeyDto[]>([]);
   readonly rawKey = signal('');
-  readonly error = signal('');
   readonly busy = signal(false);
   readonly loading = signal(true);
   name = '';
@@ -118,7 +115,6 @@ export class ApiKeysPage implements OnInit {
   }
 
   async create(): Promise<void> {
-    this.error.set('');
     this.rawKey.set('');
     try {
       const res = await this.api.post<{ api_key: ApiKeyDto; raw_key: string }>('/api/v1/api-keys', {
@@ -129,18 +125,17 @@ export class ApiKeysPage implements OnInit {
       this.name = '';
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
   async revoke(id: string): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.send('DELETE', `/api/v1/api-keys/${id}`);
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

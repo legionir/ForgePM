@@ -4,6 +4,7 @@ import { ApiClient } from '../api';
 import { I18n } from '../i18n';
 import { UiPage } from '../ui/page';
 import { UiDataTable, UiTableColumn } from '../ui/data-table';
+import { UiToastService } from '../ui/toast';
 
 interface AuditDto {
   id: string;
@@ -30,9 +31,6 @@ interface UserDto {
   imports: [FormsModule, UiPage, UiDataTable],
   template: `
     <ui-page data-testid="admin" [title]="i18n.instant('users.title')">
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="admin-error">{{ error() }}</p>
-      }
       <section class="ui-card">
       <header class="ui-card-head"><h2>{{ i18n.instant('users.title') }}</h2><span class="ui-card-sub">{{ users().length }}</span></header>
       <ui-data-table
@@ -42,7 +40,6 @@ interface UserDto {
         [rows]="users()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
         [rowTestid]="userRowTestid"
         [pageSize]="25"
@@ -58,7 +55,6 @@ interface UserDto {
         [rows]="audit()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
         [rowTestid]="auditRowTestid"
         [pageSize]="25"
@@ -68,6 +64,7 @@ interface UserDto {
   `,
 })
 export class AdminPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
 
@@ -75,10 +72,8 @@ export class AdminPage implements OnInit {
   readonly audit = signal<AuditDto[]>([]);
   readonly memberships = signal<Record<string, string>>({});
   readonly loading = signal(true);
-  readonly error = signal('');
 
   async ngOnInit(): Promise<void> {
-    this.error.set('');
     try {
       const [u, m, a] = await Promise.all([
         this.api.get<{ items: UserDto[] }>('/api/v1/users'),
@@ -89,7 +84,7 @@ export class AdminPage implements OnInit {
       this.audit.set(a.items);
       this.memberships.set(Object.fromEntries(m.items.map((x) => [x.user_id, x.role])));
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.loading.set(false);
     }

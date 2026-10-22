@@ -111,9 +111,6 @@ interface ProviderDto {
       </form>
       </section>
       </div>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="provider-error">{{ error() }}</p>
-      }
     </ui-page>
   `,
   styles: [
@@ -139,7 +136,6 @@ export class AiProvidersPage implements OnInit {
   private readonly toast = inject(UiToastService);
 
   readonly providers = signal<ProviderDto[]>([]);
-  readonly error = signal('');
   readonly busy = signal(false);
   readonly tokensToday = signal(0);
   readonly models = signal<string[]>([]);
@@ -166,13 +162,12 @@ export class AiProvidersPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.error.set('');
     try {
       const res = await this.api.get<{ items: ProviderDto[]; used_tokens_today: number }>('/api/v1/ai-providers');
       this.providers.set(res.items);
       this.tokensToday.set(res.used_tokens_today);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
@@ -213,7 +208,6 @@ export class AiProvidersPage implements OnInit {
     this.baseUrl = p.base_url ?? '';
     this.model = p.default_model ?? '';
     this.apiKey = '';
-    this.error.set('');
     // saved key is reused server-side -> the dropdown fills without retyping
     void this.fetchModels(true);
   }
@@ -234,7 +228,6 @@ export class AiProvidersPage implements OnInit {
   }
 
   async save(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       const body: { name: string; kind: string; base_url?: string; api_key?: string; default_model?: string } = {
@@ -251,21 +244,20 @@ export class AiProvidersPage implements OnInit {
       this.resetForm();
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
   }
 
   async test(id: string): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       const res = await this.api.post<{ ok: boolean }>(`/api/v1/ai-providers/${id}/test`);
       if (res.ok) this.toast.ok('ok');
       else this.toast.error('failed');
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

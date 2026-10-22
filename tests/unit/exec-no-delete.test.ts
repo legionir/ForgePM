@@ -36,7 +36,7 @@ function sources(dir: string): { file: string; text: string }[] {
       if (entry.isDirectory()) {
         out.push(...walk(file));
       } else if (entry.isFile() && file.endsWith('.ts') && !file.endsWith('.test.ts')) {
-        out.push({ file: file.slice(ROOT.length + 1), text: readFileSync(file, 'utf8') });
+        out.push({ file: file.slice(ROOT.length + 1).replaceAll('\\', '/'), text: readFileSync(file, 'utf8') });
       }
     }
     return out;

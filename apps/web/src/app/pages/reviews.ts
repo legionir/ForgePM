@@ -43,9 +43,6 @@ interface RepoDto {
           Reviews integration not configured — stub active (B-008). Review output returns 422 until enabled.
         </p>
       }
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="reviews-error">{{ error() }}</p>
-      }
 
       @if (disabled()) {
         <p class="ui-hint" data-testid="reviews-hint">{{ i18n.instant('common.disabled_hint') }}</p>
@@ -110,7 +107,6 @@ export class ReviewsPage implements OnInit {
   readonly findings = signal<FindingDto[]>([]);
   readonly repos = signal<RepoDto[]>([]);
   readonly disabled = signal(false);
-  readonly error = signal('');
   readonly busy = signal(false);
   private readonly toast = inject(UiToastService);
   repoId = '';
@@ -142,7 +138,7 @@ export class ReviewsPage implements OnInit {
         this.disabled.set(true);
       } else {
         this.disabled.set(false);
-        this.error.set(e.message ?? 'error');
+        this.toast.error(e.message ?? 'error');
       }
     }
   }
@@ -151,12 +147,11 @@ export class ReviewsPage implements OnInit {
   async runCode(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid || !this.repoId) return;
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.runCodeInner(pid);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -175,27 +170,25 @@ export class ReviewsPage implements OnInit {
   }
 
   async decide(id: string, status: 'dismissed' | 'accepted'): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/review/findings/${id}/decision`, { status });
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
   }
 
   async createIssue(id: string): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/review/findings/${id}/create-work-item`);
       this.toast.ok(this.i18n.instant('reviews.issue_created'));
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

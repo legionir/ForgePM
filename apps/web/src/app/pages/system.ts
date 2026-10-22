@@ -39,16 +39,16 @@ interface HealthDto {
   imports: [FormsModule, UiButton, UiPage, UiDataTable, UiIcon],
   template: `
     <ui-page data-testid="system" [title]="i18n.instant('system.title')">
-      <div class="ui-kpis">
-        <article class="ui-kpi" data-testid="sys-db">
-          <span class="ui-kpi-icon ui-kpi-icon--ok"><ui-icon name="server" [size]="16" [inline]="false" /></span>
-          <span class="ui-kpi-label">{{ i18n.instant('system.database') }}</span>
-          <strong class="ui-kpi-value">{{ health()?.database ?? '…' }}</strong>
+      <div class="ui-health-grid">
+        <article class="ui-health" [class.ui-health--ok]="isOk(health()?.database)" [class.ui-health--down]="health() && !isOk(health()?.database)" data-testid="sys-db">
+          <span class="ui-health-icon"><ui-icon name="server" [size]="22" [inline]="false" /></span>
+          <h2 class="ui-health-title">{{ i18n.instant('system.database') }}</h2>
+          <span class="ui-health-status" role="status"><span class="ui-health-dot" aria-hidden="true"></span>{{ health()?.database ?? '…' }}</span>
         </article>
-        <article class="ui-kpi" data-testid="sys-redis">
-          <span class="ui-kpi-icon ui-kpi-icon--info"><ui-icon name="activity" [size]="16" [inline]="false" /></span>
-          <span class="ui-kpi-label">{{ i18n.instant('system.redis') }}</span>
-          <strong class="ui-kpi-value">{{ health()?.redis ?? '…' }}</strong>
+        <article class="ui-health" [class.ui-health--ok]="isOk(health()?.redis)" [class.ui-health--down]="health() && !isOk(health()?.redis)" data-testid="sys-redis">
+          <span class="ui-health-icon"><ui-icon name="activity" [size]="22" [inline]="false" /></span>
+          <h2 class="ui-health-title">{{ i18n.instant('system.redis') }}</h2>
+          <span class="ui-health-status" role="status"><span class="ui-health-dot" aria-hidden="true"></span>{{ health()?.redis ?? '…' }}</span>
         </article>
       </div>
 
@@ -56,11 +56,19 @@ interface HealthDto {
       <header class="ui-card-head"><h2>{{ i18n.instant('system.modules') }}</h2></header>
       <ul class="ui-list" data-testid="module-list">
         @for (m of health()?.modules ?? []; track m.name) {
-          <li data-testid="module-row">
-            {{ m.name }}
-            <button type="button" ui-button (click)="toggle(m)" [disabled]="busy()" data-testid="module-toggle">
-              {{ m.enabled ? i18n.instant('system.enabled') : i18n.instant('system.disabled') }}
-            </button>
+          <li class="ui-module-row" data-testid="module-row">
+            <span class="ui-module-name">{{ m.name }}</span>
+            <span class="ui-module-state">{{ m.enabled ? i18n.instant('system.enabled') : i18n.instant('system.disabled') }}</span>
+            <button
+              type="button"
+              role="switch"
+              class="ui-switch"
+              [attr.aria-checked]="m.enabled"
+              [attr.aria-label]="m.name"
+              (click)="toggle(m)"
+              [disabled]="busy()"
+              data-testid="module-toggle"
+            ><span class="ui-switch-thumb"></span></button>
           </li>
         }
       </ul>
@@ -75,7 +83,6 @@ interface HealthDto {
         [rows]="jobs()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
         [rowTestid]="jobRowTestid"
         [actions]="jobActions"
@@ -86,9 +93,6 @@ interface HealthDto {
       <header class="ui-card-head"><h2>{{ i18n.instant('system.backups') }}</h2></header>
       <div><button type="button" ui-button (click)="backup()" [disabled]="busy()" data-testid="backup-run">{{ i18n.instant('system.backup') }}</button></div>
       </section>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="system-error">{{ error() }}</p>
-      }
     </ui-page>
   `,
 })
@@ -98,12 +102,12 @@ export class SystemPage implements OnInit {
 
   readonly health = signal<HealthDto | null>(null);
   readonly jobs = signal<JobDto[]>([]);
-  readonly error = signal('');
   private readonly toast = inject(UiToastService);
   readonly busy = signal(false);
   readonly loading = signal(true);
 
-  readonly keyOf = (j: JobDto): string => j.id;
+  readonly isOk = (v: string | undefined): boolean => v === 'ok';
+  readonly keyOf =(j: JobDto): string => j.id;
   readonly jobRowTestid = (): string => 'job-row';
 
   get jobColumns(): UiTableColumn<JobDto>[] {
@@ -131,52 +135,48 @@ export class SystemPage implements OnInit {
   }
 
   async load(): Promise<void> {
-    this.error.set('');
     this.loading.set(true);
     try {
       this.health.set(await this.api.get<HealthDto>('/api/v1/system/health'));
       this.jobs.set((await this.api.get<{ items: JobDto[] }>('/api/v1/jobs')).items);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.loading.set(false);
     }
   }
 
   async toggle(m: ModuleDto): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.put('/api/v1/modules/' + m.name + '/enabled', { enabled: !m.enabled });
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
   }
 
   async retry(id: string): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/jobs/${id}/retry`);
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
   }
 
   async backup(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       const res = await this.api.post<{ file: string }>('/api/v1/system/backup');
       this.toast.ok(this.i18n.instant('system.backup_done', { file: res.file }));
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

@@ -1056,3 +1056,9 @@ infrastructure/`, yet `apps/worker` needs the identical dispatcher/sweeper/
 - Context: the flat 15-link top nav showed project pages that cannot work without a project.
 - Decision: a sidebar grouped by workflow stage; project-scoped groups render only when `ProjectContext.hasProject()`, and a `hasProject` route guard redirects those routes to `/projects`. `/` now resolves to `/dashboard` (guard falls back to `/projects`). The in-page project pickers were removed in favour of the shell switcher. Charts are inline SVG/CSS, no chart dependency.
 - Reason: guides users step by step, keeps the 500 KB initial-bundle budget, and needs no API change (the dashboard derives everything from existing list endpoints).
+
+## D-068 — Register repositories from `installation` deliveries
+
+- Context: repositories were only created by `pull_request`/`issues`/`release` deliveries, so the panel listed just repositories that already had activity; `installation` and `installation_repositories` deliveries stayed `received`.
+- Decision: the worker maps both events through `normalizeInstallationPayload` and upserts every added repository by external id (also storing `installation_id`) via `applyInstallationEvent`. `repositories_removed` is reported in the audit summary only; no row is deleted.
+- Reason: the simplest option that needs no GitHub API call, JWT or private key, and keeps the soft-delete rule. Installations made before this change do not replay; redeliver the `installation` delivery (or reinstall) to backfill. A full `GET /installation/repositories` sync stays a later option.

@@ -451,13 +451,14 @@ describe('ProjectPickerCmp', () => {
     expect(ctx.selectedId()).toBe('p2');
   });
 
-  it('error state shows alert + retry; empty state when no projects', async () => {
+  it('error state shows retry (message goes to a toast); empty state when no projects', async () => {
     const { f, ctx } = pickerSetup();
     ctx.loading.set(false);
     ctx.error.set('boom');
     await flush(f);
     const err = f.nativeElement.querySelector('[data-testid="project-picker-error"]')!;
-    expect(err.textContent).toContain('boom');
+    expect(err.textContent).toContain('Retry');
+    expect(f.nativeElement.querySelector('.ui-error')).toBeNull();
     const retry = f.nativeElement.querySelector('.ui-picker button') as HTMLButtonElement;
     retry.click(); // calls ctx.load() — api stub returns empty
     await f.whenStable();

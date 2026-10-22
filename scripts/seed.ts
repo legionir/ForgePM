@@ -1,4 +1,5 @@
 import { createDb, runMigrations, migrations, upsertSetting, getEffective } from '../packages/core/src';
+import { DEFAULT_PROTECTED_TEST_GLOBS } from '../packages/shared/src';
 
 /**
  * npm run seed — Phase 0 seed: register the sample module as disabled by default
@@ -13,6 +14,9 @@ import { createDb, runMigrations, migrations, upsertSetting, getEffective } from
 /** The repository's own source directories — read-only review roots (prefix-safe, no globs). */
 const DEV_EXEC_DEFAULTS: Record<string, unknown> = {
   'exec.allowed_repo_roots': ['apps', 'packages', 'tests', 'scripts', 'docs'],
+  // Test files an agent may not weaken, and the CI job whose log carries the results (never run by the server).
+  'exec.protected_test_globs': [...DEFAULT_PROTECTED_TEST_GLOBS],
+  'exec.test_command': 'npm run verify',
 };
 
 async function main(): Promise<void> {

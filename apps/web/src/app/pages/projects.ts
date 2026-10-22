@@ -49,9 +49,6 @@ import { UiLoading } from '../ui/loading';
             <ui-icon name="plus" [size]="14" /> {{ i18n.instant('common.create') }}
           </button>
         </form>
-        @if (error()) {
-          <p class="ui-error" role="alert" data-testid="project-error">{{ error() }}</p>
-        }
       </section>
 
       @if (ctx.loading() && !ctx.loaded()) {
@@ -74,6 +71,9 @@ import { UiLoading } from '../ui/loading';
                   {{ i18n.instant('projects.open') }}
                   <ui-icon name="chevron-right" [size]="14" />
                 </button>
+                <button type="button" ui-button variant="ghost" size="sm" (click)="startEdit(p)" data-testid="project-edit">
+                  {{ i18n.instant('common.edit') }}
+                </button>
                 <button type="button" ui-button variant="ghost" size="sm" (click)="archive(p.id)" data-testid="project-archive">
                   <ui-icon name="archive" [size]="14" /> {{ i18n.instant('projects.archive') }}
                 </button>
@@ -88,6 +88,40 @@ import { UiLoading } from '../ui/loading';
           }
         </div>
 
+        @if (editing(); as e) {
+          <section class="ui-card" data-testid="project-edit-form">
+            <header class="ui-card-head"><h2>{{ i18n.instant('projects.edit_title') }} · {{ e.key }}</h2></header>
+            <form class="ui-edit-grid" (ngSubmit)="saveEdit()">
+              <ui-field [label]="i18n.instant('common.key')" [hint]="i18n.instant('projects.key_locked')" readOnly>
+                <input uiControl name="edit-key" [value]="e.key" data-testid="edit-key" />
+              </ui-field>
+              <ui-field [label]="i18n.instant('common.name')" required>
+                <input uiControl name="edit-name" [(ngModel)]="form.name" required maxlength="200" data-testid="edit-name" />
+              </ui-field>
+              <ui-field [label]="i18n.instant('projects.priority')">
+                <select uiControl name="edit-priority" [(ngModel)]="form.priority" data-testid="edit-priority">
+                  @for (pr of priorities; track pr) {
+                    <option [value]="pr">{{ i18n.instant(priorityKey[pr]) }}</option>
+                  }
+                </select>
+              </ui-field>
+              <ui-field [label]="i18n.instant('projects.start_date')">
+                <input uiControl type="date" name="edit-start" [(ngModel)]="form.start_date" data-testid="edit-start" />
+              </ui-field>
+              <ui-field [label]="i18n.instant('projects.target_date')">
+                <input uiControl type="date" name="edit-target" [(ngModel)]="form.target_date" data-testid="edit-target" />
+              </ui-field>
+              <ui-field class="ui-edit-wide" [label]="i18n.instant('projects.description')">
+                <textarea uiControl name="edit-description" [(ngModel)]="form.description" rows="4" maxlength="20000" data-testid="edit-description"></textarea>
+              </ui-field>
+              <div class="ui-edit-actions">
+                <button type="submit" ui-button variant="primary" [loading]="busy()" data-testid="edit-save">{{ i18n.instant('common.save') }}</button>
+                <button type="button" ui-button variant="ghost" (click)="cancelEdit()" data-testid="edit-cancel">{{ i18n.instant('common.cancel') }}</button>
+              </div>
+            </form>
+          </section>
+        }
+
         @if (archived().length) {
           <details class="ui-archived" data-testid="projects-archived">
             <summary>{{ i18n.instant('projects.archived') }} ({{ archived().length }})</summary>
@@ -96,7 +130,7 @@ import { UiLoading } from '../ui/loading';
                 <li class="ui-row-item">
                   <span class="ui-row-key">{{ p.key }}</span>
                   <span class="ui-row-title">{{ p.name }}</span>
-                  <button type="button" ui-button variant="ghost" size="sm" (click)="undoArchive(p.id)">{{ i18n.instant('projects.restore') }}</button>
+                  <button type="button" ui-button variant="ghost" size="sm" (click)="undoArchive(p.id)" data-testid="project-restore">{{ i18n.instant('projects.restore') }}</button>
                 </li>
               }
             </ul>
@@ -113,10 +147,19 @@ export class ProjectsPage implements OnInit {
   readonly ctx = inject(ProjectContext);
   private readonly toast = inject(UiToastService);
 
-  readonly error = signal('');
   readonly busy = signal(false);
   key = '';
   name = '';
+  readonly editing = signal<Project | null>(null);
+  readonly priorities = ['none', 'low', 'medium', 'high', 'urgent'] as const;
+  readonly priorityKey = {
+    none: 'projects.priority.none',
+    low: 'projects.priority.low',
+    medium: 'projects.priority.medium',
+    high: 'projects.priority.high',
+    urgent: 'projects.priority.urgent',
+  } as const;
+  form = { name: '', description: '', priority: 'none' as string, start_date: '', target_date: '' };
 
   readonly active = computed(() => this.ctx.projects().filter((p) => p.status === 'active'));
   readonly archived = computed(() => this.ctx.projects().filter((p) => p.status === 'archived'));
@@ -137,7 +180,6 @@ export class ProjectsPage implements OnInit {
   }
 
   async create(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       const created = await this.api.post<Project | undefined>('/api/v1/projects', { key: this.key.toUpperCase(), name: this.name });
@@ -148,7 +190,49 @@ export class ProjectsPage implements OnInit {
       // First project unlocks the workspace: select it right away.
       if (created?.id) this.ctx.select(created.id);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  startEdit(p: Project): void {
+    this.form = {
+      name: p.name,
+      description: p.description ?? '',
+      priority: p.priority ?? 'none',
+      start_date: p.start_date ?? '',
+      target_date: p.target_date ?? '',
+    };
+    this.editing.set(p);
+  }
+
+  cancelEdit(): void {
+    this.editing.set(null);
+  }
+
+  /** PATCH only what changed; an empty date clears the stored date. */
+  async saveEdit(): Promise<void> {
+    const p = this.editing();
+    if (!p) return;
+    const patch: Record<string, unknown> = {};
+    if (this.form.name !== p.name) patch['name'] = this.form.name;
+    if (this.form.description !== (p.description ?? '')) patch['description'] = this.form.description;
+    if (this.form.priority !== (p.priority ?? 'none')) patch['priority'] = this.form.priority;
+    if (this.form.start_date !== (p.start_date ?? '')) patch['start_date'] = this.form.start_date || null;
+    if (this.form.target_date !== (p.target_date ?? '')) patch['target_date'] = this.form.target_date || null;
+    if (Object.keys(patch).length === 0) {
+      this.cancelEdit();
+      return;
+    }
+    this.busy.set(true);
+    try {
+      await this.api.patch(`/api/v1/projects/${p.id}`, patch);
+      this.toast.ok(this.i18n.instant('projects.updated'));
+      this.editing.set(null);
+      await this.ctx.load();
+    } catch (err) {
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
@@ -165,7 +249,7 @@ export class ProjectsPage implements OnInit {
         run: () => void this.undoArchive(id),
       });
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
@@ -175,7 +259,7 @@ export class ProjectsPage implements OnInit {
       this.toast.ok(this.i18n.instant('projects.restored'));
       await this.ctx.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 }

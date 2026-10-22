@@ -6,6 +6,7 @@ import { UiPage } from '../ui/page';
 import { UiTabItem, UiTabs } from '../ui/tabs';
 import { UiDataTable, UiTableColumn, UiTableRowAction } from '../ui/data-table';
 import { ProjectContext } from '../project-context';
+import { UiToastService } from '../ui/toast';
 
 interface DefDto {
   key: string;
@@ -44,7 +45,6 @@ interface EffDto {
         [rows]="rows()"
         [trackKey]="keyOf"
         [loading]="loading()"
-        [error]="error()"
         [emptyMessage]="i18n.instant('common.empty')"
         [pageSize]="25"
         [rowTestid]="rowTestid"
@@ -56,6 +56,7 @@ interface EffDto {
   `,
 })
 export class SettingsPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly ctx = inject(ProjectContext);
@@ -71,7 +72,6 @@ export class SettingsPage implements OnInit {
   }
 
   readonly rows = signal<Row[]>([]);
-  readonly error = signal('');
   readonly loading = signal(true);
   private defs: DefDto[] = [];
 
@@ -105,13 +105,12 @@ export class SettingsPage implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
-    this.error.set('');
     try {
       await this.ctx.ensureLoaded();
       this.defs = (await this.api.get<{ settings: DefDto[] }>('/api/v1/settings/registry')).settings;
       await this.refresh();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
@@ -132,7 +131,6 @@ export class SettingsPage implements OnInit {
   async refresh(): Promise<void> {
     const sid = this.scopeId();
     if (this.scope() === 'project' && !sid) return;
-    this.error.set('');
     this.loading.set(true);
     try {
       const rows: Row[] = [];
@@ -144,33 +142,31 @@ export class SettingsPage implements OnInit {
       }
       this.rows.set(rows);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.loading.set(false);
     }
   }
 
   async override(row: Row): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.put(`/api/v1/settings/${this.scope()}/${this.scopeId()}/${row.key}`, { value: parse(row.input) });
       await this.refresh();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }
   }
 
   async inherit(key: string): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.send('DELETE', `/api/v1/settings/${this.scope()}/${this.scopeId()}/${key}`);
       await this.refresh();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

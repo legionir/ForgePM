@@ -21,6 +21,10 @@ imports it; it is registered at startup and enabled at runtime via
 
 ## Behaviour
 
+- Repositories: `installation` (created) and `installation_repositories` (added) deliveries
+  upsert the repositories they list; removals are never deleted. Redeliver the
+  `installation` delivery to backfill an install made earlier (D-068).
+
 - Key extraction `[A-Z]{2,5}-\d+` from branch names, PR title/body, commit
   messages → `work_item_external_links`; `closes|fixes|resolves KEY` on merge
   transitions the item only when `github.auto_transition_on_merge=true`

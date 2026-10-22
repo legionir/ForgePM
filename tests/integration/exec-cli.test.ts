@@ -26,7 +26,7 @@ import { seedAgent, seedApiKey, seedOrg } from './seed';
 
 const run = promisify(execFile);
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const TSX = join(ROOT, 'node_modules', '.bin', 'tsx');
+const TSX = join(ROOT, 'node_modules', 'tsx', 'dist', 'cli.mjs'); // run via node: .bin/tsx is a shell shim (ENOENT on Windows)
 
 const env = {
   NODE_ENV: 'test',
@@ -144,7 +144,7 @@ async function cli(args: string[], key: string): Promise<{ code: number; stdout:
       ? { FORGEPM_EMAIL: HUMAN_EMAIL, FORGEPM_PASSWORD: HUMAN_PASSWORD, FORGEPM_API_KEY: '' }
       : { FORGEPM_API_KEY: key, FORGEPM_EMAIL: '', FORGEPM_PASSWORD: '' };
   try {
-    const res = await run(TSX, [join(ROOT, 'scripts', 'ledger-cli.ts'), ...args], {
+    const res = await run(process.execPath, [TSX, join(ROOT, 'scripts', 'ledger-cli.ts'), ...args], {
       cwd: ROOT,
       env: { ...process.env, FORGEPM_URL: baseUrl, ...auth },
     });

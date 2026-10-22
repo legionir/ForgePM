@@ -6,6 +6,7 @@ import { UiButton } from '../ui/button';
 import { UiPage } from '../ui/page';
 import { UiField, UiControl } from '../ui/field';
 import { ProjectContext } from '../project-context';
+import { UiToastService } from '../ui/toast';
 // local minimal validation mirrors execPolicySchema: version:number, rules:array
 const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
   if (!v || typeof v !== 'object') return { ok: false, msg: 'must be object' };
@@ -22,15 +23,12 @@ const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
   template: `
     <ui-page data-testid="exec-policy" [title]="i18n.instant('exec.policy_title')">
       <p class="ui-page-sub ui-page-sub--flow" data-testid="exec-policy-desc">{{ i18n.instant('exec.policy_desc') }}</p>
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="exec-policy-error">{{ error() }}</p>
-      }
       <section class="ui-card">
       <ui-field [label]="i18n.instant('exec.policy_json')">
         <textarea uiControl name="policy" [(ngModel)]="jsonText" rows="20" data-testid="exec-policy-input"></textarea>
       </ui-field>
       @if (validation()) {
-        <p class="ui-error" data-testid="exec-policy-validation">{{ validation() }}</p>
+        <p class="ui-field-error" data-testid="exec-policy-validation">{{ validation() }}</p>
       }
       @if (diff()) {
         <pre data-testid="exec-policy-diff">{{ diff() }}</pre>
@@ -45,11 +43,11 @@ const isValidPolicy = (v: unknown): { ok: boolean; msg?: string } => {
   `,
 })
 export class ExecPolicyPage implements OnInit {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   private readonly ctx = inject(ProjectContext);
 
-  readonly error = signal('');
   readonly busy = signal(false);
   readonly validation = signal<string | null>(null);
   readonly diff = signal<string | null>(null);
@@ -75,7 +73,7 @@ export class ExecPolicyPage implements OnInit {
       // if not found, load default
       this.jsonText = JSON.stringify({ version: 1, default_level: 'review', rules: [] }, null, 2);
       this.original = this.jsonText;
-      this.error.set((e as Error).message);
+      this.toast.error((e as Error).message);
     }
   }
 
@@ -118,7 +116,6 @@ export class ExecPolicyPage implements OnInit {
     this.validate();
     if (this.validation()) return;
     this.busy.set(true);
-    this.error.set('');
     try {
       const pid = this.ctx.selectedId();
       const value = JSON.parse(this.jsonText);
@@ -132,7 +129,7 @@ export class ExecPolicyPage implements OnInit {
       this.saved.set(true);
       setTimeout(() => this.saved.set(false), 2000);
     } catch (e) {
-      this.error.set((e as Error).message);
+      this.toast.error((e as Error).message);
     } finally {
       this.busy.set(false);
     }

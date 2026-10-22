@@ -18,6 +18,22 @@ export function parseKey(key: string): { projectKey?: string; number?: number; i
   return { id: key };
 }
 
+/**
+ * Criteria are stored as {text, done}; the execution ledger writes plain strings into the same column
+ * (exec_task_start). Accept both so one legacy row can never fail the whole list response.
+ */
+export function normalizeCriteria(raw: unknown): AcceptanceCriterion[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AcceptanceCriterion[] = [];
+  for (const c of raw) {
+    if (typeof c === 'string' && c) out.push({ text: c, done: false });
+    else if (c && typeof c === 'object' && typeof (c as { text?: unknown }).text === 'string' && (c as { text: string }).text) {
+      out.push({ text: (c as { text: string }).text, done: (c as { done?: unknown }).done === true });
+    }
+  }
+  return out;
+}
+
 export function rowToDto(r: RawRow, labels: string[]): WorkItemDto {
   const projectKey = r.project_key as string;
   return {
@@ -42,7 +58,7 @@ export function rowToDto(r: RawRow, labels: string[]): WorkItemDto {
     parent_id: (r.parent_id as string | null) ?? null,
     feature_id: (r.feature_id as string | null) ?? null,
     milestone_id: (r.milestone_id as string | null) ?? null,
-    acceptance_criteria: Array.isArray(r.acceptance_criteria) ? (r.acceptance_criteria as AcceptanceCriterion[]) : [],
+    acceptance_criteria: normalizeCriteria(r.acceptance_criteria),
     source: r.source as WorkItemDto['source'],
     plan_id: (r.plan_id as string | null) ?? null,
     labels,

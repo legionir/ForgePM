@@ -9,6 +9,7 @@ import { UiBadge } from '../ui/badge';
 import { UiProgress } from '../ui/charts';
 import { UiControl, UiField } from '../ui/field';
 import { ProjectContext } from '../project-context';
+import { UiToastService } from '../ui/toast';
 
 interface FeatureDto {
   id: string;
@@ -34,9 +35,6 @@ interface MilestoneDto {
   imports: [FormsModule, UiButton, UiPage, UiIcon, UiBadge, UiProgress, UiControl, UiField],
   template: `
     <ui-page data-testid="features" [title]="i18n.instant('features.title')">
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="feature-error">{{ error() }}</p>
-      }
 
       <div class="ui-grid ui-grid--split">
         <section class="ui-card">
@@ -90,9 +88,6 @@ interface MilestoneDto {
         </section>
       </div>
 
-      @if (error()) {
-        <p class="ui-error" role="alert" data-testid="features-error">{{ error() }}</p>
-      }
 
       <div class="ui-grid ui-grid--split">
         <section class="ui-card">
@@ -140,13 +135,13 @@ interface MilestoneDto {
   `,
 })
 export class FeaturesPage {
+  private readonly toast = inject(UiToastService);
   private readonly api = inject(ApiClient);
   readonly i18n = inject(I18n);
   readonly ctx = inject(ProjectContext);
 
   readonly features = signal<FeatureDto[]>([]);
   readonly milestones = signal<MilestoneDto[]>([]);
-  readonly error = signal('');
   readonly busy = signal(false);
   fkey = '';
   ftitle = '';
@@ -163,17 +158,15 @@ export class FeaturesPage {
   async load(): Promise<void> {
     const pid = this.ctx.selectedId();
     if (!pid) return;
-    this.error.set('');
     try {
       this.features.set((await this.api.get<{ items: FeatureDto[] }>(`/api/v1/projects/${pid}/features`)).items);
       this.milestones.set((await this.api.get<{ items: MilestoneDto[] }>(`/api/v1/projects/${pid}/milestones`)).items);
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
   async createFeature(): Promise<void> {
-    this.error.set('');
     try {
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/features`, {
         key: this.fkey,
@@ -183,19 +176,18 @@ export class FeaturesPage {
       this.fkey = this.ftitle = this.facText = '';
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     }
   }
 
   async createMilestone(): Promise<void> {
-    this.error.set('');
     this.busy.set(true);
     try {
       await this.api.post(`/api/v1/projects/${this.ctx.selectedId()}/milestones`, { name: this.mname });
       this.mname = '';
       await this.load();
     } catch (err) {
-      this.error.set((err as Error).message);
+      this.toast.error((err as Error).message);
     } finally {
       this.busy.set(false);
     }

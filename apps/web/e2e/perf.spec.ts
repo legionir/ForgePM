@@ -23,7 +23,8 @@ test('P-05 first paint of the 200k-project item list < 2000ms', async ({ page })
   await page.getByTestId('field-email').fill(EMAIL);
   await page.getByTestId('field-password').fill(PASSWORD);
   await page.getByTestId('login-submit').click();
-  await expect(page.getByTestId('projects')).toBeVisible();
+  // D-067: a user with a project lands on the dashboard, not the projects list.
+  await expect(page.getByTestId('dashboard')).toBeVisible();
 
   const t0 = Date.now();
   await page.goto(`/work-items?project=${PROJECT_ID}`);

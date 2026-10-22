@@ -1,5 +1,4 @@
 import { createHash } from 'node:crypto';
-import { devNull } from 'node:os';
 import { constants, type Dirent } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { lstat, open, readdir, readlink, realpath } from 'node:fs/promises';
@@ -15,6 +14,14 @@ import {
   type ScopeFileManifest,
   type ScopeManifestFile,
 } from '@forgepm/core';
+
+/**
+ * Null device for GIT_CONFIG_GLOBAL and core.hooksPath. os.devNull is `\.
+ul` on Windows, which Git cannot open
+ * ("unable to access '\.
+ul'"), so every Git call failed there; Git understands the literal `NUL`.
+ */
+export const devNull = process.platform === 'win32' ? 'NUL' : '/dev/null';
 
 const MAX_CHANGED_FILES = 250;
 const MAX_FILE_PATCH_BYTES = 160_000;
@@ -641,7 +648,7 @@ export class GitExecReviewSource implements ExecReviewSource {
       env.GIT_TERMINAL_PROMPT = '0';
       env.GIT_ASKPASS = 'echo';
       // Plumbing hardening: no hooks, no fsmonitor/filter/external diff from repo config (R-05)
-      // Use os.devNull for portability (Windows NUL vs Unix /dev/null)
+      // devNull is NUL on Windows and /dev/null elsewhere
       const hardening = [
         '-c', 'core.fsmonitor=false',
         '-c', `core.hooksPath=${devNull}`,

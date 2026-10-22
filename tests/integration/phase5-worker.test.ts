@@ -124,6 +124,21 @@ describe('worker github.process_delivery (plan §9 acceptance, e2e)', () => {
     expect(rel.length).toBe(1);
   });
 
+  it('installation and installation_repositories deliveries register repositories idempotently and never delete', async () => {
+    const { orgId } = await seedProject('wk-inst@x.io');
+    await storeDelivery(orgId, 'del-inst', 'installation', { action: 'created', installation: { id: 321 }, repositories: [{ id: 11, full_name: 'o/a' }, { id: 12, full_name: 'o/b' }] });
+    await handlers['github.process_delivery']!(fakeJob(newId(), 'del-inst'), h.db, log);
+    await storeDelivery(orgId, 'del-inst-repos', 'installation_repositories', { action: 'added', installation: { id: 321 }, repositories_added: [{ id: 12, full_name: 'o/b-renamed' }, { id: 13, full_name: 'o/c' }], repositories_removed: [{ id: 11, full_name: 'o/a' }] });
+    await handlers['github.process_delivery']!(fakeJob(newId(), 'del-inst-repos'), h.db, log);
+
+    const repos = await h.db.selectFrom('repositories').select(['external_id', 'full_name', 'installation_id']).orderBy('external_id').execute();
+    expect(repos.map((r) => r.external_id)).toEqual(['11', '12', '13']); // removal reported, not deleted
+    expect(repos.find((r) => r.external_id === '12')?.full_name).toBe('o/b-renamed');
+    expect(repos.every((r) => r.installation_id === '321')).toBe(true);
+    const done = await h.db.selectFrom('webhook_deliveries').select('status').where('delivery_id', 'in', ['del-inst', 'del-inst-repos']).execute();
+    expect(done.map((d) => d.status)).toEqual(['done', 'done']);
+  });
+
   it('jobs run via the real outbox->dispatcher->worker path', async () => {
     const { orgId, projectId } = await seedProject('wk-e2e@x.io');
     const st = await h.db.insertInto('workflow_states').values({ id: newId(), organization_id: orgId, project_id: projectId, name: 'Todo', category: 'unstarted' }).returning('id').executeTakeFirstOrThrow();
