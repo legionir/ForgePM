@@ -128,6 +128,9 @@ export async function addEvidence(
 
   const clean = maskSecrets(input);
   const id = newId();
+  // A bare ci:<run>:<job> reference has no inline bytes. The column allows NULL or 1..131072, so 0 must be
+  // stored as NULL (it used to violate exec_evidence_size_bytes_check and surface as "internal error").
+  const sizeBytes = checked.size_bytes ? checked.size_bytes : null;
   const meta = {
     ...(checked.meta ?? {}),
     inline_sha256: clean.payload ? (checked.sha256 ?? null) : null,
@@ -139,7 +142,7 @@ export async function addEvidence(
                                payload, sha256, size_bytes, meta, recorded_by)
     VALUES (${id}, ${actor.organizationId}, ${task.id}::uuid, ${criterion?.id ?? null}::uuid,
             ${input.kind}, ${clean.ref}, ${clean.summary}, ${clean.payload ?? null}, ${checked.sha256 ?? null},
-            ${checked.size_bytes ?? null}, ${toJsonb(meta) as never}::jsonb, ${actor.actorId})
+            ${sizeBytes}, ${toJsonb(meta) as never}::jsonb, ${actor.actorId})
   `.execute(db as never);
 
   const verified = criterion ? carriesProof(clean.payload, checked.sha256 ?? null) : false;
@@ -181,7 +184,7 @@ export async function addEvidence(
     ref: clean.ref,
     summary: clean.summary,
     sha256: checked.sha256 ?? null,
-    size_bytes: checked.size_bytes ?? null,
+    size_bytes: sizeBytes,
     verified,
     redacted: clean.redacted,
     meta,
